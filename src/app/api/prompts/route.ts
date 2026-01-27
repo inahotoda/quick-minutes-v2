@@ -3,8 +3,11 @@ import { promises as fs } from "fs";
 import path from "path";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { findFileByName, getFileContent, updateFile, uploadFile } from "@/lib/drive";
 
-const PROMPTS_FILE = path.join(process.cwd(), "prompts-config.json");
+const PROMPTS_FILENAME = "prompts-config.json";
+const LOCAL_PROMPTS_FILE = path.join(process.cwd(), "prompts-config.json");
+const CONFIG_FOLDER_ID = "1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY";
 
 interface PromptConfig {
     basePrompt: string;
@@ -17,19 +20,38 @@ interface PromptConfig {
     history?: Array<Omit<PromptConfig, "history">>;
 }
 
+const DEFAULT_CONFIG: PromptConfig = {
+    basePrompt: "",
+    internalPrompt: "",
+    businessPrompt: "",
+    otherPrompt: "",
+    terminology: "",
+    history: []
+};
+
+async function getMergedConfig(): Promise<PromptConfig> {
+    try {
+        // 1. Google Driveから検索
+        const file = await findFileByName(PROMPTS_FILENAME, CONFIG_FOLDER_ID);
+        if (file && file.id) {
+            const content = await getFileContent(file.id) as any;
+            return typeof content === "string" ? JSON.parse(content) : content;
+        }
+
+        // 2. なければローカル（初期値）から読み込み
+        const data = await fs.readFile(LOCAL_PROMPTS_FILE, "utf-8");
+        return JSON.parse(data);
+    } catch (error) {
+        return DEFAULT_CONFIG;
+    }
+}
+
 export async function GET() {
     try {
-        const data = await fs.readFile(PROMPTS_FILE, "utf-8");
-        return NextResponse.json(JSON.parse(data));
+        const config = await getMergedConfig();
+        return NextResponse.json(config);
     } catch (error) {
-        return NextResponse.json({
-            basePrompt: "",
-            internalPrompt: "",
-            businessPrompt: "",
-            otherPrompt: "",
-            terminology: "",
-            history: []
-        });
+        return NextResponse.json(DEFAULT_CONFIG);
     }
 }
 
@@ -42,35 +64,19 @@ export async function POST(request: NextRequest) {
 
         const newConfig = await request.json();
 
-        // 現在の設定を読み込む（履歴作成のため）
-        let currentConfig: PromptConfig;
-        try {
-            const data = await fs.readFile(PROMPTS_FILE, "utf-8");
-            currentConfig = JSON.parse(data);
-        } catch {
-            currentConfig = {
-                basePrompt: "",
-                internalPrompt: "",
-                businessPrompt: "",
-                otherPrompt: "",
-                terminology: "",
-                history: []
-            };
-        }
+        // 1. 現在の設定を読み込む
+        const currentConfig = await getMergedConfig();
 
-        // 履歴を更新（最新の現在の状態を履歴の先頭に追加）
+        // 2. 履歴を更新
         const history = currentConfig.history || [];
         const { history: _, ...oldStateWithoutHistory } = currentConfig;
 
-        // 前回の内容が空でなければ履歴に追加
         if (oldStateWithoutHistory.basePrompt || oldStateWithoutHistory.internalPrompt) {
             history.unshift(oldStateWithoutHistory);
         }
-
-        // 履歴は最大10件保持
         const updatedHistory = history.slice(0, 10);
 
-        // 新しい設定を作成
+        // 3. 新しい設定を作成
         const finalConfig: PromptConfig = {
             ...newConfig,
             updatedBy: session.user?.name || "不明なユーザー",
@@ -78,7 +84,19 @@ export async function POST(request: NextRequest) {
             history: updatedHistory
         };
 
-        await fs.writeFile(PROMPTS_FILE, JSON.stringify(finalConfig, null, 2), "utf-8");
+        const configContent = JSON.stringify(finalConfig, null, 2);
+
+        // 4. Google Driveに保存
+        const file = await findFileByName(PROMPTS_FILENAME, CONFIG_FOLDER_ID);
+        if (file && file.id) {
+            // 更新
+            await updateFile(file.id, configContent, "application/json");
+        } else {
+            // 新規作成 (uploadFileはbase64を期待するのでBuffer経由)
+            const base64 = Buffer.from(configContent).toString("base64");
+            await uploadFile(PROMPTS_FILENAME, base64, "application/json", CONFIG_FOLDER_ID);
+        }
+
         return NextResponse.json({ success: true, config: finalConfig });
     } catch (error) {
         console.error("Save prompts error:", error);

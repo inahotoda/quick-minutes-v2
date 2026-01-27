@@ -34,6 +34,22 @@ export async function findFolderByName(name: string, parentId?: string) {
     return response.data.files && response.data.files.length > 0 ? response.data.files[0] : null;
 }
 
+// ファイルを検索する
+export async function findFileByName(name: string, parentId?: string) {
+    const drive = await getGoogleDriveClient();
+    const q = `name = '${name}' and '${parentId || "root"}' in parents and trashed = false`;
+
+    const response = await drive.files.list({
+        q,
+        fields: "files(id, name)",
+        spaces: "drive",
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
+    });
+
+    return response.data.files && response.data.files.length > 0 ? response.data.files[0] : null;
+}
+
 export async function createFolder(name: string, parentId?: string) {
     const drive = await getGoogleDriveClient();
 
@@ -102,6 +118,37 @@ export async function uploadFile(
     const response = await drive.files.create({
         requestBody: fileMetadata,
         media,
+        fields: "id, name, webViewLink",
+        supportsAllDrives: true,
+    });
+
+    return response.data;
+}
+
+export async function getFileContent(fileId: string) {
+    const drive = await getGoogleDriveClient();
+    const response = await drive.files.get({
+        fileId,
+        alt: "media",
+        supportsAllDrives: true,
+    });
+    return response.data;
+}
+
+export async function updateFile(
+    fileId: string,
+    content: string,
+    mimeType: string
+) {
+    const drive = await getGoogleDriveClient();
+    const { Readable } = require("stream");
+
+    const response = await drive.files.update({
+        fileId,
+        media: {
+            mimeType,
+            body: Readable.from(content),
+        },
         fields: "id, name, webViewLink",
         supportsAllDrives: true,
     });

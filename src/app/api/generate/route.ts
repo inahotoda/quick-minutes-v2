@@ -5,12 +5,23 @@ import { promises as fs } from "fs";
 import path from "path";
 import os from "os";
 
-const PROMPTS_FILE = path.join(process.cwd(), "prompts-config.json");
-export const dynamic = "force-dynamic";
+import { findFileByName, getFileContent } from "@/lib/drive";
+
+const PROMPTS_FILENAME = "prompts-config.json";
+const LOCAL_PROMPTS_FILE = path.join(process.cwd(), "prompts-config.json");
+const CONFIG_FOLDER_ID = "1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY";
 
 async function loadCustomPrompts() {
     try {
-        const data = await fs.readFile(PROMPTS_FILE, "utf-8");
+        // 1. Google Driveから検索
+        const file = await findFileByName(PROMPTS_FILENAME, CONFIG_FOLDER_ID);
+        if (file && file.id) {
+            const content = await getFileContent(file.id) as any;
+            return typeof content === "string" ? JSON.parse(content) : content;
+        }
+
+        // 2. なければローカル（初期値）から読み込み
+        const data = await fs.readFile(LOCAL_PROMPTS_FILE, "utf-8");
         return JSON.parse(data);
     } catch {
         return {};
