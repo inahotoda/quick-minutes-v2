@@ -56,39 +56,52 @@ async function resumableUpload(name: string, blob: Blob, folderId: string, acces
     const metadata = {
         name,
         parents: [folderId],
-        mimeType: mimeType // metadata 側でも指定（Doc化したい場合はここで指定）
+        mimeType: mimeType
     };
 
     const initUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true";
-    const initResponse = await fetch(initUrl, {
-        method: "POST",
-        headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(metadata)
-    });
+    let initResponse;
+    try {
+        initResponse = await fetch(initUrl, {
+            method: "POST",
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify(metadata)
+        });
+    } catch (e: any) {
+        throw new Error(`Network Error during Init: ${e.message}`);
+    }
 
     if (!initResponse.ok) {
-        throw new Error(`Upload Init Failed: ${initResponse.statusText}`);
+        const errText = await initResponse.text().catch(() => "");
+        throw new Error(`Upload Init Failed (${initResponse.status}): ${initResponse.statusText}. ${errText}`);
     }
 
     const uploadUrl = initResponse.headers.get("Location");
     if (!uploadUrl) {
-        throw new Error("Upload URL not received");
+        throw new Error("Upload URL (Location header) not received from Google");
     }
 
     // 2. 実際のデータをアップロード
-    const uploadResponse = await fetch(uploadUrl, {
-        method: "PUT",
-        headers: {
-            "Content-Type": blob.type || "application/octet-stream"
-        },
-        body: blob
-    });
+    console.log(`Resumable: Uploading data to session URL... (${blob.size} bytes)`);
+    let uploadResponse;
+    try {
+        uploadResponse = await fetch(uploadUrl, {
+            method: "PUT",
+            headers: {
+                "Content-Type": blob.type || "application/octet-stream"
+            },
+            body: blob
+        });
+    } catch (e: any) {
+        throw new Error(`Network Error during Data Upload: ${e.message}`);
+    }
 
     if (!uploadResponse.ok) {
-        throw new Error(`Upload Data Failed: ${uploadResponse.statusText}`);
+        const errText = await uploadResponse.text().catch(() => "");
+        throw new Error(`Upload Data Failed (${uploadResponse.status}): ${uploadResponse.statusText}. ${errText}`);
     }
 
     return await uploadResponse.json();

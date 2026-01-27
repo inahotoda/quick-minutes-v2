@@ -208,7 +208,7 @@ export default function Home() {
     setError(null);
 
     const accessToken = session.accessToken as string;
-    console.log("🚀 [UPLOAD_RETRY_V1] Direct upload started");
+    console.log("🚀 [UPLOAD_RETRY_V3] Direct upload started");
 
     try {
       const topic = extractTopic(minutes);
@@ -242,7 +242,6 @@ export default function Home() {
       // 5. 録音音声データがある場合は保存
       if (recorder.audioBlob) {
         console.log("Client: Uploading recorded audio...");
-        // 録音データは常にM4Aとして保存
         const audioBlob = new Blob([recorder.audioBlob], { type: "audio/mp4" });
         await uploadAudioFile(`${baseFileName}_音声.m4a`, audioBlob, audioRootFolderId, accessToken);
       }
@@ -254,7 +253,6 @@ export default function Home() {
         for (let i = 0; i < uploadedAudioFiles.length; i++) {
           const f = uploadedAudioFiles[i];
           const suffix = uploadedAudioFiles.length > 1 ? `_${i + 1}` : "";
-          // 元の拡張子を維持したいが、シンプルに取得
           const fileExt = f.name.split('.').pop();
           const fileName = `${baseFileName}_音声${suffix}.${fileExt}`;
           await uploadAudioFile(fileName, f.file, audioRootFolderId, accessToken);
@@ -266,7 +264,13 @@ export default function Home() {
       console.error("Client Save error details:", err);
       let msg = err instanceof Error ? err.message : "保存に失敗しました";
       setError(msg);
-      alert(`❌ ドライブへの保存に失敗しました\n内容: ${msg}\n\n※ 通信エラーや容量オーバーの場合は、右下の「⬇️ 音声ダウンロード」ボタンから録音ファイルを保存してください。`);
+
+      // 録音時のみダウンロード案内を出す
+      const downloadHint = recorder.audioBlob
+        ? "\n\n※ 通信エラーや容量オーバーの場合は、右下の「⬇️ 音声ダウンロード」ボタンから録音ファイルを保存してください。"
+        : "\n\n※ 通信エラーやGoogleドライブの容量不足の可能性があります。";
+
+      alert(`❌ ドライブへの保存に失敗しました\n内容: ${msg}${downloadHint}`);
     } finally {
       setIsSaving(false);
     }
