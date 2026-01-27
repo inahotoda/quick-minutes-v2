@@ -208,6 +208,7 @@ export default function Home() {
     setError(null);
 
     const accessToken = session.accessToken as string;
+    console.log("🚀 [UPLOAD_RETRY_V1] Direct upload started");
 
     try {
       const topic = extractTopic(minutes);

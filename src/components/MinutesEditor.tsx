@@ -79,7 +79,7 @@ export default function MinutesEditor({
                     onClick={onSave}
                     disabled={isSaving || isSendingEmail}
                 >
-                    {isSaving ? "保存中..." : "💾 ドライブに保存(議事録+音声)"}
+                    {isSaving ? "保存中..." : "🚀 ドライブに直保存(V2)"}
                 </button>
 
                 <div className={styles.footerSubActions}>
