@@ -226,7 +226,7 @@ export default function Home() {
           minutes,
           mode,
           audioBlob: recorder.audioBlob ? await blobToBase64(recorder.audioBlob) : null,
-          audioMimeType: recorder.audioBlob?.type || null,
+          audioMimeType: "audio/mp4",
           uploadedAudios,
         }),
         signal: controller.signal
