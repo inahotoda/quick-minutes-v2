@@ -68,12 +68,12 @@ export async function POST(request: NextRequest) {
         };
 
         if (audioBlob) {
-            const ext = getExtension(audioMimeType || "audio/webm");
+            // 録音データはユーザーの強い要望により拡張子を .m4a、MIMEタイプを audio/mp4 に固定
             const audioFile = await uploadFile(
-                `${baseFileName}_音声${ext}`,
+                `${baseFileName}_音声.m4a`,
                 audioBlob,
-                audioMimeType || "audio/webm",
-                audioRootFolderId || targetFolderId // 音声用フォルダがあればその直下、なければ議事録と同じ場所
+                "audio/mp4",
+                audioRootFolderId || targetFolderId
             );
             audioUrl = audioFile.webViewLink;
         }
