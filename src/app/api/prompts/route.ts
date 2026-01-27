@@ -31,17 +31,28 @@ const DEFAULT_CONFIG: PromptConfig = {
 
 async function getMergedConfig(): Promise<PromptConfig> {
     try {
+        console.log("getMergedConfig: searching for", PROMPTS_FILENAME);
         // 1. Google Driveから検索
         const file = await findFileByName(PROMPTS_FILENAME, CONFIG_FOLDER_ID);
         if (file && file.id) {
-            const content = await getFileContent(file.id) as any;
-            return typeof content === "string" ? JSON.parse(content) : content;
+            console.log("getMergedConfig: found file in drive, ID:", file.id);
+            const content = await getFileContent(file.id);
+            if (content && content.trim()) {
+                try {
+                    return JSON.parse(content);
+                } catch (pe) {
+                    console.error("getMergedConfig: JSON parse error", pe);
+                    // 壊れている場合はデフォルトに倒す
+                }
+            }
         }
 
+        console.log("getMergedConfig: falling back to local file");
         // 2. なければローカル（初期値）から読み込み
         const data = await fs.readFile(LOCAL_PROMPTS_FILE, "utf-8");
         return JSON.parse(data);
     } catch (error) {
+        console.log("getMergedConfig: error, returning DEFAULT_CONFIG", error);
         return DEFAULT_CONFIG;
     }
 }
@@ -63,6 +74,7 @@ export async function POST(request: NextRequest) {
         }
 
         const newConfig = await request.json();
+        console.log("POST /api/prompts: received new config");
 
         // 1. 現在の設定を読み込む
         const currentConfig = await getMergedConfig();
@@ -87,21 +99,23 @@ export async function POST(request: NextRequest) {
         const configContent = JSON.stringify(finalConfig, null, 2);
 
         // 4. Google Driveに保存
+        console.log("POST /api/prompts: saving to Google Drive...");
         const file = await findFileByName(PROMPTS_FILENAME, CONFIG_FOLDER_ID);
         if (file && file.id) {
-            // 更新
+            console.log("POST /api/prompts: updating existing file", file.id);
             await updateFile(file.id, configContent, "application/json");
         } else {
-            // 新規作成 (uploadFileはbase64を期待するのでBuffer経由)
+            console.log("POST /api/prompts: creating new file in folder", CONFIG_FOLDER_ID);
             const base64 = Buffer.from(configContent).toString("base64");
             await uploadFile(PROMPTS_FILENAME, base64, "application/json", CONFIG_FOLDER_ID);
         }
 
+        console.log("POST /api/prompts: save successful");
         return NextResponse.json({ success: true, config: finalConfig });
-    } catch (error) {
+    } catch (error: any) {
         console.error("Save prompts error:", error);
         return NextResponse.json(
-            { error: "設定の保存に失敗しました" },
+            { error: error.message || "設定の保存に失敗しました" },
             { status: 500 }
         );
     }

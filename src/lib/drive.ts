@@ -1,6 +1,7 @@
 import { google } from "googleapis";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { Readable } from "stream";
 
 export async function getGoogleDriveClient() {
     const session = await getServerSession(authOptions);
@@ -107,9 +108,7 @@ export async function uploadFile(
         parents: folderId ? [folderId] : undefined,
     };
 
-    // Base64からBufferに変換
     const buffer = Buffer.from(base64Content, "base64");
-    const { Readable } = require("stream");
     const media = {
         mimeType,
         body: Readable.from(buffer),
@@ -125,14 +124,21 @@ export async function uploadFile(
     return response.data;
 }
 
-export async function getFileContent(fileId: string) {
+export async function getFileContent(fileId: string): Promise<string> {
     const drive = await getGoogleDriveClient();
     const response = await drive.files.get({
         fileId,
         alt: "media",
         supportsAllDrives: true,
-    });
-    return response.data;
+    }, { responseType: "text" }); // 明示的にテキストで取得を試みる
+
+    if (typeof response.data === "string") {
+        return response.data;
+    }
+
+    // もしデータが別の形式で返ってきた場合のフォールバック（デバッグ用）
+    console.log("getFileContent: data type is", typeof response.data);
+    return JSON.stringify(response.data);
 }
 
 export async function updateFile(
@@ -141,7 +147,6 @@ export async function updateFile(
     mimeType: string
 ) {
     const drive = await getGoogleDriveClient();
-    const { Readable } = require("stream");
 
     const response = await drive.files.update({
         fileId,
