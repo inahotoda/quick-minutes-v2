@@ -28,8 +28,10 @@ export async function POST(request: NextRequest) {
         const dateFolderName = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
 
         // 1. 保存先のベースフォルダIDを取得
-        const rootFolderId = process.env.SHARED_DRIVE_ROOT_FOLDER_ID;
-        const audioRootFolderId = process.env.SHARED_DRIVE_AUDIO_FOLDER_ID;
+        // 議事録・日付フォルダ作成用: 1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY
+        // 音声ファイル保存用: 1zfWmEmsrG7h0GNmz0sHILhBlw-L3NDKr
+        const rootFolderId = process.env.SHARED_DRIVE_ROOT_FOLDER_ID || "1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY";
+        const audioRootFolderId = process.env.SHARED_DRIVE_AUDIO_FOLDER_ID || "1zfWmEmsrG7h0GNmz0sHILhBlw-L3NDKr";
 
         // 2. 議事録用の日付フォルダを探す/作る
         let targetFolderId: string | undefined = rootFolderId;
