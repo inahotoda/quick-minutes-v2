@@ -10,6 +10,7 @@ interface MinutesEditorProps {
     onChange: (content: string) => void;
     onSave: () => void;
     onSendEmail?: () => void;
+    onDownloadAudio?: () => void;
     isSaving: boolean;
     isSendingEmail?: boolean;
     modelVersion?: string;
@@ -21,6 +22,7 @@ export default function MinutesEditor({
     onChange,
     onSave,
     onSendEmail,
+    onDownloadAudio,
     isSaving,
     isSendingEmail = false,
     modelVersion,
@@ -50,6 +52,11 @@ export default function MinutesEditor({
                     >
                         {isEditing ? "✓ 完了" : "✏️ 編集"}
                     </button>
+                    {onDownloadAudio && (
+                        <button className={styles.downloadButton} onClick={onDownloadAudio}>
+                            ⬇️ 音声を保存
+                        </button>
+                    )}
                     <button className={styles.actionButton} onClick={copyToClipboard}>
                         📋 コピー
                     </button>

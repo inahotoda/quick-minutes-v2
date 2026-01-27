@@ -236,7 +236,9 @@ export default function Home() {
 
       alert(`✓ Google Driveに保存しました\nフォルダ: ${data.folderName}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "保存に失敗しました");
+      const msg = err instanceof Error ? err.message : "保存に失敗しました";
+      setError(msg);
+      alert(`❌ 保存に失敗しました\n原因: ${msg}\n\n※ 右上の「⬇️ 音声を保存」ボタンから、録音データを手動で保存しておくことをお勧めします。`);
     } finally {
       setIsSaving(false);
     }
@@ -275,6 +277,26 @@ export default function Home() {
     } finally {
       setIsSendingEmail(false);
     }
+  };
+
+  // Handle audio download
+  const handleDownloadAudio = () => {
+    if (!recorder.audioBlob) return;
+
+    const topic = extractTopic(minutes);
+    const now = new Date();
+    const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+    const yyyymmdd = jstNow.toISOString().split("T")[0].replace(/-/g, "");
+    const fileName = `${yyyymmdd}_録音_${topic || "会議"}.webm`;
+
+    const url = URL.createObjectURL(recorder.audioBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   // Reset to initial state
@@ -472,6 +494,7 @@ export default function Home() {
               mode={mode}
               onChange={setMinutes}
               onSave={handleSave}
+              onDownloadAudio={recorder.audioBlob ? handleDownloadAudio : undefined}
               isSaving={isSaving}
               isSendingEmail={isSendingEmail}
               modelVersion={modelVersion}
