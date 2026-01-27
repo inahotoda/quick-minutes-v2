@@ -26,75 +26,29 @@ async function saveBase64ToTmp(base64: string, filename: string): Promise<string
 
 export async function POST(request: NextRequest) {
     const encoder = new TextEncoder();
-    const tempFiles: string[] = [];
 
     try {
         const body = await request.json();
-        const { mode, transcript, audioBase64, audioMimeType, uploadedFiles, date } = body;
+        const { mode, transcript, audioData, uploadedFiles, date } = body;
 
         const customPrompts = await loadCustomPrompts();
 
-        // 1. Prepare files for Gemini File API
+        // Geminiにあるファイルの識別子を収集
         const geminiFiles: string[] = [];
-        let audioFileData = undefined;
-        let processedUploadedFiles = undefined;
 
-        // Handle Audio
-        if (audioBase64) {
-            const ext = audioMimeType.split("/")[1] || "webm";
-            const tmpPath = await saveBase64ToTmp(audioBase64, `audio.${ext}`);
-            tempFiles.push(tmpPath);
-
-            try {
-                const uploadResult = await fileManager.uploadFile(tmpPath, {
-                    mimeType: audioMimeType,
-                    displayName: "Meeting Audio",
-                });
-                geminiFiles.push(uploadResult.file.name);
-                audioFileData = {
-                    mimeType: audioMimeType,
-                    fileUri: uploadResult.file.uri,
-                };
-            } finally {
-                // Uploadが終わったらすぐにローカルのtmpを削除
-                try {
-                    await fs.unlink(tmpPath);
-                    const idx = tempFiles.indexOf(tmpPath);
-                    if (idx > -1) tempFiles.splice(idx, 1);
-                } catch (e) { }
-            }
+        if (audioData?.fileId) {
+            geminiFiles.push(audioData.fileId);
         }
 
-        // Handle Uploaded Files
         if (uploadedFiles && uploadedFiles.length > 0) {
-            processedUploadedFiles = [];
             for (const file of uploadedFiles) {
-                const tmpPath = await saveBase64ToTmp(file.base64, file.name);
-                tempFiles.push(tmpPath);
-
-                try {
-                    const uploadResult = await fileManager.uploadFile(tmpPath, {
-                        mimeType: file.mimeType,
-                        displayName: file.name,
-                    });
-                    geminiFiles.push(uploadResult.file.name);
-                    processedUploadedFiles.push({
-                        name: file.name,
-                        mimeType: file.mimeType,
-                        fileUri: uploadResult.file.uri,
-                    });
-                } finally {
-                    // Uploadが終わったらすぐにローカルのtmpを削除
-                    try {
-                        await fs.unlink(tmpPath);
-                        const idx = tempFiles.indexOf(tmpPath);
-                        if (idx > -1) tempFiles.splice(idx, 1);
-                    } catch (e) { }
+                if (file.fileId) {
+                    geminiFiles.push(file.fileId);
                 }
             }
         }
 
-        // 2. Wait for all files to be active
+        // 1. Wait for all files to be active
         if (geminiFiles.length > 0) {
             await waitForFileActive(geminiFiles);
         }
@@ -105,8 +59,8 @@ export async function POST(request: NextRequest) {
                     const genStream = generateEverythingStream({
                         mode: mode as MeetingMode,
                         transcript,
-                        audioData: audioFileData,
-                        uploadedFiles: processedUploadedFiles,
+                        audioData: audioData,
+                        uploadedFiles: uploadedFiles,
                         date,
                         customPrompts,
                     });
@@ -132,12 +86,6 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error("Generate error:", error);
-        // 残ったtmpファイルを削除
-        for (const tmpPath of tempFiles) {
-            try {
-                await fs.unlink(tmpPath);
-            } catch (e) { }
-        }
         return NextResponse.json({ error: "生成エラー" }, { status: 500 });
     }
 }

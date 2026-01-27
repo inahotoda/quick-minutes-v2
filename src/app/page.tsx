@@ -12,6 +12,7 @@ import FileUpload from "@/components/FileUpload";
 import TranscriptInput from "@/components/TranscriptInput";
 import MinutesEditor from "@/components/MinutesEditor";
 import styles from "./page.module.css";
+import { uploadToGemini } from "@/lib/gemini-client";
 
 // FileをBase64に変換
 const fileToBase64 = (file: File): Promise<string> => {
@@ -34,6 +35,7 @@ export default function Home() {
 
   // App state
   const [appState, setAppState] = useState<AppState>("idle");
+  const [uploadProgress, setUploadProgress] = useState<string>("");
   const [mode, setMode] = useState<MeetingMode>("internal");
   const [transcript, setTranscript] = useState("");
   const [files, setFiles] = useState<UploadedFile[]>([]);
@@ -82,6 +84,7 @@ export default function Home() {
   // Generate minutes from audio, transcript, or uploaded files
   const generateMinutes = async (audioBlob?: Blob) => {
     setAppState("uploading");
+    setUploadProgress("Geminiにファイルをアップロード中...");
     setError(null);
 
     try {
@@ -90,29 +93,35 @@ export default function Home() {
         date: new Date().toLocaleDateString("ja-JP"),
       };
 
+      // 1. Gemini File API へ直接アップロード (ブラウザから)
+
       // Handle live recording audio
       if (audioBlob) {
-        const audioBase64 = await blobToBase64(audioBlob);
-        requestBody.audioBase64 = audioBase64;
-        requestBody.audioMimeType = audioBlob.type;
-      }
-
-      // Handle transcript text input
-      if (transcript) {
-        requestBody.transcript = transcript;
+        setUploadProgress("音声をアップロード中...");
+        const uploadResult = await uploadToGemini(audioBlob, "Meeting Recording");
+        requestBody.audioData = {
+          mimeType: audioBlob.type,
+          fileUri: uploadResult.file.uri,
+          fileId: uploadResult.file.name,
+        };
       }
 
       // Handle uploaded files
       if (files.length > 0) {
-        const uploadedFiles = await Promise.all(
-          files.map(async (f) => ({
+        setUploadProgress(`資料をアップロード中 (0/${files.length})...`);
+        const uploadedGeminiFiles = [];
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          setUploadProgress(`資料をアップロード中 (${i + 1}/${files.length}): ${f.name}`);
+          const uploadResult = await uploadToGemini(f.file, f.name);
+          uploadedGeminiFiles.push({
             name: f.name,
-            type: f.type,
             mimeType: f.file.type,
-            base64: await fileToBase64(f.file),
-          }))
-        );
-        requestBody.uploadedFiles = uploadedFiles;
+            fileUri: uploadResult.file.uri,
+            fileId: uploadResult.file.name,
+          });
+        }
+        requestBody.uploadedFiles = uploadedGeminiFiles;
       }
 
       // Check if we have any input
@@ -122,7 +131,13 @@ export default function Home() {
         return;
       }
 
+      // 2. サーバーサイドで議事録を生成 (URIのみ渡す)
+      if (transcript) {
+        requestBody.transcript = transcript;
+      }
+
       setAppState("processing");
+      setUploadProgress("");
 
       const response = await fetch("/api/generate", {
         method: "POST",
@@ -425,9 +440,10 @@ export default function Home() {
         {appState === "uploading" && (
           <div className={styles.processingScreen}>
             <div className={styles.spinner} />
-            <p>ファイルを読み込み中...</p>
+            <p>{uploadProgress || "ファイルを読み込み中..."}</p>
             <p className={styles.processingHint}>
-              大きなファイルの場合は時間がかかることがあります
+              大きなファイルの場合は時間がかかることがあります。<br />
+              Vercelの制限を回避するため、直接Geminiに送信しています。
             </p>
           </div>
         )}
