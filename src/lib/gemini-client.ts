@@ -42,7 +42,9 @@ export async function uploadToGemini(file: File | Blob, displayName: string): Pr
 
     // Construct multipart/related request body
     const boundary = "-------" + Math.random().toString(36).substring(2);
-    const header = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n`;
+
+    // Header part (Metadata)
+    const header = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\n`;
     const footer = `\r\n--${boundary}--`;
 
     const fileBuffer = await file.arrayBuffer();
