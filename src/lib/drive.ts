@@ -1,6 +1,6 @@
 import { google } from "googleapis";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { Readable } from "stream";
 
 export async function getGoogleDriveClient() {
@@ -130,15 +130,21 @@ export async function getFileContent(fileId: string): Promise<string> {
         fileId,
         alt: "media",
         supportsAllDrives: true,
-    }, { responseType: "text" }); // 明示的にテキストで取得を試みる
+    }, { responseType: "stream" });
 
-    if (typeof response.data === "string") {
-        return response.data;
-    }
-
-    // もしデータが別の形式で返ってきた場合のフォールバック（デバッグ用）
-    console.log("getFileContent: data type is", typeof response.data);
-    return JSON.stringify(response.data);
+    return new Promise((resolve, reject) => {
+        let content = "";
+        const stream = response.data as Readable;
+        stream.on("data", (chunk) => {
+            content += chunk;
+        });
+        stream.on("end", () => {
+            resolve(content);
+        });
+        stream.on("error", (err) => {
+            reject(err);
+        });
+    });
 }
 
 export async function updateFile(

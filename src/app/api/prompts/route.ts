@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { promises as fs } from "fs";
 import path from "path";
 import { getServerSession } from "next-auth";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { findFileByName, getFileContent, updateFile, uploadFile } from "@/lib/drive";
 
 const PROMPTS_FILENAME = "prompts-config.json";
