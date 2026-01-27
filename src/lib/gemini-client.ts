@@ -34,17 +34,15 @@ export async function uploadToGemini(file: File | Blob, displayName: string): Pr
     const mimeType = file.type || "application/octet-stream";
 
     // Metadata
-    const metadata = {
+    const metadata = JSON.stringify({
         file: {
             displayName: displayName,
         },
-    };
+    });
 
     // Construct multipart/related request body
-    const boundary = "-------" + Math.random().toString(36).substring(2);
-
-    // Header part (Metadata)
-    const header = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n--${boundary}\r\n`;
+    const boundary = "boundary_abc123";
+    const header = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metadata}\r\n--${boundary}\r\n`;
     const footer = `\r\n--${boundary}--`;
 
     const fileBuffer = await file.arrayBuffer();
@@ -53,12 +51,13 @@ export async function uploadToGemini(file: File | Blob, displayName: string): Pr
         `Content-Type: ${mimeType}\r\n\r\n`,
         fileBuffer,
         footer
-    ], { type: `multipart/related; boundary=${boundary}` });
+    ]);
 
     const response = await fetch(`${UPLOAD_URL}?key=${apiKey}`, {
         method: "POST",
         headers: {
             "X-Goog-Upload-Protocol": "multipart",
+            "Content-Type": `multipart/related; boundary=${boundary}`,
         },
         body: body,
     });
