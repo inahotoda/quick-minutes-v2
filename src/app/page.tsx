@@ -13,6 +13,7 @@ import TranscriptInput from "@/components/TranscriptInput";
 import MinutesEditor from "@/components/MinutesEditor";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
+import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile } from "@/lib/drive-client";
 
 // FileをBase64に変換
 const fileToBase64 = (file: File): Promise<string> => {
@@ -196,66 +197,75 @@ export default function Home() {
     generateMinutes();
   };
 
-  // Handle save to Google Drive
+  // Handle save to Google Drive - Direct client upload to bypass Vercel limits
   const handleSave = async () => {
+    if (!session?.accessToken) {
+      alert("⚠️ 保存には再ログインが必要です。一度ログアウトして再度サインインしてください。");
+      return;
+    }
+
     setIsSaving(true);
     setError(null);
 
+    const accessToken = session.accessToken as string;
+
     try {
       const topic = extractTopic(minutes);
+      const now = new Date();
+      const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+      const yyyymmdd = jstNow.toISOString().split("T")[0].replace(/-/g, "");
+      const dateFolderName = jstNow.toISOString().split("T")[0]; // YYYY-MM-DD
 
-      // 添付ファイルの中から音声を抽出
-      const uploadedAudios = await Promise.all(
-        files
-          .filter(f => f.type === "audio")
-          .map(async (f) => ({
-            name: f.name,
-            mimeType: f.file.type,
-            base64: await fileToBase64(f.file)
-          }))
-      );
+      // 1. 保存先のベースフォルダID
+      const rootFolderId = "1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY";
+      const audioRootFolderId = "1zfWmEmsrG7h0GNmz0sHILhBlw-L3NDKr";
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒でタイムアウト
+      // 2. 議事録用の日付フォルダを探す/作る
+      console.log("Client: Searching for date folder...", dateFolderName);
+      let dateFolder = await findFolderByName(dateFolderName, rootFolderId, accessToken);
+      if (!dateFolder) {
+        console.log("Client: Creating date folder...");
+        dateFolder = await createFolder(dateFolderName, rootFolderId, accessToken);
+      }
+      const targetFolderId = dateFolder.id;
 
-      const response = await fetch("/api/drive", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topic,
-          minutes,
-          mode,
-          audioBlob: recorder.audioBlob ? await blobToBase64(recorder.audioBlob) : null,
-          audioMimeType: "audio/mp4",
-          uploadedAudios,
-        }),
-        signal: controller.signal
-      });
+      // 3. ファイル名を生成
+      const modeLabel = mode === "business" ? "商談" : mode === "internal" ? "社内" : "その他";
+      const userName = session.user?.name || "不明";
+      const baseFileName = `${yyyymmdd}_${modeLabel}_${topic || "会議"}(${userName})`;
 
-      clearTimeout(timeoutId);
+      // 4. 議事録を保存 (Google Docとして)
+      console.log("Client: Uploading minutes doc...");
+      await uploadMarkdownAsDoc(`${baseFileName}_議事録`, minutes, targetFolderId, accessToken);
 
-      let data;
-      try {
-        data = await response.json();
-      } catch (e) {
-        data = { error: `サーバーから不正な応答がありました (${response.status} ${response.statusText})` };
+      // 5. 録音音声データがある場合は保存
+      if (recorder.audioBlob) {
+        console.log("Client: Uploading recorded audio...");
+        // 録音データは常にM4Aとして保存
+        const audioBlob = new Blob([recorder.audioBlob], { type: "audio/mp4" });
+        await uploadAudioFile(`${baseFileName}_音声.m4a`, audioBlob, audioRootFolderId, accessToken);
       }
 
-      if (!response.ok) {
-        throw new Error(data.error || "保存に失敗しました");
+      // 6. アップロードされた付随音声ファイルがある場合も保存
+      const uploadedAudioFiles = files.filter(f => f.type === "audio");
+      if (uploadedAudioFiles.length > 0) {
+        console.log(`Client: Uploading ${uploadedAudioFiles.length} uploaded audio files...`);
+        for (let i = 0; i < uploadedAudioFiles.length; i++) {
+          const f = uploadedAudioFiles[i];
+          const suffix = uploadedAudioFiles.length > 1 ? `_${i + 1}` : "";
+          // 元の拡張子を維持したいが、シンプルに取得
+          const fileExt = f.name.split('.').pop();
+          const fileName = `${baseFileName}_音声${suffix}.${fileExt}`;
+          await uploadAudioFile(fileName, f.file, audioRootFolderId, accessToken);
+        }
       }
 
-      alert(`✓ Google Driveに保存しました\nフォルダ: ${data.folderName}`);
+      alert(`✓ Google Driveに保存しました\nフォルダ: ${dateFolderName}`);
     } catch (err: any) {
-      console.error("Save error details:", err);
+      console.error("Client Save error details:", err);
       let msg = err instanceof Error ? err.message : "保存に失敗しました";
-
-      if (err.name === 'AbortError') {
-        msg = "通信タイムアウト：ネットワークが不安定か、ファイルサイズが大きすぎる可能性があります。";
-      }
-
       setError(msg);
-      alert(`❌ ドライブへの保存に失敗しました\n内容: ${msg}\n\n※ 右下の「⬇️ 音声ダウンロード」ボタンから録音ファイルを手動で保存しておくことをお勧めします。`);
+      alert(`❌ ドライブへの保存に失敗しました\n内容: ${msg}\n\n※ 通信エラーや容量オーバーの場合は、右下の「⬇️ 音声ダウンロード」ボタンから録音ファイルを保存してください。`);
     } finally {
       setIsSaving(false);
     }

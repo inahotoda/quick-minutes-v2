@@ -41,8 +41,11 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { mode, transcript, audioData, uploadedFiles, date } = body;
+        console.log("POST /api/generate: received request", { mode, date, hasAudio: !!audioData, hasTranscript: !!transcript, uploadedFilesCount: uploadedFiles?.length });
 
+        console.log("POST /api/generate: loading custom prompts...");
         const customPrompts = await loadCustomPrompts();
+        console.log("POST /api/generate: loaded custom prompts keys:", Object.keys(customPrompts));
 
         // Geminiにあるファイルの識別子を収集
         const geminiFiles: string[] = [];
@@ -61,11 +64,14 @@ export async function POST(request: NextRequest) {
 
         // 1. Wait for all files to be active
         if (geminiFiles.length > 0) {
+            console.log("POST /api/generate: waiting for files to be active:", geminiFiles);
             await waitForFileActive(geminiFiles);
+            console.log("POST /api/generate: files are active");
         }
 
         const stream = new ReadableStream({
             async start(controller) {
+                console.log("POST /api/generate: stream starting");
                 try {
                     const genStream = generateEverythingStream({
                         mode: mode as MeetingMode,
@@ -76,13 +82,17 @@ export async function POST(request: NextRequest) {
                         customPrompts,
                     });
 
+                    let chunkCount = 0;
                     // 1パスで全てのデータを流し込む（Geminiが[MINUTES_START]から順に出力する）
                     for await (const chunk of genStream) {
+                        if (chunkCount === 0) console.log("POST /api/generate: received first chunk from Gemini");
+                        chunkCount++;
                         controller.enqueue(encoder.encode(chunk));
                     }
+                    console.log(`POST /api/generate: stream finished. Total chunks: ${chunkCount}`);
                     controller.close();
                 } catch (error) {
-                    console.error("Stream error:", error);
+                    console.error("POST /api/generate: Stream error:", error);
                     controller.error(error);
                 }
             },
@@ -96,7 +106,7 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error("Generate error:", error);
-        return NextResponse.json({ error: "生成エラー" }, { status: 500 });
+        console.error("POST /api/generate: Generate error:", error);
+        return NextResponse.json({ error: error instanceof Error ? error.message : "生成エラー" }, { status: 500 });
     }
 }
