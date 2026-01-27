@@ -1,0 +1,167 @@
+.recordButton {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 180px;
+    height: 180px;
+    border-radius: 50%;
+    border: none;
+    background: linear-gradient(135deg, #a78bfa, #6366f1);
+    color: white;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow:
+        0 0 0 10px rgba(139, 92, 246, 0.1),
+        0 0 0 20px rgba(139, 92, 246, 0.05),
+        0 0 30px rgba(99, 102, 241, 0.4);
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.recordButton:hover {
+    transform: scale(1.02);
+    box-shadow:
+        0 0 0 12px rgba(139, 92, 246, 0.15),
+        0 0 0 24px rgba(139, 92, 246, 0.08),
+        0 0 40px rgba(99, 102, 241, 0.6);
+}
+
+.recordButton::after {
+    content: "";
+    position: absolute;
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #c4b5fd, #818cf8);
+    opacity: 0.3;
+    filter: blur(20px);
+}
+
+.micIcon {
+    width: 64px;
+    height: 64px;
+    z-index: 1;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    margin-bottom: 0.5rem;
+}
+
+.label {
+    position: absolute;
+    bottom: -40px;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.8);
+    white-space: nowrap;
+}
+
+.recordingContainer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+}
+
+.recordingIndicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    position: relative;
+    width: 180px;
+    height: 180px;
+    justify-content: center;
+    border-radius: 50%;
+    background: rgba(139, 92, 246, 0.1);
+    box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.3);
+}
+
+.pulsingDot {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: rgba(139, 92, 246, 0.2);
+    animation: ripple 1.5s linear infinite;
+    z-index: -1;
+}
+
+@keyframes ripple {
+    0% {
+        transform: scale(1);
+        opacity: 0.4;
+    }
+
+    100% {
+        transform: scale(1.5);
+        opacity: 0;
+    }
+}
+
+.timer {
+    font-size: 2.5rem;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: white;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.status {
+    font-size: 0.875rem;
+    color: #a78bfa;
+}
+
+.controls {
+    display: flex;
+    gap: 1rem;
+}
+
+.controlButton {
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.controlButton:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.stopButton {
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 15px rgba(99, 102, 241, 0.4);
+}
+
+.stopButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.5);
+}
+
+.cancelButton {
+    margin-top: 1.5rem;
+    padding: 0.75rem 1.5rem;
+    border-radius: 12px;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    background: rgba(239, 68, 68, 0.1);
+    color: #fca5a5;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.cancelButton:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #f87171;
+}

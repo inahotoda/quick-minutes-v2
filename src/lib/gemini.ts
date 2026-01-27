@@ -1,0 +1,119 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { MeetingMode } from "@/types";
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+
+export const GEMINI_MODEL = "Gemini Flash Latest";
+const MODEL_NAME = "gemini-flash-latest";
+
+
+// 生成用パラメータ
+interface GenerateStreamParams {
+    mode: MeetingMode;
+    transcript?: string;
+    audioData?: {
+        base64: string;
+        mimeType: string;
+    };
+    uploadedFiles?: Array<{ mimeType: string; base64: string; name: string }>;
+    date?: string;
+    customPrompts?: {
+        basePrompt?: string;
+        internalPrompt?: string;
+        businessPrompt?: string;
+        otherPrompt?: string;
+        terminology?: string;
+    };
+}
+
+/**
+ * 音声やテキストから直接、議事録をストリーミング生成する
+ * (文字起こしは不要とのことで、議事録のみに特化)
+ */
+export async function* generateEverythingStream({
+    mode,
+    transcript,
+    audioData,
+    uploadedFiles,
+    date,
+    customPrompts,
+}: GenerateStreamParams): AsyncGenerator<string> {
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+
+    const basePrompt =
+        customPrompts?.basePrompt ||
+        `あなたは優秀な議事録作成アシスタントです。提供された音声またはテキストから、構造化された議事録を作成してください。`;
+
+    const modePrompts: Record<MeetingMode, string> = {
+        internal: customPrompts?.internalPrompt || `## 社内MTGモード\n- 決定事項とアクションアイテムを明確に。`,
+        business: customPrompts?.businessPrompt || `## 商談モード\n- 顧客の課題とネクストアクションを整理。`,
+        other: customPrompts?.otherPrompt || `## その他モード\n- 要点を簡潔に。`,
+    };
+
+    const terminologySection = customPrompts?.terminology
+        ? `\n## 用語・表記ルール\n${customPrompts.terminology}`
+        : "";
+
+    const mainInstruction = `
+${basePrompt}
+${modePrompts[mode]}
+${terminologySection}
+
+---
+日付: ${date || new Date().toLocaleDateString("ja-JP")}
+
+## 重要な指示
+- 提供された音声またはテキストに加え、添付された補足資料（PDF、画像等）の内容を深く読み取ってください。
+- 会議の中で「この資料のここ」や「図表の数値」などに言及があった場合、添付資料から該当箇所を特定し、正確な情報（項目名、数値など）を議事録に反映させてください。
+- 資料に記載されている専門用語やプロジェクト名、参加者リストなどがある場合は、それらを正確に使用してください。
+
+出力は必ず以下の形式に従ってください（文字起こしは不要です）：
+
+[MINUTES_START]
+(ここに構造化された議事録をMarkdownで記述)
+[MINUTES_END]
+`;
+
+    const contents: any[] = [{ text: mainInstruction }];
+
+    // 録音データ
+    if (audioData) {
+        contents.push({
+            inlineData: { mimeType: audioData.mimeType, data: audioData.base64 }
+        });
+        contents.push({ text: "メインの会議音声です。" });
+    }
+
+    // 既存のテキスト入力
+    if (transcript) {
+        contents.push({ text: `参考テキスト（事前の議題など）:\n${transcript}` });
+    }
+
+    // アップロードファイル（補足資料）
+    if (uploadedFiles) {
+        for (const file of uploadedFiles) {
+            contents.push({
+                inlineData: { mimeType: file.mimeType, data: file.base64 }
+            });
+            contents.push({ text: `会議の補足資料「${file.name}」です。音声内の言及と結びつけて解釈してください。` });
+        }
+    }
+
+    const result = await model.generateContentStream(contents);
+
+    for await (const chunk of result.stream) {
+        const text = chunk.text();
+        if (text) yield text;
+    }
+}
+
+// 互換性のための古い関数
+export async function transcribeAudio(audioBase64: string, mimeType: string, terminology?: string): Promise<string> {
+    const model = genAI.getGenerativeModel({ model: MODEL_NAME });
+    const terminologyPrompt = terminology ? `\n用語ルール:\n${terminology}` : "";
+    const result = await model.generateContent([
+        { inlineData: { mimeType, data: audioBase64 } },
+        { text: `この音声を文字起こししてください。${terminologyPrompt}` }
+    ]);
+    return result.response.text();
+}

@@ -1,0 +1,424 @@
+.main {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Loading State */
+.loading {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    color: var(--color-text-secondary);
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    border-top-color: var(--color-primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Login Screen */
+.loginContainer {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2rem;
+    padding: 2rem;
+    text-align: center;
+}
+
+.logo {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logoIcon {
+    font-size: 4rem;
+    filter: drop-shadow(0 4px 20px rgba(99, 102, 241, 0.4));
+}
+
+.logo h1 {
+    font-size: 2rem;
+    background: linear-gradient(135deg, #fff, #a5b4fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.tagline {
+    color: var(--color-text-secondary);
+    font-size: 1.1rem;
+}
+
+/* Header */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.headerLeft {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.logoSmall {
+    font-size: 1.5rem;
+}
+
+.appName {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: white;
+}
+
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.settingsButton {
+    padding: 0.5rem 0.875rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: var(--color-text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.settingsButton:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* Error Message */
+.error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.875rem 1rem;
+    margin: 0.5rem 1rem;
+    background: rgba(239, 68, 68, 0.15);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 8px;
+    color: #fca5a5;
+    font-size: 0.9rem;
+}
+
+.error button {
+    background: none;
+    border: none;
+    color: inherit;
+    font-size: 1.25rem;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
+.error button:hover {
+    opacity: 1;
+}
+
+/* Content */
+.content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+/* Home Screen */
+.homeScreen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    padding: 2rem 0;
+    max-width: 500px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+/* Input Section Header */
+.inputSectionHeader {
+    text-align: center;
+    color: var(--color-text-secondary);
+    font-size: 0.9rem;
+    margin-top: 1rem;
+    padding: 0 1rem;
+    line-height: 1.6;
+}
+
+/* Upload Section */
+.uploadSection {
+    width: 100%;
+}
+
+/* Generate Button */
+.generateButton {
+    width: 100%;
+    padding: 1rem 2rem;
+    border-radius: 12px;
+    border: none;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(99, 102, 241, 0.4);
+}
+
+.generateButton:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(99, 102, 241, 0.5);
+}
+
+.generateButton:disabled,
+.generateButtonDisabled {
+    background: rgba(99, 102, 241, 0.3);
+    cursor: not-allowed;
+    box-shadow: none;
+    opacity: 0.6;
+}
+
+.generateButton:disabled:hover,
+.generateButtonDisabled:hover {
+    transform: none;
+    box-shadow: none;
+}
+
+/* Recording Screen */
+.recordingScreen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3rem;
+}
+
+/* Processing Screen (Futuristic) */
+.processingScreen {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2.5rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(circle at center, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+}
+
+.processingScreen::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(to bottom, transparent 50%, rgba(99, 102, 241, 0.05) 50%);
+    background-size: 100% 4px;
+    z-index: 1;
+    pointer-events: none;
+    animation: scanline 10s linear infinite;
+}
+
+@keyframes scanline {
+    0% {
+        transform: translateY(0);
+    }
+
+    100% {
+        transform: translateY(100%);
+    }
+}
+
+.processingCircle {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    border: 2px solid rgba(99, 102, 241, 0.2);
+    border-top: 2px solid #818cf8;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: spin 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    box-shadow: 0 0 30px rgba(99, 102, 241, 0.2);
+}
+
+.processingCircle::after {
+    content: "AI";
+    font-weight: 800;
+    font-size: 1.2rem;
+    color: #818cf8;
+    animation: reverseSpin 2s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+    filter: drop-shadow(0 0 8px rgba(99, 102, 241, 0.8));
+}
+
+@keyframes reverseSpin {
+    from {
+        transform: rotate(360deg);
+    }
+
+    to {
+        transform: rotate(0deg);
+    }
+}
+
+.messageContainer {
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.mainMessage {
+    font-size: 1.5rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #fff, #a5b4fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: -0.02em;
+}
+
+.subMessage {
+    color: #818cf8;
+    font-size: 1rem;
+    opacity: 0.8;
+    animation: pulseText 2s ease-in-out infinite;
+}
+
+@keyframes pulseText {
+
+    0%,
+    100% {
+        opacity: 0.5;
+        transform: scale(0.98);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.processingHint {
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    max-width: 300px;
+    line-height: 1.6;
+}
+
+/* Editing Screen */
+.editingScreen {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+}
+
+.newButton {
+    padding: 0.6rem;
+    border-radius: 8px;
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    align-self: center;
+    width: fit-content;
+    margin-top: 0.5rem;
+}
+
+.newButton:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    color: var(--color-text-secondary);
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.secondaryActions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.emailButton {
+    width: 100%;
+    padding: 0.875rem;
+    border-radius: 10px;
+    border: 1px solid rgba(165, 180, 252, 0.3);
+    background: rgba(165, 180, 252, 0.05);
+    color: #a5b4fc;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.emailButton:hover:not(:disabled) {
+    background: rgba(165, 180, 252, 0.15);
+    border-color: #a5b4fc;
+    color: white;
+}
+
+.emailButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .homeScreen {
+        padding: 1.5rem 0;
+        gap: 1.5rem;
+    }
+}
