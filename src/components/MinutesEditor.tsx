@@ -11,6 +11,7 @@ interface MinutesEditorProps {
     onSave: () => void;
     onSendEmail?: () => void;
     isSaving: boolean;
+    isSendingEmail?: boolean;
     modelVersion?: string;
 }
 
@@ -21,6 +22,7 @@ export default function MinutesEditor({
     onSave,
     onSendEmail,
     isSaving,
+    isSendingEmail = false,
     modelVersion,
 }: MinutesEditorProps) {
     const [isEditing, setIsEditing] = useState(false);
@@ -78,8 +80,12 @@ export default function MinutesEditor({
                     {isSaving ? "保存中..." : "💾 Google Driveに保存"}
                 </button>
                 {mode === "business" && onSendEmail && (
-                    <button className={styles.emailButton} onClick={onSendEmail}>
-                        ✉️ メール送信
+                    <button
+                        className={styles.emailButton}
+                        onClick={onSendEmail}
+                        disabled={isSaving || isSendingEmail}
+                    >
+                        {isSendingEmail ? "送信中..." : "✉️ メール送信"}
                     </button>
                 )}
             </div>

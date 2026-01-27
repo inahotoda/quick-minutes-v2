@@ -42,6 +42,7 @@ export default function Home() {
   const [minutes, setMinutes] = useState("");
   const [modelVersion, setModelVersion] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPwaMode, setIsPwaMode] = useState(false);
 
@@ -246,7 +247,7 @@ export default function Home() {
     const to = prompt("送信先のメールアドレスを入力してください：");
     if (!to) return;
 
-    setIsSaving(true);
+    setIsSendingEmail(true);
     setError(null);
 
     try {
@@ -272,7 +273,7 @@ export default function Home() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "メール送信に失敗しました");
     } finally {
-      setIsSaving(false);
+      setIsSendingEmail(false);
     }
   };
 
@@ -472,6 +473,7 @@ export default function Home() {
               onChange={setMinutes}
               onSave={handleSave}
               isSaving={isSaving}
+              isSendingEmail={isSendingEmail}
               modelVersion={modelVersion}
             />
 
@@ -479,9 +481,9 @@ export default function Home() {
               <button
                 className={styles.emailButton}
                 onClick={handleSendEmail}
-                disabled={!minutes || isSaving}
+                disabled={!minutes || isSaving || isSendingEmail}
               >
-                📧 メールで送信
+                {isSendingEmail ? "送信中..." : "📧 メールで送信"}
               </button>
             </div>
 
