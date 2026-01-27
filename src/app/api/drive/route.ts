@@ -57,9 +57,18 @@ export async function POST(request: NextRequest) {
 
         // 5. 音声データがある場合は保存（音声用ルートフォルダの直下に保存）
         let audioUrl = null;
+        const getExtension = (mimeType: string) => {
+            if (mimeType.includes("webm")) return ".webm";
+            if (mimeType.includes("mp4") || mimeType.includes("m4a")) return ".m4a";
+            if (mimeType.includes("mpeg")) return ".mp3";
+            if (mimeType.includes("wav")) return ".wav";
+            return "";
+        };
+
         if (audioBlob) {
+            const ext = getExtension(audioMimeType || "audio/webm");
             const audioFile = await uploadFile(
-                `${baseFileName}_音声`,
+                `${baseFileName}_音声${ext}`,
                 audioBlob,
                 audioMimeType || "audio/webm",
                 audioRootFolderId || targetFolderId // 音声用フォルダがあればその直下、なければ議事録と同じ場所
@@ -73,8 +82,9 @@ export async function POST(request: NextRequest) {
                 const audio = uploadedAudios[i];
                 // 複数ファイルある場合は番号を付与するが、1つならそのまま
                 const suffix = uploadedAudios.length > 1 ? `_${i + 1}` : "";
+                const ext = getExtension(audio.mimeType);
                 await uploadFile(
-                    `${baseFileName}_音声${suffix}`,
+                    `${baseFileName}_音声${suffix}${ext}`,
                     audio.base64,
                     audio.mimeType,
                     audioRootFolderId || targetFolderId
