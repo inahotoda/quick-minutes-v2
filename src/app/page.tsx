@@ -43,7 +43,7 @@ export default function Home() {
   const [modelVersion, setModelVersion] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isIosNonSafari, setIsIosNonSafari] = useState(false);
+  const [isPwaMode, setIsPwaMode] = useState(false);
 
   // Audio recorder
   const recorder = useAudioRecorder();
@@ -52,12 +52,11 @@ export default function Home() {
   useEffect(() => {
     const ua = window.navigator.userAgent.toLowerCase();
     const isIos = /iphone|ipad|ipod/.test(ua);
-    const isSafari = /safari/.test(ua) && !/crios|fxios|opr|mercury/.test(ua);
     const isStandalone = (window.navigator as any).standalone || window.matchMedia('(display-mode: standalone)').matches;
 
-    // iOSかつ(Safariでない または PWAでない)場合に警告を出す
-    if (isIos && (!isSafari || !isStandalone)) {
-      setIsIosNonSafari(true);
+    // iOSかつPWAモード（ホーム画面から起動）の場合に警告を出す
+    if (isIos && isStandalone) {
+      setIsPwaMode(true);
     }
   }, []);
 
@@ -355,11 +354,11 @@ export default function Home() {
         </div>
       </header>
 
-      {/* iOS Browser Warning */}
-      {isIosNonSafari && (
+      {/* iOS PWA Warning */}
+      {isPwaMode && (
         <div className={styles.iosWarning}>
-          📱 このブラウザではバックグラウンド録音ができません。<br />
-          Safariから「ホーム画面に追加」して使用してください。
+          📱 ホーム画面に追加した状態ではバックグラウンド録音ができません。<br />
+          通常のブラウザ（SafariやChrome）のタブから開いてご利用ください。
         </div>
       )}
 
