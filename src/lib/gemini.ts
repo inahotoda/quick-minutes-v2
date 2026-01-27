@@ -1,7 +1,9 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleAIFileManager, FileState } from "@google/generative-ai/server";
 import { MeetingMode } from "@/types";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY || "");
 
 export const GEMINI_MODEL = "Gemini Flash Latest";
 const MODEL_NAME = "gemini-flash-latest";
@@ -12,10 +14,16 @@ interface GenerateStreamParams {
     mode: MeetingMode;
     transcript?: string;
     audioData?: {
-        base64: string;
+        base64?: string;
         mimeType: string;
+        fileUri?: string;
     };
-    uploadedFiles?: Array<{ mimeType: string; base64: string; name: string }>;
+    uploadedFiles?: Array<{
+        mimeType: string;
+        base64?: string;
+        name: string;
+        fileUri?: string;
+    }>;
     date?: string;
     customPrompts?: {
         basePrompt?: string;
@@ -24,6 +32,25 @@ interface GenerateStreamParams {
         otherPrompt?: string;
         terminology?: string;
     };
+}
+
+/**
+ * ファイルのステータスが Active になるまで待機する
+ */
+export async function waitForFileActive(fileNames: string[]) {
+    console.log("Waiting for files to be active:", fileNames);
+    for (const name of fileNames) {
+        let file = await fileManager.getFile(name);
+        while (file.state === FileState.PROCESSING) {
+            process.stdout.write(".");
+            await new Promise((resolve) => setTimeout(resolve, 2_000));
+            file = await fileManager.getFile(name);
+        }
+        if (file.state !== FileState.ACTIVE) {
+            throw Error(`File ${file.name} failed to process`);
+        }
+    }
+    console.log("All files are active");
 }
 
 /**
@@ -78,9 +105,15 @@ ${terminologySection}
 
     // 録音データ
     if (audioData) {
-        contents.push({
-            inlineData: { mimeType: audioData.mimeType, data: audioData.base64 }
-        });
+        if (audioData.fileUri) {
+            contents.push({
+                fileData: { mimeType: audioData.mimeType, fileUri: audioData.fileUri }
+            });
+        } else if (audioData.base64) {
+            contents.push({
+                inlineData: { mimeType: audioData.mimeType, data: audioData.base64 }
+            });
+        }
         contents.push({ text: "メインの会議音声です。" });
     }
 
@@ -92,9 +125,15 @@ ${terminologySection}
     // アップロードファイル（補足資料）
     if (uploadedFiles) {
         for (const file of uploadedFiles) {
-            contents.push({
-                inlineData: { mimeType: file.mimeType, data: file.base64 }
-            });
+            if (file.fileUri) {
+                contents.push({
+                    fileData: { mimeType: file.mimeType, fileUri: file.fileUri }
+                });
+            } else if (file.base64) {
+                contents.push({
+                    inlineData: { mimeType: file.mimeType, data: file.base64 }
+                });
+            }
             contents.push({ text: `会議の補足資料「${file.name}」です。音声内の言及と結びつけて解釈してください。` });
         }
     }
@@ -117,3 +156,5 @@ export async function transcribeAudio(audioBase64: string, mimeType: string, ter
     ]);
     return result.response.text();
 }
+
+export { fileManager };

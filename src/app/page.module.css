@@ -146,6 +146,20 @@
     opacity: 1;
 }
 
+/* iOS Warning */
+.iosWarning {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.4);
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 1rem;
+    color: #fbbf24;
+    font-size: 0.9rem;
+    line-height: 1.5;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(245, 158, 11, 0.1);
+}
+
 /* Content */
 .content {
     flex: 1;

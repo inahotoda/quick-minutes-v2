@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json();
-        const { topic, minutes, mode, audioBlob, audioMimeType } = body;
+        const { topic, minutes, mode, audioBlob, audioMimeType, uploadedAudios } = body;
 
         if (!minutes) {
             return NextResponse.json(
@@ -65,6 +65,21 @@ export async function POST(request: NextRequest) {
                 audioRootFolderId || targetFolderId // 音声用フォルダがあればその直下、なければ議事録と同じ場所
             );
             audioUrl = audioFile.webViewLink;
+        }
+
+        // 6. アップロードされた音声ファイルがある場合も保存
+        if (uploadedAudios && Array.isArray(uploadedAudios)) {
+            for (let i = 0; i < uploadedAudios.length; i++) {
+                const audio = uploadedAudios[i];
+                // 複数ファイルある場合は番号を付与するが、1つならそのまま
+                const suffix = uploadedAudios.length > 1 ? `_${i + 1}` : "";
+                await uploadFile(
+                    `${baseFileName}_音声${suffix}`,
+                    audio.base64,
+                    audio.mimeType,
+                    audioRootFolderId || targetFolderId
+                );
+            }
         }
 
         return NextResponse.json({

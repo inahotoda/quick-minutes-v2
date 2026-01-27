@@ -5,22 +5,26 @@ import styles from "./RecordButton.module.css";
 interface RecordButtonProps {
     isRecording: boolean;
     isPaused: boolean;
+    isInterrupted: boolean;
     duration: number;
     onStart: () => void;
     onStop: () => void;
     onPause: () => void;
     onResume: () => void;
+    onResumeInterrupted: () => void;
     onCancel?: () => void;
 }
 
 export default function RecordButton({
     isRecording,
     isPaused,
+    isInterrupted,
     duration,
     onStart,
     onStop,
     onPause,
     onResume,
+    onResumeInterrupted,
     onCancel,
 }: RecordButtonProps) {
     const formatTime = (seconds: number) => {
@@ -45,16 +49,20 @@ export default function RecordButton({
 
     return (
         <div className={styles.recordingContainer}>
-            <div className={`${styles.recordingIndicator} ${isPaused ? styles.paused : ""}`}>
+            <div className={`${styles.recordingIndicator} ${isPaused ? styles.paused : ""} ${isInterrupted ? styles.interrupted : ""}`}>
                 <div className={styles.pulsingDot} />
                 <span className={styles.timer}>{formatTime(duration)}</span>
                 <span className={styles.status}>
-                    {isPaused ? "一時停止中" : "録音中..."}
+                    {isInterrupted ? "！録音中断：マイクが無効です" : isPaused ? "一時停止中" : "録音中..."}
                 </span>
             </div>
 
             <div className={styles.controls}>
-                {isPaused ? (
+                {isInterrupted ? (
+                    <button className={styles.resumeInterruptedButton} onClick={onResumeInterrupted}>
+                        🔄 録音を再開
+                    </button>
+                ) : isPaused ? (
                     <button className={styles.controlButton} onClick={onResume}>
                         ▶️ 再開
                     </button>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { MeetingMode, UploadedFile } from "@/types";
 import { useAudioRecorder, blobToBase64 } from "@/hooks/useAudioRecorder";
@@ -41,9 +41,23 @@ export default function Home() {
   const [modelVersion, setModelVersion] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isIosNonSafari, setIsIosNonSafari] = useState(false);
 
   // Audio recorder
   const recorder = useAudioRecorder();
+
+  // Browser detection
+  useEffect(() => {
+    const ua = window.navigator.userAgent.toLowerCase();
+    const isIos = /iphone|ipad|ipod/.test(ua);
+    const isSafari = /safari/.test(ua) && !/crios|fxios|opr|mercury/.test(ua);
+    const isStandalone = (window.navigator as any).standalone || window.matchMedia('(display-mode: standalone)').matches;
+
+    // iOSかつ(Safariでない または PWAでない)場合に警告を出す
+    if (isIos && (!isSafari || !isStandalone)) {
+      setIsIosNonSafari(true);
+    }
+  }, []);
 
   // Handle recording start
   const handleStartRecording = useCallback(async () => {
@@ -175,6 +189,17 @@ export default function Home() {
     try {
       const topic = extractTopic(minutes);
 
+      // 添付ファイルの中から音声を抽出
+      const uploadedAudios = await Promise.all(
+        files
+          .filter(f => f.type === "audio")
+          .map(async (f) => ({
+            name: f.name,
+            mimeType: f.file.type,
+            base64: await fileToBase64(f.file)
+          }))
+      );
+
       const response = await fetch("/api/drive", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -184,6 +209,7 @@ export default function Home() {
           mode,
           audioBlob: recorder.audioBlob ? await blobToBase64(recorder.audioBlob) : null,
           audioMimeType: recorder.audioBlob?.type || null,
+          uploadedAudios,
         }),
       });
 
@@ -314,6 +340,14 @@ export default function Home() {
         </div>
       </header>
 
+      {/* iOS Browser Warning */}
+      {isIosNonSafari && (
+        <div className={styles.iosWarning}>
+          📱 このブラウザではバックグラウンド録音ができません。<br />
+          Safariから「ホーム画面に追加」して使用してください。
+        </div>
+      )}
+
       {/* Error Message */}
       {error && (
         <div className={styles.error}>
@@ -330,11 +364,13 @@ export default function Home() {
             <RecordButton
               isRecording={false}
               isPaused={false}
+              isInterrupted={false}
               duration={0}
               onStart={handleStartRecording}
               onStop={() => { }}
               onPause={() => { }}
               onResume={() => { }}
+              onResumeInterrupted={() => { }}
             />
 
             {/* Mode Selector */}
@@ -372,11 +408,13 @@ export default function Home() {
             <RecordButton
               isRecording={recorder.isRecording}
               isPaused={recorder.isPaused}
+              isInterrupted={recorder.isInterrupted}
               duration={recorder.duration}
               onStart={handleStartRecording}
               onStop={handleStopRecording}
               onPause={recorder.pauseRecording}
               onResume={recorder.resumeRecording}
+              onResumeInterrupted={recorder.resumeInterrupted}
               onCancel={handleCancelRecording}
             />
 

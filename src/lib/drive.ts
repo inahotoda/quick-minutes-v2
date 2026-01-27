@@ -9,7 +9,10 @@ export async function getGoogleDriveClient() {
         throw new Error("認証が必要です");
     }
 
-    const auth = new google.auth.OAuth2();
+    const auth = new google.auth.OAuth2(
+        process.env.GOOGLE_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET
+    );
     auth.setCredentials({ access_token: session.accessToken as string });
 
     return google.drive({ version: "v3", auth });
