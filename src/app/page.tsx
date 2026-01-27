@@ -305,12 +305,13 @@ export default function Home() {
     const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
     const yyyymmdd = jstNow.toISOString().split("T")[0].replace(/-/g, "");
 
-    // Blobの実際のタイプに基づいて拡張子を決定、基本は .m4a にする（iOS互換性）
-    const ext = recorder.audioBlob.type.includes("mp4") ? ".m4a" :
-      recorder.audioBlob.type.includes("webm") ? ".webm" : ".m4a";
-    const fileName = `${yyyymmdd}_録音_${topic || "会議"}${ext}`;
+    // 拡張子を強制的に .m4a にする
+    const fileName = `${yyyymmdd}_録音_${topic || "会議"}.m4a`;
 
-    const url = URL.createObjectURL(recorder.audioBlob);
+    // ダウンロード用にMIMEタイプを明示したBlobを再生成
+    const audioFile = new Blob([recorder.audioBlob], { type: "audio/mp4" });
+    const url = URL.createObjectURL(audioFile);
+
     const a = document.createElement("a");
     a.href = url;
     a.download = fileName;
