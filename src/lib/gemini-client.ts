@@ -4,7 +4,7 @@
  * Gemini File API にブラウザから直接アップロードするためのユーティリティ
  */
 
-const API_KEY = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+
 const UPLOAD_URL = "https://generativelanguage.googleapis.com/upload/v1beta/files";
 
 export interface GeminiFileResponse {
@@ -26,7 +26,8 @@ export interface GeminiFileResponse {
  * ブラウザから直接 Gemini File API にアップロードする
  */
 export async function uploadToGemini(file: File | Blob, displayName: string): Promise<GeminiFileResponse> {
-    if (!API_KEY) {
+    const apiKey = process.env.NEXT_PUBLIC_GEMINI_API_KEY;
+    if (!apiKey) {
         throw new Error("NEXT_PUBLIC_GEMINI_API_KEY が設定されていません。");
     }
 
@@ -52,7 +53,7 @@ export async function uploadToGemini(file: File | Blob, displayName: string): Pr
         footer
     ], { type: `multipart/related; boundary=${boundary}` });
 
-    const response = await fetch(`${UPLOAD_URL}?key=${API_KEY}`, {
+    const response = await fetch(`${UPLOAD_URL}?key=${apiKey}`, {
         method: "POST",
         headers: {
             "X-Goog-Upload-Protocol": "multipart",
