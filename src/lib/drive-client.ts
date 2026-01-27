@@ -32,31 +32,30 @@ export async function createFolder(name: string, parentId: string, accessToken: 
 }
 
 export async function uploadMarkdownAsDoc(name: string, content: string, folderId: string, accessToken: string) {
-    // 小さいファイルでもResumableを使っても良いが、こちらはシンプルに
-    const metadata = {
-        name,
-        mimeType: "application/vnd.google-apps.document",
-        parents: [folderId]
-    };
-
-    const url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&supportsAllDrives=true";
-
-    // multipart/related を手動で構成するのは少し面倒なので、再度 FormData を試す。
-    // もし Google が multipart/form-data を拒否する場合は、resumable 方式に倒す。
-    // 安全のため、ここも resumable に統一
-    return await resumableUpload(name, new Blob([content], { type: "text/plain" }), folderId, accessToken, "application/vnd.google-apps.document");
+    const blob = new Blob([content], { type: "text/plain" });
+    // 保存時は Google Doc、送るデータは text/plain
+    return await resumableUpload(name, blob, folderId, accessToken, "application/vnd.google-apps.document", "text/plain");
 }
 
 export async function uploadAudioFile(name: string, blob: Blob, folderId: string, accessToken: string) {
-    return await resumableUpload(name, blob, folderId, accessToken, blob.type);
+    // 保存時も送るデータも同じ
+    const mime = blob.type || "application/octet-stream";
+    return await resumableUpload(name, blob, folderId, accessToken, mime, mime);
 }
 
-async function resumableUpload(name: string, blob: Blob, folderId: string, accessToken: string, mimeType: string) {
-    // 1. セッションの開始
+async function resumableUpload(
+    name: string,
+    blob: Blob,
+    folderId: string,
+    accessToken: string,
+    targetMimeType: string,
+    contentMimeType: string
+) {
+    // 1. セッションの開始 (POST)
     const metadata = {
         name,
         parents: [folderId],
-        mimeType: mimeType
+        mimeType: targetMimeType
     };
 
     const initUrl = "https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true";
@@ -66,12 +65,13 @@ async function resumableUpload(name: string, blob: Blob, folderId: string, acces
             method: "POST",
             headers: {
                 Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "X-Upload-Content-Type": contentMimeType
             },
             body: JSON.stringify(metadata)
         });
     } catch (e: any) {
-        throw new Error(`Network Error during Init: ${e.message}`);
+        throw new Error(`Init Network Error: ${e.message}`);
     }
 
     if (!initResponse.ok) {
@@ -81,22 +81,22 @@ async function resumableUpload(name: string, blob: Blob, folderId: string, acces
 
     const uploadUrl = initResponse.headers.get("Location");
     if (!uploadUrl) {
-        throw new Error("Upload URL (Location header) not received from Google");
+        throw new Error("Upload URL (Location) not found");
     }
 
-    // 2. 実際のデータをアップロード
-    console.log(`Resumable: Uploading data to session URL... (${blob.size} bytes)`);
+    // 2. データのアップロード (PUT)
+    console.log(`Resumable: Uploading ${name} (${blob.size} bytes)...`);
     let uploadResponse;
     try {
         uploadResponse = await fetch(uploadUrl, {
             method: "PUT",
             headers: {
-                "Content-Type": blob.type || "application/octet-stream"
+                "Content-Type": contentMimeType
             },
             body: blob
         });
     } catch (e: any) {
-        throw new Error(`Network Error during Data Upload: ${e.message}`);
+        throw new Error(`Data Upload Network Error: ${e.message}`);
     }
 
     if (!uploadResponse.ok) {
