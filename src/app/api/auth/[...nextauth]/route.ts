@@ -47,7 +47,7 @@ export const authOptions: NextAuthOptions = {
             authorization: {
                 params: {
                     scope:
-                        "openid email profile https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.install https://www.googleapis.com/auth/gmail.send",
+                        "openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/gmail.send",
                     access_type: "offline",
                     prompt: "consent",
                 },
