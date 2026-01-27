@@ -52,11 +52,6 @@ export default function MinutesEditor({
                     >
                         {isEditing ? "✓ 完了" : "✏️ 編集"}
                     </button>
-                    {onDownloadAudio && (
-                        <button className={styles.downloadButton} onClick={onDownloadAudio}>
-                            ⬇️ 音声を保存
-                        </button>
-                    )}
                     <button className={styles.actionButton} onClick={copyToClipboard}>
                         📋 コピー
                     </button>
@@ -82,19 +77,31 @@ export default function MinutesEditor({
                 <button
                     className={styles.saveButton}
                     onClick={onSave}
-                    disabled={isSaving}
+                    disabled={isSaving || isSendingEmail}
                 >
-                    {isSaving ? "保存中..." : "💾 Google Driveに保存"}
+                    {isSaving ? "保存中..." : "💾 ドライブに保存(議事録+音声)"}
                 </button>
-                {mode === "business" && onSendEmail && (
-                    <button
-                        className={styles.emailButton}
-                        onClick={onSendEmail}
-                        disabled={isSaving || isSendingEmail}
-                    >
-                        {isSendingEmail ? "送信中..." : "✉️ メール送信"}
-                    </button>
-                )}
+
+                <div className={styles.footerSubActions}>
+                    {onSendEmail && (
+                        <button
+                            className={styles.emailButton}
+                            onClick={onSendEmail}
+                            disabled={isSaving || isSendingEmail}
+                        >
+                            {isSendingEmail ? "送信中..." : "✉️ メール送信"}
+                        </button>
+                    )}
+                    {onDownloadAudio && (
+                        <button
+                            className={styles.downloadButtonFooter}
+                            onClick={onDownloadAudio}
+                            disabled={isSaving || isSendingEmail}
+                        >
+                            ⬇️ 音声ダウンロード
+                        </button>
+                    )}
+                </div>
             </div>
         </div>
     );

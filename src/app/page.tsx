@@ -215,6 +215,9 @@ export default function Home() {
           }))
       );
 
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 1分でタイムアウト
+
       const response = await fetch("/api/drive", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -226,9 +229,17 @@ export default function Home() {
           audioMimeType: recorder.audioBlob?.type || null,
           uploadedAudios,
         }),
+        signal: controller.signal
       });
 
-      const data = await response.json();
+      clearTimeout(timeoutId);
+
+      let data;
+      try {
+        data = await response.json();
+      } catch (e) {
+        data = { error: `サーバーから不正な応答がありました (${response.status} ${response.statusText})` };
+      }
 
       if (!response.ok) {
         throw new Error(data.error || "保存に失敗しました");
@@ -236,9 +247,10 @@ export default function Home() {
 
       alert(`✓ Google Driveに保存しました\nフォルダ: ${data.folderName}`);
     } catch (err) {
+      console.error("Save error details:", err);
       const msg = err instanceof Error ? err.message : "保存に失敗しました";
       setError(msg);
-      alert(`❌ 保存に失敗しました\n原因: ${msg}\n\n※ 右上の「⬇️ 音声を保存」ボタンから、録音データを手動で保存しておくことをお勧めします。`);
+      alert(`❌ ドライブへの保存に失敗しました\n内容: ${msg}\n\n※ 右下の「⬇️ 音声ダウンロード」ボタンから録音ファイルを手動で保存しておくことをお勧めします。`);
     } finally {
       setIsSaving(false);
     }
@@ -287,7 +299,11 @@ export default function Home() {
     const now = new Date();
     const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
     const yyyymmdd = jstNow.toISOString().split("T")[0].replace(/-/g, "");
-    const fileName = `${yyyymmdd}_録音_${topic || "会議"}.webm`;
+
+    // Blobの実際のタイプに基づいて拡張子を決定、基本は .m4a にする（iOS互換性）
+    const ext = recorder.audioBlob.type.includes("mp4") ? ".m4a" :
+      recorder.audioBlob.type.includes("webm") ? ".webm" : ".m4a";
+    const fileName = `${yyyymmdd}_録音_${topic || "会議"}${ext}`;
 
     const url = URL.createObjectURL(recorder.audioBlob);
     const a = document.createElement("a");

@@ -97,24 +97,60 @@
 
 .footer {
     display: flex;
+    flex-direction: column;
     gap: 0.75rem;
     padding: 1rem 1.25rem;
     background: rgba(255, 255, 255, 0.02);
     border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
 
+.footerSubActions {
+    display: flex;
+    gap: 0.75rem;
+    width: 100%;
+}
+
 .saveButton {
-    flex: 1;
-    padding: 0.875rem;
-    border-radius: 10px;
+    width: 100%;
+    padding: 1rem;
+    border-radius: 12px;
     border: none;
     background: linear-gradient(135deg, #10b981, #059669);
     color: white;
-    font-size: 0.9rem;
-    font-weight: 500;
+    font-size: 1rem;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s ease;
     box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
+}
+
+.emailButton {
+    flex: 1;
+    padding: 0.875rem;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.downloadButtonFooter {
+    flex: 1;
+    padding: 0.875rem;
+    border-radius: 10px;
+    border: 1px solid rgba(139, 92, 246, 0.4);
+    background: rgba(139, 92, 246, 0.1);
+    color: #a78bfa;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.emailButton:hover:not(:disabled),
+.downloadButtonFooter:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.1);
 }
 
 .saveButton:hover:not(:disabled) {
@@ -122,39 +158,9 @@
     box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
 }
 
-.saveButton:disabled {
-    opacity: 0.6;
+.saveButton:disabled,
+.emailButton:disabled,
+.downloadButtonFooter:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
-}
-
-.emailButton {
-    padding: 0.875rem 1.25rem;
-    border-radius: 10px;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.05);
-    color: white;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.emailButton:hover {
-    background: rgba(255, 255, 255, 0.1);
-}
-
-.downloadButton {
-    padding: 0.5rem 0.875rem;
-    border-radius: 8px;
-    border: 1px solid rgba(139, 92, 246, 0.3);
-    background: rgba(139, 92, 246, 0.1);
-    color: #a78bfa;
-    font-size: 0.8rem;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.downloadButton:hover {
-    background: rgba(139, 92, 246, 0.2);
-    border-color: rgba(139, 92, 246, 0.5);
-    color: #c4b5fd;
 }
