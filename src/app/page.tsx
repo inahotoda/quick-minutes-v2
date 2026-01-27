@@ -216,7 +216,7 @@ export default function Home() {
       );
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 1分でタイムアウト
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30秒でタイムアウト
 
       const response = await fetch("/api/drive", {
         method: "POST",
@@ -246,9 +246,14 @@ export default function Home() {
       }
 
       alert(`✓ Google Driveに保存しました\nフォルダ: ${data.folderName}`);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Save error details:", err);
-      const msg = err instanceof Error ? err.message : "保存に失敗しました";
+      let msg = err instanceof Error ? err.message : "保存に失敗しました";
+
+      if (err.name === 'AbortError') {
+        msg = "通信タイムアウト：ネットワークが不安定か、ファイルサイズが大きすぎる可能性があります。";
+      }
+
       setError(msg);
       alert(`❌ ドライブへの保存に失敗しました\n内容: ${msg}\n\n※ 右下の「⬇️ 音声ダウンロード」ボタンから録音ファイルを手動で保存しておくことをお勧めします。`);
     } finally {
