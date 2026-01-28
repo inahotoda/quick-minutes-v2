@@ -72,6 +72,43 @@ export async function POST(request: NextRequest) {
                         fields: "namedStyleType",
                     },
                 });
+            } else if (token.type === "table") {
+                // Markdownテーブルを読みやすい形式に変換
+                const header = t.header || [];
+                const rows = t.rows || [];
+
+                // 各行をリスト形式で出力
+                for (const row of rows) {
+                    const cells = row.map((cell: any) => cell.text || cell.raw || "").filter((c: string) => c.trim());
+                    if (cells.length > 0) {
+                        const start = fullText.length + 1;
+                        // 最初のセルを太字風に、残りを「: 値」形式で
+                        let rowText = "";
+                        if (header.length >= 2 && cells.length >= 2) {
+                            // ヘッダーがある場合: 「種別: Task」「内容: xxx」のような形式
+                            for (let i = 0; i < cells.length && i < header.length; i++) {
+                                const headerText = header[i]?.text || header[i]?.raw || "";
+                                if (headerText && cells[i]) {
+                                    rowText += `【${headerText.replace(/[|:-]/g, '').trim()}】${cells[i].trim()}\n`;
+                                }
+                            }
+                        } else {
+                            // ヘッダーがない場合はそのまま
+                            rowText = cells.join(" | ") + "\n";
+                        }
+                        fullText += rowText;
+                        const end = fullText.length + 1;
+
+                        // 箇条書きスタイルを適用
+                        styleRequests.push({
+                            createParagraphBullets: {
+                                range: { startIndex: start, endIndex: end },
+                                bulletPreset: "BULLET_DISC_CIRCLE_SQUARE",
+                            },
+                        });
+                    }
+                }
+                fullText += "\n"; // テーブル後に空行
             } else if (token.type === "list") {
                 for (const item of t.items || []) {
                     const start = fullText.length + 1;

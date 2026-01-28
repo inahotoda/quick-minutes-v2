@@ -30,7 +30,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v3.6.0";
+const APP_VERSION = "v3.7.0";
 type AppState = "idle" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -579,7 +579,13 @@ export default function Home() {
         )}
 
         {appState === "processing" && (
-          <ProcessingScreen audioBlob={recorder.audioBlob} />
+          <ProcessingScreen
+            audioBlob={recorder.audioBlob}
+            onCancel={() => {
+              setAppState("idle");
+              setError(null);
+            }}
+          />
         )}
 
         {appState === "editing" && (

@@ -87,9 +87,10 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 
 interface ProcessingScreenProps {
     audioBlob?: Blob | null;
+    onCancel?: () => void;  // 中止して戻る
 }
 
-export default function ProcessingScreen({ audioBlob }: ProcessingScreenProps) {
+export default function ProcessingScreen({ audioBlob, onCancel }: ProcessingScreenProps) {
     // 初回ロード時にシャッフルされたメッセージ配列を作成
     const shuffledMessages = useMemo(() => shuffleArray(ALL_MESSAGES), []);
 
@@ -178,15 +179,24 @@ export default function ProcessingScreen({ audioBlob }: ProcessingScreenProps) {
             {showBackupButton ? (
                 <div className={styles.backupSection}>
                     <p className={styles.backupWarning}>
-                        読み込みに時間がかかっているようです。
+                        生成に時間がかかっています。
                         <br />
-                        念のため、音声データをバックアップしてください。
+                        このまま待つか、中止して再試行してください。
                     </p>
-                    <button className={styles.backupButton} onClick={handleDownloadBackup}>
-                        ⬇️ 音声データをダウンロード
-                    </button>
+                    <div className={styles.backupButtons}>
+                        {audioBlob && (
+                            <button className={styles.backupButton} onClick={handleDownloadBackup}>
+                                ⬇️ 音声をバックアップ
+                            </button>
+                        )}
+                        {onCancel && (
+                            <button className={styles.cancelButton} onClick={onCancel}>
+                                ✕ 中止してトップに戻る
+                            </button>
+                        )}
+                    </div>
                     <p className={styles.backupHint}>
-                        ダウンロード後もこのまま待機できます。議事録が完成したら表示されます。
+                        待機を続けても問題ありません。完成したら自動的に表示されます。
                     </p>
                 </div>
             ) : (
