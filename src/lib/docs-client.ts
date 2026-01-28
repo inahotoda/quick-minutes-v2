@@ -93,6 +93,7 @@ export async function createGoogleDocFromMarkdown(
     }
 
     // 3. テキストを挿入
+    console.log("[Docs API] Inserting text, length:", fullText.length);
     if (fullText.trim()) {
         const insertResponse = await fetch(
             `https://www.googleapis.com/docs/v1/documents/${documentId}:batchUpdate`,
@@ -110,11 +111,13 @@ export async function createGoogleDocFromMarkdown(
 
         if (!insertResponse.ok) {
             const errData = await insertResponse.json().catch(() => ({}));
-            console.error("Insert text failed:", errData);
-            // テキスト挿入失敗してもドキュメント自体は作成済みなので続行
+            console.error("[Docs API] Insert text failed:", insertResponse.status, errData);
+            throw new Error(`テキスト挿入失敗: ${insertResponse.status} - ${errData.error?.message || "unknown"}`);
         }
+        console.log("[Docs API] Text inserted successfully");
 
         // 4. スタイルを適用
+        console.log("[Docs API] Applying", styleRequests.length, "style requests");
         if (styleRequests.length > 0) {
             const styleResponse = await fetch(
                 `https://www.googleapis.com/docs/v1/documents/${documentId}:batchUpdate`,
@@ -130,8 +133,10 @@ export async function createGoogleDocFromMarkdown(
 
             if (!styleResponse.ok) {
                 const errData = await styleResponse.json().catch(() => ({}));
-                console.error("Style application failed:", errData);
-                // スタイル適用失敗しても続行
+                console.error("[Docs API] Style application failed:", styleResponse.status, errData);
+                // スタイル適用失敗してもテキストは入っているので続行
+            } else {
+                console.log("[Docs API] Styles applied successfully");
             }
         }
     }
