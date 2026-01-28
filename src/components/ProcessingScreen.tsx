@@ -93,7 +93,10 @@ export default function ProcessingScreen({ audioBlob }: ProcessingScreenProps) {
     // 初回ロード時にシャッフルされたメッセージ配列を作成
     const shuffledMessages = useMemo(() => shuffleArray(ALL_MESSAGES), []);
 
-    const [messageIndex, setMessageIndex] = useState(0);
+    // 初期indexもランダムに
+    const [messageIndex, setMessageIndex] = useState(() =>
+        Math.floor(Math.random() * ALL_MESSAGES.length)
+    );
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [fadeKey, setFadeKey] = useState(0);
 
