@@ -1,29 +1,104 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import styles from "./ProcessingScreen.module.css";
 
-const MESSAGES = [
-    "ゆっくり深呼吸してみましょう。4秒吸って、4秒止めて、4秒で吐く。",
-    "遠くを見つめて目を休ませましょう。20秒で疲れが和らぎます。",
-    "水分補給のチャンスです。脳の80%は水分でできています。",
-    "肩をゆっくり回してストレッチ。血行が良くなりますよ。",
-    "AIは仕事を奪うのではなく、あなたの創造性を拡張するパートナーです。",
-    "議事録の自動化で、年間約50時間を創造的な仕事に使えます。",
-    "AIリアルタイム翻訳で、言語の壁なく世界中と協働できる時代に。",
-    "定型業務はAIに任せ、人間は意思決定と関係構築に集中しましょう。",
-    "会議の価値は「決定」と「次のアクション」。AIがそれを逃しません。",
-    "少し席を立って、コーヒーや紅茶を淹れてきませんか？",
-];
+// カテゴリ分けされた多様なメッセージ
+const MESSAGE_CATEGORIES = {
+    // 🧘 リラックス・マインドフルネス
+    relax: [
+        "ゆっくり深呼吸してみましょう。4秒吸って、4秒止めて、4秒で吐く。",
+        "遠くを見つめて目を休ませましょう。20秒で疲れが和らぎます。",
+        "肩をゆっくり回してストレッチ。血行が良くなりますよ。",
+        "両手を上に伸ばして、ゆっくり左右に傾けてみてください。",
+        "足首をくるくる回すと、全身の血行がよくなります。",
+        "一度、目を閉じて、静かに3回呼吸してみてください。",
+    ],
+    // ☕ ちょっとした提案
+    suggestion: [
+        "水分補給のチャンスです。脳の80%は水分でできています。",
+        "少し席を立って、コーヒーや紅茶を淹れてきませんか？",
+        "窓の外を眺めて、空の色を確認してみてください。",
+        "観葉植物があれば、葉っぱを眺めてリフレッシュ。",
+        "好きな曲を1曲聴きながら待つのもいいですね。",
+        "この後の予定を頭の中で整理してみましょう。",
+    ],
+    // 🤖 AIと未来
+    ai: [
+        "AIは仕事を奪うのではなく、あなたの創造性を拡張するパートナーです。",
+        "議事録の自動化で、年間約50時間を創造的な仕事に使えます。",
+        "AIリアルタイム翻訳で、言語の壁なく世界中と協働できる時代に。",
+        "定型業務はAIに任せ、人間は意思決定と関係構築に集中しましょう。",
+        "会議の価値は「決定」と「次のアクション」。AIがそれを逃しません。",
+        "AIは24時間働きますが、あなたは適度に休んでくださいね。",
+        "将来、AIアシスタントがあなたの分身として会議に参加するかも。",
+        "AIが進化しても、人間の「なぜ」を問う力は代替できません。",
+    ],
+    // 💡 インスピレーション
+    inspiration: [
+        "優れたアイデアは、リラックスしている時に生まれやすいそうです。",
+        "「できるかどうか」より「やりたいかどうか」で決めると、うまくいくことが多い。",
+        "失敗は成功のもと。でも、その前にちゃんと休息を。",
+        "今日一日、何か一つ、自分を褒められることはありましたか？",
+        "完璧を目指すより、まず完成させることが大切です。",
+        "「忙しい」は「心を亡くす」と書きます。たまには立ち止まりましょう。",
+        "創造性は、無駄に見える時間から生まれることがあります。",
+    ],
+    // 🎯 会議・仕事のヒント
+    work: [
+        "良い会議は、終わった後に全員が次のアクションを理解している会議です。",
+        "会議中にメモを取る代わりに、AIに任せて議論に集中する時代です。",
+        "1時間の会議より、30分で済む会議を目指しましょう。",
+        "発言しなかった人にも、後で意見を聞いてみると良いかも。",
+        "会議の目的を最初に確認するだけで、生産性が上がります。",
+    ],
+    // 🌟 ちょっとした豆知識
+    trivia: [
+        "人間の脳は、1日に約6万回の思考をしているそうです。",
+        "植物のある部屋では、ストレスが約12%減少するという研究があります。",
+        "20分の昼寝は、8時間睡眠の2時間分に相当するエネルギーを回復させます。",
+        "笑うと免疫力が上がり、ストレスホルモンが減少します。",
+        "青色は集中力を高め、緑色はリラックス効果があるそうです。",
+        "手書きでメモを取ると、タイピングより記憶に残りやすいそうです。",
+    ],
+    // 🎨 遊び心
+    playful: [
+        "AIが議事録を書いている間、あなたは何を考えていますか？",
+        "もし今、どこにでも瞬間移動できるなら、どこに行きたいですか？",
+        "昨日の夕食、何を食べたか覚えていますか？",
+        "もし1日が25時間あったら、その1時間で何をしますか？",
+        "次の休日、何をしたいか、ぼんやり考えてみてください。",
+        "世界中の言語を話せるとしたら、最初にどの国に行きますか？",
+    ],
+};
+
+// すべてのメッセージをフラットな配列に
+const ALL_MESSAGES = Object.values(MESSAGE_CATEGORIES).flat();
+
+// シャッフル関数
+const shuffleArray = <T,>(array: T[]): T[] => {
+    const shuffled = [...array];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+};
 
 interface ProcessingScreenProps {
     audioBlob?: Blob | null;
 }
 
 export default function ProcessingScreen({ audioBlob }: ProcessingScreenProps) {
-    const [currentMessage, setCurrentMessage] = useState(MESSAGES[0]);
+    // 初回ロード時にシャッフルされたメッセージ配列を作成
+    const shuffledMessages = useMemo(() => shuffleArray(ALL_MESSAGES), []);
+
+    const [messageIndex, setMessageIndex] = useState(0);
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [fadeKey, setFadeKey] = useState(0);
+
+    // 現在のメッセージ（シャッフル配列から順番に取得）
+    const currentMessage = shuffledMessages[messageIndex % shuffledMessages.length];
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -32,9 +107,8 @@ export default function ProcessingScreen({ audioBlob }: ProcessingScreenProps) {
 
         const messageTimer = setInterval(() => {
             setFadeKey((prev) => prev + 1);
-            const randomIndex = Math.floor(Math.random() * MESSAGES.length);
-            setCurrentMessage(MESSAGES[randomIndex]);
-        }, 12000);
+            setMessageIndex((prev) => prev + 1);
+        }, 10000); // 10秒ごとに次のメッセージ
 
         return () => {
             clearInterval(timer);
