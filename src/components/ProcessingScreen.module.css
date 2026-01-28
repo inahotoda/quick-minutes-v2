@@ -214,3 +214,65 @@
         transform: translateY(0);
     }
 }
+
+/* Overtime / Backup Section */
+.overtimeText {
+    font-size: 1.5rem;
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.progressComplete {
+    animation: completePulse 2s ease-in-out infinite;
+}
+
+@keyframes completePulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.6;
+    }
+}
+
+.backupSection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    animation: fadeIn 0.5s ease;
+}
+
+.backupWarning {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: rgba(255, 200, 100, 0.9);
+    text-align: center;
+}
+
+.backupButton {
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, rgba(129, 140, 248, 0.2), rgba(168, 85, 247, 0.2));
+    border: 1px solid rgba(129, 140, 248, 0.4);
+    border-radius: 8px;
+    color: white;
+    font-size: 0.95rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.backupButton:hover {
+    background: linear-gradient(135deg, rgba(129, 140, 248, 0.3), rgba(168, 85, 247, 0.3));
+    border-color: rgba(129, 140, 248, 0.6);
+    transform: translateY(-1px);
+}
+
+.backupHint {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-align: center;
+    max-width: 280px;
+}

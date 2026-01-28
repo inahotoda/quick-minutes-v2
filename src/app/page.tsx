@@ -579,7 +579,7 @@ export default function Home() {
         )}
 
         {appState === "processing" && (
-          <ProcessingScreen />
+          <ProcessingScreen audioBlob={recorder.audioBlob} />
         )}
 
         {appState === "editing" && (

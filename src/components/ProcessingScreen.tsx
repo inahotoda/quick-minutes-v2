@@ -16,7 +16,11 @@ const MESSAGES = [
     "少し席を立って、コーヒーや紅茶を淹れてきませんか？",
 ];
 
-export default function ProcessingScreen() {
+interface ProcessingScreenProps {
+    audioBlob?: Blob | null;
+}
+
+export default function ProcessingScreen({ audioBlob }: ProcessingScreenProps) {
     const [currentMessage, setCurrentMessage] = useState(MESSAGES[0]);
     const [elapsedSeconds, setElapsedSeconds] = useState(0);
     const [fadeKey, setFadeKey] = useState(0);
@@ -44,6 +48,21 @@ export default function ProcessingScreen() {
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;
 
+    // 2分経過したらバックアップボタンを表示
+    const showBackupButton = elapsedSeconds >= totalSeconds && audioBlob;
+
+    const handleDownloadBackup = () => {
+        if (!audioBlob) return;
+        const url = URL.createObjectURL(audioBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `会議録音_バックアップ_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, "")}.m4a`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    };
+
     return (
         <div className={styles.container}>
             {/* Futuristic Orb with Rings and Particles */}
@@ -64,20 +83,40 @@ export default function ProcessingScreen() {
             {/* Timer */}
             <div className={styles.timerSection}>
                 <div className={styles.countdown}>
-                    {minutes}:{seconds.toString().padStart(2, "0")}
+                    {showBackupButton ? (
+                        <span className={styles.overtimeText}>処理中...</span>
+                    ) : (
+                        `${minutes}:${seconds.toString().padStart(2, "0")}`
+                    )}
                 </div>
                 <div className={styles.progressTrack}>
                     <div
-                        className={styles.progressFill}
+                        className={`${styles.progressFill} ${showBackupButton ? styles.progressComplete : ""}`}
                         style={{ width: `${progressPercent}%` }}
                     />
                 </div>
             </div>
 
-            {/* Message */}
-            <p className={styles.message} key={fadeKey}>
-                {currentMessage}
-            </p>
+            {/* Message or Backup Warning */}
+            {showBackupButton ? (
+                <div className={styles.backupSection}>
+                    <p className={styles.backupWarning}>
+                        読み込みに時間がかかっているようです。
+                        <br />
+                        念のため、音声データをバックアップしてください。
+                    </p>
+                    <button className={styles.backupButton} onClick={handleDownloadBackup}>
+                        ⬇️ 音声データをダウンロード
+                    </button>
+                    <p className={styles.backupHint}>
+                        ダウンロード後もこのまま待機できます。議事録が完成したら表示されます。
+                    </p>
+                </div>
+            ) : (
+                <p className={styles.message} key={fadeKey}>
+                    {currentMessage}
+                </p>
+            )}
         </div>
     );
 }
