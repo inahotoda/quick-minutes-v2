@@ -81,7 +81,10 @@ export default function MinutesEditor({
         <div className={styles.container}>
             <div className={styles.header}>
                 <div className={styles.titleWrapper}>
-                    <h2 className={styles.title}>📋 議事録</h2>
+                    <h2 className={styles.title}>
+                        📋 稲穂議事録
+                        <span className={styles.envBadge}>STAGING</span>
+                    </h2>
                     {modelVersion && <span className={styles.modelVersion}>{modelVersion}</span>}
                 </div>
                 <div className={styles.actions}>

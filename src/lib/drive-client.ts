@@ -37,8 +37,8 @@ export async function uploadMarkdownAsDoc(name: string, content: string, folderI
     return await resumableUpload(name, blob, folderId, accessToken, "application/vnd.google-apps.document", "text/plain");
 }
 
-export async function uploadAudioFile(name: string, blob: Blob, folderId: string, accessToken: string) {
-    // 保存時も送るデータも同じ
+export async function uploadFile(name: string, blob: Blob, folderId: string, accessToken: string) {
+    // 保存時も送るデータも同じ（audio/mp4, application/pdf 等）
     const mime = blob.type || "application/octet-stream";
     return await resumableUpload(name, blob, folderId, accessToken, mime, mime);
 }

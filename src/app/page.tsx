@@ -13,7 +13,20 @@ import TranscriptInput from "@/components/TranscriptInput";
 import MinutesEditor from "@/components/MinutesEditor";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
-import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile } from "@/lib/drive-client";
+import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadFile } from "@/lib/drive-client";
+
+// Markdownからプレーンテキストを抽出（Gmail用など）
+const stripMarkdown = (markdown: string) => {
+  return markdown
+    .replace(/^#+\s+/gm, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`{1,3}[\s\S]*?`{1,3}/g, "")
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+    .replace(/- \[( |x)\] /g, "- ")
+    .replace(/\|/g, " ")
+    .trim();
+};
 
 // FileをBase64に変換
 const fileToBase64 = (file: File): Promise<string> => {
@@ -243,7 +256,7 @@ export default function Home() {
       if (recorder.audioBlob) {
         console.log("Client: Uploading recorded audio...");
         const audioBlob = new Blob([recorder.audioBlob], { type: "audio/mp4" });
-        await uploadAudioFile(`${baseFileName}_音声.m4a`, audioBlob, audioRootFolderId, accessToken);
+        await uploadFile(`${baseFileName}_音声.m4a`, audioBlob, audioRootFolderId, accessToken);
       }
 
       // 6. アップロードされた付随音声ファイルがある場合も保存
@@ -255,7 +268,7 @@ export default function Home() {
           const suffix = uploadedAudioFiles.length > 1 ? `_${i + 1}` : "";
           const fileExt = f.name.split('.').pop();
           const fileName = `${baseFileName}_音声${suffix}.${fileExt}`;
-          await uploadAudioFile(fileName, f.file, audioRootFolderId, accessToken);
+          await uploadFile(fileName, f.file, audioRootFolderId, accessToken);
         }
       }
 
@@ -540,6 +553,13 @@ export default function Home() {
             />
 
             <div className={styles.secondaryActions}>
+              <button
+                className={styles.emailButton}
+                onClick={() => handleSendEmail(stripMarkdown(minutes))}
+                disabled={!minutes || isSaving || isSendingEmail}
+              >
+                {isSendingEmail ? "送信中..." : "📧 メールで送信"}
+              </button>
               <p className={styles.secondaryHint}>※ メールは装飾なしのプレーンテキストで送信されます</p>
             </div>
 
