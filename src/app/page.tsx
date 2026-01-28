@@ -15,7 +15,6 @@ import ProcessingScreen from "@/components/ProcessingScreen";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
 import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile } from "@/lib/drive-client";
-import { createGoogleDocFromMarkdown } from "@/lib/docs-client";
 
 // FileをBase64に変換
 const fileToBase64 = (file: File): Promise<string> => {
@@ -205,8 +204,26 @@ export default function Home() {
         }
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "エラーが発生しました");
+      const errorMessage = err instanceof Error ? err.message : "エラーが発生しました";
+      setError(errorMessage);
       setAppState("idle");
+
+      // 音声データのバックアップ: 議事録生成が失敗しても録音データを守る
+      if (recorder.audioBlob) {
+        const shouldDownload = window.confirm(
+          `❌ 議事録の生成に失敗しました\n\nエラー: ${errorMessage}\n\n❗ 大切な録音データを保護するため、音声ファイルをダウンロードしますか？`
+        );
+        if (shouldDownload) {
+          const url = URL.createObjectURL(recorder.audioBlob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `会議録音_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, "")}.m4a`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      }
     }
   };
 
@@ -257,18 +274,28 @@ export default function Home() {
       const userName = session.user?.name || "不明";
       const baseFileName = `${yyyymmdd}_${modeLabel}_${topic || "会議"}(${userName})`;
 
-      // 4. 議事録をGoogleドキュメントとして保存 (Docs API でネイティブ変換)
-      console.log("Client: Creating styled Google Doc via Docs API...");
+      // 4. 議事録をGoogleドキュメントとして保存 (サーバーサイド Docs API 経由)
+      console.log("Client: Creating styled Google Doc via server-side Docs API...");
       let docResult: { id: string; webViewLink: string } | null = null;
 
       try {
-        docResult = await createGoogleDocFromMarkdown(
-          `${baseFileName}_議事録`,
-          minutes,
-          targetFolderId,
-          accessToken
-        );
-        console.log("Client: Docs API success!", docResult);
+        const docsResponse = await fetch("/api/docs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: `${baseFileName}_議事録`,
+            markdown: minutes,
+            folderId: targetFolderId,
+          }),
+        });
+
+        if (docsResponse.ok) {
+          docResult = await docsResponse.json();
+          console.log("Client: Docs API success!", docResult);
+        } else {
+          const errData = await docsResponse.json().catch(() => ({}));
+          throw new Error(errData.error || "Docs API失敗");
+        }
       } catch (docsError: any) {
         console.warn("Client: Docs API failed, falling back to simple upload:", docsError.message);
         // フォールバック: シンプルなテキストアップロード
