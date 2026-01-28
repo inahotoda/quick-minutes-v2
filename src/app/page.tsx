@@ -11,6 +11,7 @@ import ModeSelector from "@/components/ModeSelector";
 import FileUpload from "@/components/FileUpload";
 import TranscriptInput from "@/components/TranscriptInput";
 import MinutesEditor from "@/components/MinutesEditor";
+import LoadingExperience from "@/components/LoadingExperience";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
 import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile } from "@/lib/drive-client";
@@ -418,6 +419,9 @@ export default function Home() {
 
   return (
     <main className={styles.main}>
+      {/* Loading Experience */}
+      <LoadingExperience isVisible={appState === "uploading" || appState === "processing"} />
+
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
