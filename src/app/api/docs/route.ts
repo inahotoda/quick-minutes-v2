@@ -103,8 +103,12 @@ export async function POST(request: NextRequest) {
             console.log("[Docs API] Inserting text, length:", fullText.length);
             console.log("[Docs API] First 200 chars:", fullText.substring(0, 200));
 
+            const insertUrl = `https://www.googleapis.com/docs/v1/documents/${documentId}:batchUpdate`;
+            console.log("[Docs API] Insert URL:", insertUrl);
+            console.log("[Docs API] Document ID:", documentId);
+
             const insertResponse = await fetch(
-                `https://www.googleapis.com/docs/v1/documents/${documentId}:batchUpdate`,
+                insertUrl,
                 {
                     method: "POST",
                     headers: {
@@ -117,10 +121,21 @@ export async function POST(request: NextRequest) {
                 }
             );
 
+            console.log("[Docs API] Insert response status:", insertResponse.status);
+
             if (!insertResponse.ok) {
-                const errData = await insertResponse.json().catch(() => ({}));
-                console.error("[Docs API] Insert text failed:", insertResponse.status, JSON.stringify(errData));
-                insertError = `テキスト挿入失敗 (${insertResponse.status}): ${errData.error?.message || "unknown"}`;
+                const errText = await insertResponse.text();
+                console.error("[Docs API] Insert text failed, status:", insertResponse.status);
+                console.error("[Docs API] Full error response:", errText);
+                // Parse error message from JSON if possible
+                let errMsg = "unknown";
+                try {
+                    const errJson = JSON.parse(errText);
+                    errMsg = errJson.error?.message || errText.substring(0, 200);
+                } catch {
+                    errMsg = errText.substring(0, 200);
+                }
+                insertError = `テキスト挿入失敗 (${insertResponse.status}): ${errMsg}`;
             } else {
                 console.log("[Docs API] Text inserted successfully");
 
