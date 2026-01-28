@@ -8,55 +8,126 @@
     gap: 1.5rem;
 }
 
-/* Gemini-style Orb */
+/* Futuristic Orb with Rings */
 .orbContainer {
+    position: relative;
+    width: 120px;
+    height: 120px;
     margin-bottom: 0.5rem;
 }
 
 .orb {
-    width: 64px;
-    height: 64px;
-    border-radius: 50%;
-    background: linear-gradient(135deg,
-            rgba(99, 102, 241, 0.12),
-            rgba(168, 85, 247, 0.08));
+    position: absolute;
+    inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: breathe 3s ease-in-out infinite;
 }
 
 .orbCore {
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #818cf8, #a78bfa);
-    animation: pulse 2s ease-in-out infinite;
+    background: linear-gradient(135deg, #818cf8, #c084fc);
+    box-shadow:
+        0 0 30px rgba(129, 140, 248, 0.6),
+        0 0 60px rgba(168, 85, 247, 0.4),
+        0 0 90px rgba(192, 132, 252, 0.2);
+    animation: corePulse 2s ease-in-out infinite;
 }
 
-@keyframes breathe {
+@keyframes corePulse {
 
     0%,
     100% {
         transform: scale(1);
-        opacity: 0.8;
+        box-shadow: 0 0 30px rgba(129, 140, 248, 0.6), 0 0 60px rgba(168, 85, 247, 0.4);
     }
 
     50% {
-        transform: scale(1.08);
-        opacity: 1;
+        transform: scale(1.1);
+        box-shadow: 0 0 40px rgba(129, 140, 248, 0.8), 0 0 80px rgba(168, 85, 247, 0.5);
     }
 }
 
-@keyframes pulse {
+/* Animated Rings */
+.ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid;
+    animation: ringRotate 8s linear infinite;
+}
 
-    0%,
-    100% {
-        transform: scale(1);
+.ring1 {
+    inset: 10px;
+    border-color: rgba(129, 140, 248, 0.3);
+    animation-duration: 12s;
+}
+
+.ring2 {
+    inset: 20px;
+    border-color: rgba(168, 85, 247, 0.2);
+    animation-duration: 8s;
+    animation-direction: reverse;
+}
+
+.ring3 {
+    inset: 0;
+    border-color: rgba(192, 132, 252, 0.15);
+    animation-duration: 16s;
+}
+
+@keyframes ringRotate {
+    from {
+        transform: rotate(0deg);
     }
 
-    50% {
-        transform: scale(1.15);
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Orbiting Particles */
+.particle {
+    position: absolute;
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: #a78bfa;
+}
+
+.particle1 {
+    top: 50%;
+    left: 0;
+    animation: orbit1 4s linear infinite;
+    box-shadow: 0 0 8px #a78bfa;
+}
+
+.particle2 {
+    top: 0;
+    left: 50%;
+    animation: orbit2 6s linear infinite;
+    background: #818cf8;
+    box-shadow: 0 0 8px #818cf8;
+}
+
+@keyframes orbit1 {
+    from {
+        transform: rotate(0deg) translateX(58px) rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg) translateX(58px) rotate(-360deg);
+    }
+}
+
+@keyframes orbit2 {
+    from {
+        transform: rotate(0deg) translateX(48px) rotate(0deg);
+    }
+
+    to {
+        transform: rotate(-360deg) translateX(48px) rotate(360deg);
     }
 }
 
@@ -90,7 +161,8 @@
     font-size: 2.5rem;
     font-weight: 300;
     color: white;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 20px rgba(129, 140, 248, 0.3);
 }
 
 .progressTrack {
@@ -103,9 +175,21 @@
 
 .progressFill {
     height: 100%;
-    background: linear-gradient(90deg, #818cf8, #a78bfa, #c084fc);
+    background: linear-gradient(90deg, #818cf8, #a78bfa, #c084fc, #a78bfa, #818cf8);
+    background-size: 200% 100%;
     border-radius: 2px;
     transition: width 1s linear;
+    animation: shimmer 3s linear infinite;
+}
+
+@keyframes shimmer {
+    from {
+        background-position: 200% 0;
+    }
+
+    to {
+        background-position: -200% 0;
+    }
 }
 
 /* Message */

@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import styles from "./ProcessingScreen.module.css";
 
-// Geminiスタイルのメッセージ（絵文字なし、洗練された表現）
 const MESSAGES = [
     "ゆっくり深呼吸してみましょう。4秒吸って、4秒止めて、4秒で吐く。",
     "遠くを見つめて目を休ませましょう。20秒で疲れが和らぎます。",
@@ -47,8 +46,13 @@ export default function ProcessingScreen() {
 
     return (
         <div className={styles.container}>
-            {/* Gemini-style orb */}
+            {/* Futuristic Orb with Rings and Particles */}
             <div className={styles.orbContainer}>
+                <div className={`${styles.ring} ${styles.ring3}`} />
+                <div className={`${styles.ring} ${styles.ring1}`} />
+                <div className={`${styles.ring} ${styles.ring2}`} />
+                <div className={`${styles.particle} ${styles.particle1}`} />
+                <div className={`${styles.particle} ${styles.particle2}`} />
                 <div className={styles.orb}>
                     <div className={styles.orbCore} />
                 </div>
