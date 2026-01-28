@@ -4,7 +4,6 @@ import { lexer } from "marked";
  * Google Docs API 向けに Markdown を解析し、BatchUpdate リクエストを生成する
  */
 export async function createGoogleDocFromMarkdown(title: string, markdown: string, folderId: string, accessToken: string) {
-    // 1. 空のドキュメントを作成
     const createResponse = await fetch("https://www.googleapis.com/drive/v3/files?supportsAllDrives=true", {
         method: "POST",
         headers: {
@@ -17,6 +16,11 @@ export async function createGoogleDocFromMarkdown(title: string, markdown: strin
             parents: [folderId],
         }),
     });
+
+    if (!createResponse.ok) {
+        const errData = await createResponse.json().catch(() => ({}));
+        throw new Error(`ドキュメント作成失敗: ${createResponse.status} - ${errData.error?.message || createResponse.statusText}`);
+    }
 
     const docFile = await createResponse.json();
     const documentId = docFile.id;

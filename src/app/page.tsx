@@ -261,7 +261,7 @@ export default function Home() {
       await createGoogleDocFromMarkdown(
         `${baseFileName}_議事録`,
         minutes,
-        audioRootFolderId,
+        targetFolderId,
         accessToken
       );
 
