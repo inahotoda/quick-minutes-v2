@@ -11,6 +11,7 @@ import ModeSelector from "@/components/ModeSelector";
 import FileUpload from "@/components/FileUpload";
 import TranscriptInput from "@/components/TranscriptInput";
 import MinutesEditor from "@/components/MinutesEditor";
+import ProcessingScreen from "@/components/ProcessingScreen";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
 import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile } from "@/lib/drive-client";
@@ -530,20 +531,7 @@ export default function Home() {
         )}
 
         {appState === "processing" && (
-          <div className={styles.processingScreen}>
-            <div className={styles.processingCircle} />
-
-            <div className={styles.messageContainer}>
-              <h2 className={styles.mainMessage}>会議、お疲れ様でした！</h2>
-              <p className={styles.subMessage}>
-                価値ある対話を、確かな資産に変えています...
-              </p>
-            </div>
-
-            <p className={styles.processingHint}>
-              AIが重要な意思決定と、次のアクションを精緻に抽出しています。まもなくスマートな議事録が完成します。
-            </p>
-          </div>
+          <ProcessingScreen />
         )}
 
         {appState === "editing" && (
