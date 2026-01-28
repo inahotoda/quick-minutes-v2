@@ -13,8 +13,7 @@ import TranscriptInput from "@/components/TranscriptInput";
 import MinutesEditor from "@/components/MinutesEditor";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
-import { findFolderByName, createFolder, uploadAudioFile } from "@/lib/drive-client";
-import { createGoogleDocFromMarkdown } from "@/lib/docs-client";
+import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile } from "@/lib/drive-client";
 
 // FileをBase64に変換
 const fileToBase64 = (file: File): Promise<string> => {
@@ -256,14 +255,9 @@ export default function Home() {
       const userName = session.user?.name || "不明";
       const baseFileName = `${yyyymmdd}_${modeLabel}_${topic || "会議"}(${userName})`;
 
-      // 4. 議事録(Markdown)をGoogleドキュメントとして保存 (Docs API 使用)
-      console.log("Client: Exporting to Google Docs via API...");
-      await createGoogleDocFromMarkdown(
-        `${baseFileName}_議事録`,
-        minutes,
-        targetFolderId,
-        accessToken
-      );
+      // 4. 議事録をGoogleドキュメントとして保存
+      console.log("Client: Uploading minutes as Google Doc...");
+      await uploadMarkdownAsDoc(`${baseFileName}_議事録`, minutes, targetFolderId, accessToken);
 
       // 5. 録音音声データがある場合は保存
       if (recorder.audioBlob) {
