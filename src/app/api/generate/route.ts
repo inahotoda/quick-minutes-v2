@@ -41,37 +41,29 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const { mode, transcript, audioData, uploadedFiles, date } = body;
-        console.log("POST /api/generate: received request", { mode, date, hasAudio: !!audioData, hasTranscript: !!transcript, uploadedFilesCount: uploadedFiles?.length });
+        console.log("🚀 [API] Start processing generation request", {
+            mode,
+            hasAudio: !!audioData,
+            filesCount: uploadedFiles?.length
+        });
 
-        console.log("POST /api/generate: loading custom prompts...");
+        console.log("🚀 [API] Loading custom prompts...");
         const customPrompts = await loadCustomPrompts();
-        console.log("POST /api/generate: loaded custom prompts keys:", Object.keys(customPrompts));
+        console.log("🚀 [API] Custom prompts loaded");
 
-        // Geminiにあるファイルの識別子を収集
         const geminiFiles: string[] = [];
+        if (audioData?.fileId) geminiFiles.push(audioData.fileId);
+        if (uploadedFiles) uploadedFiles.forEach((f: any) => { if (f.fileId) geminiFiles.push(f.fileId); });
 
-        if (audioData?.fileId) {
-            geminiFiles.push(audioData.fileId);
-        }
-
-        if (uploadedFiles && uploadedFiles.length > 0) {
-            for (const file of uploadedFiles) {
-                if (file.fileId) {
-                    geminiFiles.push(file.fileId);
-                }
-            }
-        }
-
-        // 1. Wait for all files to be active
         if (geminiFiles.length > 0) {
-            console.log("POST /api/generate: waiting for files to be active:", geminiFiles);
+            console.log("🚀 [API] Phase 1: Waiting for Gemini files to be ACTIVE...");
             await waitForFileActive(geminiFiles);
-            console.log("POST /api/generate: files are active");
+            console.log("🚀 [API] Phase 1: Complete");
         }
 
         const stream = new ReadableStream({
             async start(controller) {
-                console.log("POST /api/generate: stream starting");
+                console.log("🚀 [API] Phase 2: Starting generation stream...");
                 try {
                     const genStream = generateEverythingStream({
                         mode: mode as MeetingMode,
@@ -83,16 +75,17 @@ export async function POST(request: NextRequest) {
                     });
 
                     let chunkCount = 0;
-                    // 1パスで全てのデータを流し込む（Geminiが[MINUTES_START]から順に出力する）
                     for await (const chunk of genStream) {
-                        if (chunkCount === 0) console.log("POST /api/generate: received first chunk from Gemini");
+                        if (chunkCount === 0) {
+                            console.log("🚀 [API] SUCCESS: Received FIRST chunk from Gemini!");
+                        }
                         chunkCount++;
                         controller.enqueue(encoder.encode(chunk));
                     }
-                    console.log(`POST /api/generate: stream finished. Total chunks: ${chunkCount}`);
+                    console.log(`🚀 [API] Generation finished. Total chunks: ${chunkCount}`);
                     controller.close();
                 } catch (error) {
-                    console.error("POST /api/generate: Stream error:", error);
+                    console.error("❌ [API] Stream generation error:", error);
                     controller.error(error);
                 }
             },

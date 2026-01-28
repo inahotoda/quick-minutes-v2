@@ -186,6 +186,12 @@ export default function Home() {
           const chunk = textDecoder.decode(value, { stream: true });
           fullText += chunk;
 
+          // モデルバージョンの抽出
+          const modelMatch = fullText.match(/\[MODEL_VERSION:([\s\S]*?)\]/);
+          if (modelMatch) {
+            setModelVersion(modelMatch[1]);
+          }
+
           // 議事録パートの抽出
           const minutesMatch = fullText.match(/\[MINUTES_START\]([\s\S]*?)(\[MINUTES_END\]|$)/);
           if (minutesMatch) {

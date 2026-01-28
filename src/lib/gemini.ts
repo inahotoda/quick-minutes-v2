@@ -5,7 +5,7 @@ import { MeetingMode } from "@/types";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY || "");
 
-export const GEMINI_MODEL = "Gemini Flash Latest";
+export const GEMINI_MODEL = "Gemini 3.0 Flash";
 const MODEL_NAME = "gemini-flash-latest";
 
 
@@ -38,19 +38,30 @@ interface GenerateStreamParams {
  * ファイルのステータスが Active になるまで待機する
  */
 export async function waitForFileActive(fileNames: string[]) {
-    console.log("Waiting for files to be active:", fileNames);
-    for (const name of fileNames) {
+    console.log(`🚀 [Gemini] Waiting for ${fileNames.length} files to be ACTIVE...`);
+
+    const checkFile = async (name: string) => {
         let file = await fileManager.getFile(name);
+        const startTime = Date.now();
+        const MAX_WAIT = 120_000; // 2分
+
         while (file.state === FileState.PROCESSING) {
-            process.stdout.write(".");
+            if (Date.now() - startTime > MAX_WAIT) {
+                console.warn(`⚠️ [Gemini] Timeout waiting for file: ${name}`);
+                break;
+            }
             await new Promise((resolve) => setTimeout(resolve, 2_000));
             file = await fileManager.getFile(name);
         }
-        if (file.state !== FileState.ACTIVE) {
-            throw Error(`File ${file.name} failed to process`);
+
+        if (file.state === FileState.FAILED) {
+            throw Error(`File ${file.name} failed to process (FAILED state)`);
         }
-    }
-    console.log("All files are active");
+        console.log(`✅ [Gemini] File is now ACTIVE: ${name}`);
+    };
+
+    await Promise.all(fileNames.map(name => checkFile(name)));
+    console.log("🚀 [Gemini] All files are ready to use");
 }
 
 /**
@@ -139,6 +150,13 @@ ${terminologySection}
     }
 
     const result = await model.generateContentStream(contents);
+
+    // モデルの実体バージョンを取得（型定義にない場合があるため any キャスト）
+    const response = await result.response;
+    const actualVersion = (response as any).modelVersion || "unknown";
+
+    // 最初にモデルバージョンを特殊なタグで送信し、フロントエンドで解析する
+    yield `[MODEL_VERSION:${actualVersion}]`;
 
     for await (const chunk of result.stream) {
         const text = chunk.text();
