@@ -30,7 +30,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v3.7.0";
+const APP_VERSION = "v3.8.0";
 type AppState = "idle" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
