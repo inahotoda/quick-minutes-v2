@@ -151,16 +151,10 @@ ${terminologySection}
 
     const result = await model.generateContentStream(contents);
 
-    // ストリームを先に処理し、データを頁出し
     for await (const chunk of result.stream) {
         const text = chunk.text();
         if (text) yield text;
     }
-
-    // ストリーム完了後にモデルバージョンを取得し、最後に特殊タグで送信
-    const response = await result.response;
-    const actualVersion = (response as any).modelVersion || "unknown";
-    yield `[MODEL_VERSION:${actualVersion}]`;
 }
 
 // 互換性のための古い関数
