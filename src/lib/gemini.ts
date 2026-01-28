@@ -5,8 +5,8 @@ import { MeetingMode } from "@/types";
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY || "");
 
-export const GEMINI_MODEL = "Gemini 1.5 Flash";
-const MODEL_NAME = "gemini-1.5-flash-latest";
+export const GEMINI_MODEL = "Gemini Flash Latest";
+const MODEL_NAME = "gemini-flash-latest";
 
 
 // 生成用パラメータ
