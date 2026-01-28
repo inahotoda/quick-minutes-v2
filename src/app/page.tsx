@@ -30,7 +30,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v3.5.1";
+const APP_VERSION = "v3.6.0";
 type AppState = "idle" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -274,11 +274,38 @@ export default function Home() {
       const userName = session.user?.name || "不明";
       const baseFileName = `${yyyymmdd}_${modeLabel}_${topic || "会議"}(${userName})`;
 
-      // 4. 議事録をGoogleドキュメントとして保存
-      // TODO: Docs API が安定したら有効化する（現在404エラーのため一時無効化）
-      console.log("Client: Uploading minutes as Google Doc (text mode)...");
-      await uploadMarkdownAsDoc(`${baseFileName}_議事録`, minutes, targetFolderId, accessToken);
-      console.log("Client: Minutes uploaded successfully");
+      // 4. 議事録をGoogleドキュメントとして保存 (サーバーサイド Docs API 経由)
+      console.log("Client: Creating styled Google Doc via server-side Docs API...");
+      let docResult: { id: string; webViewLink: string; insertError?: string | null } | null = null;
+
+      try {
+        const docsResponse = await fetch("/api/docs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: `${baseFileName}_議事録`,
+            markdown: minutes,
+            folderId: targetFolderId,
+          }),
+        });
+
+        if (docsResponse.ok) {
+          docResult = await docsResponse.json();
+          console.log("Client: Docs API success!", docResult);
+
+          // insertErrorがある場合は警告を表示しフォールバック
+          if (docResult?.insertError) {
+            console.warn("Client: Docs API insert error:", docResult.insertError);
+          }
+        } else {
+          const errData = await docsResponse.json().catch(() => ({}));
+          throw new Error(errData.error || "Docs API失敗");
+        }
+      } catch (docsError: any) {
+        console.warn("Client: Docs API failed, falling back to simple upload:", docsError.message);
+        // フォールバック: シンプルなテキストアップロード
+        await uploadMarkdownAsDoc(`${baseFileName}_議事録`, minutes, targetFolderId, accessToken);
+      }
 
       // 5. 録音音声データがある場合は保存
       if (recorder.audioBlob) {

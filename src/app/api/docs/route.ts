@@ -103,7 +103,8 @@ export async function POST(request: NextRequest) {
             console.log("[Docs API] Inserting text, length:", fullText.length);
             console.log("[Docs API] First 200 chars:", fullText.substring(0, 200));
 
-            const insertUrl = `https://www.googleapis.com/docs/v1/documents/${documentId}:batchUpdate`;
+            // 正しいエンドポイント: docs.googleapis.com （www.googleapis.com ではない）
+            const insertUrl = `https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`;
             console.log("[Docs API] Insert URL:", insertUrl);
             console.log("[Docs API] Document ID:", documentId);
 
@@ -143,7 +144,7 @@ export async function POST(request: NextRequest) {
                 if (styleRequests.length > 0) {
                     console.log("[Docs API] Applying", styleRequests.length, "style requests");
                     const styleResponse = await fetch(
-                        `https://www.googleapis.com/docs/v1/documents/${documentId}:batchUpdate`,
+                        `https://docs.googleapis.com/v1/documents/${documentId}:batchUpdate`,
                         {
                             method: "POST",
                             headers: {
