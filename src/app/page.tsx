@@ -15,6 +15,7 @@ import ProcessingScreen from "@/components/ProcessingScreen";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
 import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile } from "@/lib/drive-client";
+import { createGoogleDocFromMarkdown } from "@/lib/docs-client";
 
 // FileをBase64に変換
 const fileToBase64 = (file: File): Promise<string> => {
@@ -256,9 +257,23 @@ export default function Home() {
       const userName = session.user?.name || "不明";
       const baseFileName = `${yyyymmdd}_${modeLabel}_${topic || "会議"}(${userName})`;
 
-      // 4. 議事録をGoogleドキュメントとして保存
-      console.log("Client: Uploading minutes as Google Doc...");
-      await uploadMarkdownAsDoc(`${baseFileName}_議事録`, minutes, targetFolderId, accessToken);
+      // 4. 議事録をGoogleドキュメントとして保存 (Docs API でネイティブ変換)
+      console.log("Client: Creating styled Google Doc via Docs API...");
+      let docResult: { id: string; webViewLink: string } | null = null;
+
+      try {
+        docResult = await createGoogleDocFromMarkdown(
+          `${baseFileName}_議事録`,
+          minutes,
+          targetFolderId,
+          accessToken
+        );
+        console.log("Client: Docs API success!", docResult);
+      } catch (docsError: any) {
+        console.warn("Client: Docs API failed, falling back to simple upload:", docsError.message);
+        // フォールバック: シンプルなテキストアップロード
+        await uploadMarkdownAsDoc(`${baseFileName}_議事録`, minutes, targetFolderId, accessToken);
+      }
 
       // 5. 録音音声データがある場合は保存
       if (recorder.audioBlob) {
@@ -280,7 +295,13 @@ export default function Home() {
         }
       }
 
-      alert(`✓ Google Driveに保存しました\nフォルダ: ${dateFolderName}`);
+      // 7. 保存成功: Googleドキュメントを新しいタブで開く
+      if (docResult?.webViewLink) {
+        window.open(docResult.webViewLink, "_blank");
+        alert(`✓ Google Driveに保存しました\nフォルダ: ${dateFolderName}\n\nドキュメントを新しいタブで開きました。`);
+      } else {
+        alert(`✓ Google Driveに保存しました\nフォルダ: ${dateFolderName}`);
+      }
     } catch (err: any) {
       console.error("Client Save error details:", err);
       let msg = err instanceof Error ? err.message : "保存に失敗しました";
