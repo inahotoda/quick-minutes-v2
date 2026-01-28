@@ -1,140 +1,212 @@
+/* Container */
 .container {
     position: fixed;
     inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(8px);
+    background: #050508;
     z-index: 100;
-    animation: fadeIn 0.3s ease;
+    overflow: hidden;
 }
 
-@keyframes fadeIn {
-    from {
-        opacity: 0;
+/* Aurora Background - Ambient Mesh Gradient */
+.auroraContainer {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    filter: blur(80px);
+    opacity: 0.6;
+}
+
+.aurora1 {
+    position: absolute;
+    width: 60vw;
+    height: 60vw;
+    top: -20%;
+    left: -10%;
+    background: radial-gradient(ellipse, rgba(99, 102, 241, 0.4) 0%, transparent 70%);
+    animation: drift1 20s ease-in-out infinite;
+}
+
+.aurora2 {
+    position: absolute;
+    width: 50vw;
+    height: 50vw;
+    bottom: -10%;
+    right: -5%;
+    background: radial-gradient(ellipse, rgba(168, 85, 247, 0.35) 0%, transparent 70%);
+    animation: drift2 25s ease-in-out infinite;
+}
+
+.aurora3 {
+    position: absolute;
+    width: 40vw;
+    height: 40vw;
+    top: 30%;
+    right: 20%;
+    background: radial-gradient(ellipse, rgba(236, 72, 153, 0.25) 0%, transparent 70%);
+    animation: drift3 18s ease-in-out infinite;
+}
+
+@keyframes drift1 {
+
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
     }
 
-    to {
+    50% {
+        transform: translate(5%, 10%) scale(1.1);
+    }
+}
+
+@keyframes drift2 {
+
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    50% {
+        transform: translate(-8%, -5%) scale(1.15);
+    }
+}
+
+@keyframes drift3 {
+
+    0%,
+    100% {
+        transform: translate(0, 0) scale(1);
+    }
+
+    50% {
+        transform: translate(10%, -8%) scale(0.95);
+    }
+}
+
+/* Content */
+.content {
+    position: relative;
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-width: 500px;
+    padding: 2rem;
+}
+
+/* Gemini Orb */
+.orbContainer {
+    margin-bottom: 3rem;
+}
+
+.orb {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: linear-gradient(135deg,
+            rgba(99, 102, 241, 0.15),
+            rgba(168, 85, 247, 0.1),
+            rgba(236, 72, 153, 0.08));
+    backdrop-filter: blur(20px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: breathe 4s ease-in-out infinite;
+    box-shadow:
+        0 0 60px rgba(99, 102, 241, 0.2),
+        inset 0 0 30px rgba(255, 255, 255, 0.05);
+}
+
+.orbInner {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #818cf8, #a78bfa, #ec4899);
+    animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes breathe {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.8;
+    }
+
+    50% {
+        transform: scale(1.05);
         opacity: 1;
     }
 }
 
-.card {
-    background: linear-gradient(145deg, rgba(30, 30, 40, 0.95), rgba(20, 20, 30, 0.98));
-    border: 1px solid rgba(129, 140, 248, 0.2);
-    border-radius: 24px;
-    padding: 2.5rem;
-    max-width: 480px;
-    width: 90%;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-}
+@keyframes pulse {
 
-.header {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 0.9;
+    }
 
-.spinner {
-    width: 24px;
-    height: 24px;
-    border: 3px solid rgba(129, 140, 248, 0.2);
-    border-top-color: #818cf8;
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    to {
-        transform: rotate(360deg);
+    50% {
+        transform: scale(1.2);
+        opacity: 1;
     }
 }
 
-.headerText {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: white;
-    letter-spacing: 0.02em;
-}
-
-.progressWrapper {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
+/* Status Text */
+.status {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 1rem;
+    font-weight: 400;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.7);
     margin-bottom: 2rem;
 }
 
-.progressBar {
-    flex: 1;
-    height: 8px;
+/* Progress Bar */
+.progressContainer {
+    width: 200px;
+    margin-bottom: 3rem;
+}
+
+.progressTrack {
+    height: 2px;
     background: rgba(255, 255, 255, 0.1);
-    border-radius: 4px;
+    border-radius: 1px;
     overflow: hidden;
 }
 
 .progressFill {
     height: 100%;
-    background: linear-gradient(90deg, #818cf8, #a78bfa, #c084fc);
-    border-radius: 4px;
+    background: linear-gradient(90deg,
+            rgba(99, 102, 241, 0.8),
+            rgba(168, 85, 247, 0.8),
+            rgba(236, 72, 153, 0.8));
+    border-radius: 1px;
     transition: width 1s linear;
-    box-shadow: 0 0 20px rgba(129, 140, 248, 0.5);
 }
 
-.timer {
-    font-family: var(--font-mono, monospace);
-    font-size: 0.9rem;
-    color: rgba(255, 255, 255, 0.6);
-    min-width: 45px;
+/* Contemplative Message */
+.message {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 0.95rem;
+    font-weight: 300;
+    letter-spacing: 0.04em;
+    line-height: 1.8;
+    color: rgba(255, 255, 255, 0.5);
+    text-align: center;
+    max-width: 320px;
+    transition: opacity 0.8s ease, transform 0.8s ease;
 }
 
-.messageCard {
-    display: flex;
-    gap: 1.25rem;
-    padding: 1.5rem;
-    background: rgba(255, 255, 255, 0.03);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 16px;
-    margin-bottom: 1.5rem;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-.messageCard.in {
+.fadeIn {
     opacity: 1;
     transform: translateY(0);
 }
 
-.messageCard.out {
+.fadeOut {
     opacity: 0;
-    transform: translateY(-10px);
-}
-
-.messageEmoji {
-    font-size: 2.5rem;
-    line-height: 1;
-}
-
-.messageContent {
-    flex: 1;
-}
-
-.messageTitle {
-    font-size: 1rem;
-    font-weight: 700;
-    color: white;
-    margin-bottom: 0.5rem;
-}
-
-.messageBody {
-    font-size: 0.9rem;
-    line-height: 1.6;
-    color: rgba(255, 255, 255, 0.7);
-}
-
-.hint {
-    text-align: center;
-    font-size: 0.75rem;
-    color: rgba(255, 255, 255, 0.4);
+    transform: translateY(-8px);
 }
