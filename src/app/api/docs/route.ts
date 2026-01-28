@@ -98,8 +98,11 @@ export async function POST(request: NextRequest) {
         }
 
         // 3. テキストを挿入
+        let insertError: string | null = null;
         if (fullText.trim()) {
             console.log("[Docs API] Inserting text, length:", fullText.length);
+            console.log("[Docs API] First 200 chars:", fullText.substring(0, 200));
+
             const insertResponse = await fetch(
                 `https://www.googleapis.com/docs/v1/documents/${documentId}:batchUpdate`,
                 {
@@ -116,8 +119,8 @@ export async function POST(request: NextRequest) {
 
             if (!insertResponse.ok) {
                 const errData = await insertResponse.json().catch(() => ({}));
-                console.error("[Docs API] Insert text failed:", insertResponse.status, errData);
-                // テキスト挿入失敗しても空のドキュメントは作成済み
+                console.error("[Docs API] Insert text failed:", insertResponse.status, JSON.stringify(errData));
+                insertError = `テキスト挿入失敗 (${insertResponse.status}): ${errData.error?.message || "unknown"}`;
             } else {
                 console.log("[Docs API] Text inserted successfully");
 
@@ -144,6 +147,9 @@ export async function POST(request: NextRequest) {
                     }
                 }
             }
+        } else {
+            console.warn("[Docs API] No text to insert! Markdown parsing may have failed.");
+            insertError = "Markdown解析結果が空です";
         }
 
         // 5. webViewLink を取得
@@ -158,8 +164,8 @@ export async function POST(request: NextRequest) {
             if (data.webViewLink) webViewLink = data.webViewLink;
         }
 
-        console.log("[Docs API] Complete, webViewLink:", webViewLink);
-        return NextResponse.json({ id: documentId, webViewLink });
+        console.log("[Docs API] Complete, webViewLink:", webViewLink, "insertError:", insertError);
+        return NextResponse.json({ id: documentId, webViewLink, insertError });
     } catch (error: any) {
         console.error("[Docs API] Error:", error);
         return NextResponse.json({ error: error.message || "不明なエラー" }, { status: 500 });

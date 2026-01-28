@@ -276,7 +276,7 @@ export default function Home() {
 
       // 4. 議事録をGoogleドキュメントとして保存 (サーバーサイド Docs API 経由)
       console.log("Client: Creating styled Google Doc via server-side Docs API...");
-      let docResult: { id: string; webViewLink: string } | null = null;
+      let docResult: { id: string; webViewLink: string; insertError?: string | null } | null = null;
 
       try {
         const docsResponse = await fetch("/api/docs", {
@@ -324,8 +324,20 @@ export default function Home() {
 
       // 7. 保存成功: Googleドキュメントを新しいタブで開く
       if (docResult?.webViewLink) {
-        window.open(docResult.webViewLink, "_blank");
-        alert(`✓ Google Driveに保存しました\nフォルダ: ${dateFolderName}\n\nドキュメントを新しいタブで開きました。`);
+        // insertErrorがある場合は警告を表示
+        if (docResult.insertError) {
+          console.warn("Client: Docs API insert error:", docResult.insertError);
+          alert(`⚠️ ドキュメントは作成されましたが、内容の挿入に問題がありました。\n\n詳細: ${docResult.insertError}\n\n通常のテキスト保存にフォールバックします。`);
+          await uploadMarkdownAsDoc(`${baseFileName}_議事録`, minutes, targetFolderId, accessToken);
+        }
+
+        // ポップアップブロッカー対策: ユーザーアクション直後に開く
+        const newTab = window.open(docResult.webViewLink, "_blank");
+        if (!newTab || newTab.closed) {
+          alert(`✓ Google Driveに保存しました\nフォルダ: ${dateFolderName}\n\n※ ポップアップがブロックされた可能性があります。\nドキュメントURL: ${docResult.webViewLink}`);
+        } else {
+          alert(`✓ Google Driveに保存しました\nフォルダ: ${dateFolderName}`);
+        }
       } else {
         alert(`✓ Google Driveに保存しました\nフォルダ: ${dateFolderName}`);
       }
