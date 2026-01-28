@@ -102,15 +102,109 @@
 
 .preview {
     color: var(--color-text-secondary);
-    font-size: 0.9rem;
-    line-height: 1.7;
+    font-size: 0.95rem;
+    line-height: 1.8;
 }
 
-.preview pre {
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    font-family: inherit;
-    margin: 0;
+/* 固定ヘッダー（サマリー用） */
+.summaryHeader {
+    background: rgba(129, 140, 248, 0.05);
+    border-bottom: 1px solid rgba(129, 140, 248, 0.1);
+    padding: 1rem 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.summaryRow {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 0.5rem;
+}
+
+.summaryItem {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.summaryLabel {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #818cf8;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.summaryValue {
+    font-size: 0.85rem;
+    color: white;
+}
+
+/* Markdown スタイル */
+.preview h1,
+.preview h2,
+.preview h3 {
+    color: white;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+    font-weight: 700;
+}
+
+.preview h1 {
+    font-size: 1.3rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.4rem;
+}
+
+.preview h2 {
+    font-size: 1.15rem;
+}
+
+.preview p {
+    margin-bottom: 1rem;
+}
+
+.preview strong {
+    color: white;
+    font-weight: 700;
+    background: linear-gradient(transparent 70%, rgba(16, 185, 129, 0.2) 70%);
+}
+
+.preview ul,
+.preview ol {
+    margin-bottom: 1rem;
+    padding-left: 1.5rem;
+}
+
+.preview li {
+    margin-bottom: 0.4rem;
+}
+
+/* チェックボックス付きリスト (- [ ] ) のスタイル */
+.preview li input[type="checkbox"] {
+    margin-right: 0.5rem;
+    accent-color: #10b981;
+}
+
+.preview table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1.5rem 0;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.preview th,
+.preview td {
+    padding: 0.75rem 1rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: left;
+}
+
+.preview th {
+    background: rgba(255, 255, 255, 0.05);
+    color: white;
+    font-weight: 600;
 }
 
 .footer {

@@ -3,13 +3,44 @@
 import { useState } from "react";
 import { MeetingMode } from "@/types";
 import styles from "./MinutesEditor.module.css";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+// Markdownからプレーンテキストを抽出（Gmail用など）
+const stripMarkdown = (markdown: string) => {
+    return markdown
+        .replace(/^#+\s+/gm, "") // 見出し
+        .replace(/\*\*(.*?)\*\*/g, "$1") // 太字
+        .replace(/\*(.*?)\*/g, "$1") // 斜体
+        .replace(/`{1,3}[\s\S]*?`{1,3}/g, "") // コード (sフラグの代わり)
+        .replace(/\[(.*?)\]\(.*?\)/g, "$1") // リンク
+        .replace(/- \[( |x)\] /g, "- ") // チェックボックス
+        .replace(/\|/g, " ") // テーブルの罫線
+        .trim();
+};
+
+// コンテンツの冒頭から概要（タイトル、日付、参加者）を抽出
+const extractSummary = (content: string) => {
+    const lines = content.split("\n");
+    let title = "";
+    let date = "";
+    let attendants = "";
+
+    for (const line of lines) {
+        if (!title && (line.startsWith("# ") || line.match(/^【.*】$/))) title = line.replace("# ", "").trim();
+        if (!date && (line.includes("日付") || line.includes("Date"))) date = line.split(":")[1]?.trim() || line.trim();
+        if (!attendants && (line.includes("参加者") || line.includes("出席者") || line.includes("Attendants"))) attendants = line.split(":")[1]?.trim() || line.trim();
+    }
+
+    return { title, date, attendants };
+};
 
 interface MinutesEditorProps {
     content: string;
     mode: MeetingMode;
     onChange: (content: string) => void;
     onSave: () => void;
-    onSendEmail?: () => void;
+    onSendEmail?: (plainText: string) => void;
     onDownloadAudio?: () => void;
     isSaving: boolean;
     isSendingEmail?: boolean;
@@ -28,6 +59,14 @@ export default function MinutesEditor({
     modelVersion,
 }: MinutesEditorProps) {
     const [isEditing, setIsEditing] = useState(false);
+    const summary = extractSummary(content);
+
+    const handleEmailClick = () => {
+        if (!onSendEmail) return;
+        // プレーンテキストに変換して送信
+        const plainText = stripMarkdown(content);
+        onSendEmail(plainText);
+    };
 
     const copyToClipboard = async () => {
         try {
@@ -58,6 +97,26 @@ export default function MinutesEditor({
                 </div>
             </div>
 
+            {/* 会議概要ヘッダー（固定） */}
+            {!isEditing && (summary.title || summary.date) && (
+                <div className={styles.summaryHeader}>
+                    <div className={styles.summaryItem}>
+                        <span className={styles.summaryLabel}>議題:</span>
+                        <span className={styles.summaryValue}>{summary.title || "未設定"}</span>
+                    </div>
+                    <div className={styles.summaryRow}>
+                        <div className={styles.summaryItem}>
+                            <span className={styles.summaryLabel}>日時:</span>
+                            <span className={styles.summaryValue}>{summary.date || "未設定"}</span>
+                        </div>
+                        <div className={styles.summaryItem}>
+                            <span className={styles.summaryLabel}>参加者:</span>
+                            <span className={styles.summaryValue}>{summary.attendants || "未設定"}</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className={styles.content}>
                 {isEditing ? (
                     <textarea
@@ -68,7 +127,9 @@ export default function MinutesEditor({
                     />
                 ) : (
                     <div className={styles.preview}>
-                        <pre>{content}</pre>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {content}
+                        </ReactMarkdown>
                     </div>
                 )}
             </div>
@@ -79,14 +140,14 @@ export default function MinutesEditor({
                     onClick={onSave}
                     disabled={isSaving || isSendingEmail}
                 >
-                    {isSaving ? "保存中..." : "🚀 ドライブに直保存(V2)"}
+                    {isSaving ? "保存中..." : "🚀 ドライブに直保存(V5)"}
                 </button>
 
                 <div className={styles.footerSubActions}>
                     {onSendEmail && (
                         <button
                             className={styles.emailButton}
-                            onClick={onSendEmail}
+                            onClick={handleEmailClick}
                             disabled={isSaving || isSendingEmail}
                         >
                             {isSendingEmail ? "送信中..." : "✉️ メール送信"}

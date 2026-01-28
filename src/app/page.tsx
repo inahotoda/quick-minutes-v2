@@ -277,12 +277,14 @@ export default function Home() {
   };
 
   // Handle email sending
-  const handleSendEmail = async () => {
+  const handleSendEmail = async (plainTextArg?: string) => {
     const to = prompt("送信先のメールアドレスを入力してください：");
     if (!to) return;
 
     setIsSendingEmail(true);
     setError(null);
+
+    const emailContent = typeof plainTextArg === 'string' ? plainTextArg : minutes;
 
     try {
       const topic = extractTopic(minutes);
@@ -294,7 +296,7 @@ export default function Home() {
         body: JSON.stringify({
           to,
           subject,
-          content: minutes,
+          content: emailContent,
         }),
       });
 
@@ -538,13 +540,7 @@ export default function Home() {
             />
 
             <div className={styles.secondaryActions}>
-              <button
-                className={styles.emailButton}
-                onClick={handleSendEmail}
-                disabled={!minutes || isSaving || isSendingEmail}
-              >
-                {isSendingEmail ? "送信中..." : "📧 メールで送信"}
-              </button>
+              <p className={styles.secondaryHint}>※ メールは装飾なしのプレーンテキストで送信されます</p>
             </div>
 
             <button
