@@ -62,20 +62,31 @@ export const authOptions: NextAuthOptions = {
         async jwt({ token, account, user }) {
             // 初回サインイン時
             if (account && user) {
+                // expires_at はUnixタイムスタンプ（秒）で来る
+                const expiresAt = account.expires_at
+                    ? account.expires_at * 1000  // 秒 → ミリ秒
+                    : Date.now() + 3600 * 1000;  // デフォルト1時間
+
+                console.log("[Auth] Initial sign-in, token expires:", new Date(expiresAt).toISOString());
+
                 return {
                     accessToken: account.access_token,
-                    accessTokenExpires: Date.now() + (account.expires_at || 3600) * 1000,
+                    accessTokenExpires: expiresAt,
                     refreshToken: account.refresh_token,
                     user,
                 };
             }
 
-            // トークンがまだ有効ならそのまま返す
-            if (Date.now() < (token.accessTokenExpires as number)) {
+            // トークンがまだ有効ならそのまま返す（5分の余裕を持つ）
+            const expiresAt = token.accessTokenExpires as number;
+            const bufferTime = 5 * 60 * 1000; // 5分前にリフレッシュ
+
+            if (Date.now() < expiresAt - bufferTime) {
                 return token;
             }
 
-            // 有効期限切れならリフレッシュ
+            // 有効期限切れ or 間もなく切れるならリフレッシュ
+            console.log("[Auth] Token expired or expiring soon, refreshing...");
             return refreshAccessToken(token);
         },
         async session({ session, token }: any) {
