@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { MeetingMode } from "@/types";
 import styles from "./MinutesEditor.module.css";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface MinutesEditorProps {
     content: string;
@@ -68,7 +70,9 @@ export default function MinutesEditor({
                     />
                 ) : (
                     <div className={styles.preview}>
-                        <pre>{content}</pre>
+                        <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                            {content}
+                        </ReactMarkdown>
                     </div>
                 )}
             </div>
@@ -79,7 +83,7 @@ export default function MinutesEditor({
                     onClick={onSave}
                     disabled={isSaving || isSendingEmail}
                 >
-                    {isSaving ? "保存中..." : "🚀 ドライブに直保存(V2)"}
+                    {isSaving ? "保存中..." : "🚀 ドライブに直保存(V3)"}
                 </button>
 
                 <div className={styles.footerSubActions}>

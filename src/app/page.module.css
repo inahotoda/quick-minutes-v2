@@ -67,6 +67,16 @@
     font-size: 1.1rem;
 }
 
+.versionBadge {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 0.2rem 0.6rem;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-top: -1rem;
+}
+
 /* Header */
 .header {
     display: flex;
@@ -325,6 +335,7 @@
     background: linear-gradient(135deg, #fff, #a5b4fc);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
+    background-clip: text;
     letter-spacing: -0.02em;
 }
 

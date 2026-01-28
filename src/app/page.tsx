@@ -13,7 +13,8 @@ import TranscriptInput from "@/components/TranscriptInput";
 import MinutesEditor from "@/components/MinutesEditor";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
-import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile } from "@/lib/drive-client";
+import { findFolderByName, createFolder, uploadAudioFile } from "@/lib/drive-client";
+import { createGoogleDocFromMarkdown } from "@/lib/docs-client";
 
 // FileをBase64に変換
 const fileToBase64 = (file: File): Promise<string> => {
@@ -29,7 +30,21 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
+const APP_VERSION = "v3.0.0";
 type AppState = "idle" | "recording" | "uploading" | "processing" | "editing";
+
+// Markdownからプレーンテキストを抽出
+const stripMarkdown = (markdown: string) => {
+  return markdown
+    .replace(/^#+\s+/gm, "")
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`{1,3}[\s\S]*?`{1,3}/g, "")
+    .replace(/\[(.*?)\]\(.*?\)/g, "$1")
+    .replace(/- \[( |x)\] /g, "- ")
+    .replace(/\|/g, " ")
+    .trim();
+};
 
 export default function Home() {
   const { data: session, status } = useSession();
@@ -235,9 +250,14 @@ export default function Home() {
       const userName = session.user?.name || "不明";
       const baseFileName = `${yyyymmdd}_${modeLabel}_${topic || "会議"}(${userName})`;
 
-      // 4. 議事録を保存 (Google Docとして)
-      console.log("Client: Uploading minutes doc...");
-      await uploadMarkdownAsDoc(`${baseFileName}_議事録`, minutes, targetFolderId, accessToken);
+      // 4. 議事録(Markdown)をGoogleドキュメントとして保存 (Docs API 使用)
+      console.log("Client: Exporting to Google Docs via API...");
+      await createGoogleDocFromMarkdown(
+        `${baseFileName}_議事録`,
+        minutes,
+        audioRootFolderId,
+        accessToken
+      );
 
       // 5. 録音音声データがある場合は保存
       if (recorder.audioBlob) {
@@ -287,6 +307,7 @@ export default function Home() {
     try {
       const topic = extractTopic(minutes);
       const subject = `【議事録】${topic || "会議"}`;
+      const plainContent = stripMarkdown(minutes);
 
       const response = await fetch("/api/mail/send", {
         method: "POST",
@@ -294,7 +315,7 @@ export default function Home() {
         body: JSON.stringify({
           to,
           subject,
-          content: minutes,
+          content: plainContent,
         }),
       });
 
@@ -388,6 +409,7 @@ export default function Home() {
           <p className={styles.tagline}>
             AIが議事録を自動生成
           </p>
+          <div className={styles.versionBadge}>{APP_VERSION}</div>
           <LoginButton />
         </div>
       </main>
