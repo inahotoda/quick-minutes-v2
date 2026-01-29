@@ -54,6 +54,11 @@
     filter: drop-shadow(0 4px 20px rgba(99, 102, 241, 0.4));
 }
 
+.logoImage {
+    filter: drop-shadow(0 4px 20px rgba(99, 102, 241, 0.3));
+    object-fit: contain;
+}
+
 .logo h1 {
     font-size: 2rem;
     background: linear-gradient(135deg, #fff, #a5b4fc);
@@ -95,6 +100,10 @@
 
 .logoSmall {
     font-size: 1.5rem;
+}
+
+.headerLogoImage {
+    object-fit: contain;
 }
 
 .appName {

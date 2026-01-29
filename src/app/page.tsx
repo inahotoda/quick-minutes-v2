@@ -12,6 +12,7 @@ import FileUpload from "@/components/FileUpload";
 import TranscriptInput from "@/components/TranscriptInput";
 import MinutesEditor from "@/components/MinutesEditor";
 import ProcessingScreen from "@/components/ProcessingScreen";
+import Image from "next/image";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
 import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile, uploadPdfFile } from "@/lib/drive-client";
@@ -30,7 +31,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.2.0";
+const APP_VERSION = "v4.3.0";
 type AppState = "idle" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -505,8 +506,8 @@ export default function Home() {
       <main className={styles.main}>
         <div className={styles.loginContainer}>
           <div className={styles.logo}>
-            <span className={styles.logoIcon}>📝</span>
-            <h1>INAHO議事録</h1>
+            <Image src="/inaho-logo.png" alt="INAHO" width={120} height={100} className={styles.logoImage} />
+            <h1>議事録</h1>
           </div>
           <p className={styles.tagline}>
             AIが議事録を自動生成
@@ -523,8 +524,8 @@ export default function Home() {
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
-          <span className={styles.logoSmall}>📝</span>
-          <span className={styles.appName}>INAHO議事録</span>
+          <Image src="/inaho-logo.png" alt="INAHO" width={32} height={28} className={styles.headerLogoImage} />
+          <span className={styles.appName}>議事録</span>
         </div>
         <div className={styles.headerRight}>
           <button
