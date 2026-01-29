@@ -78,8 +78,17 @@
 
 .content {
     padding: 1.25rem;
-    max-height: 400px;
+    max-height: 50vh;
+    /* スマホ用デフォルト */
     overflow-y: auto;
+}
+
+/* PC画面での表示エリア拡大 */
+@media (min-width: 768px) {
+    .content {
+        max-height: 70vh;
+        padding: 1.5rem 2rem;
+    }
 }
 
 .editor {
