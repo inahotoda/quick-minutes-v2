@@ -73,25 +73,77 @@ export async function POST(request: NextRequest) {
                     },
                 });
             } else if (token.type === "table") {
-                // テーブルをチェックリスト形式に変換
+                // テーブルのヘッダーを解析
                 const header = t.header || [];
                 const rows = t.rows || [];
+                const headerTexts = header.map((h: any) => (h.text || h.raw || "").toLowerCase());
+
+                // タスクテーブルかどうかを判定（ヘッダーにタスク関連キーワードがあるか）
+                const isTaskTable = headerTexts.some((h: string) =>
+                    /タスク|実行|担当|期限|action|task|todo|due/i.test(h)
+                );
+
+                console.log("[Docs API] Table detected, isTaskTable:", isTaskTable, "headers:", headerTexts);
 
                 for (const row of rows) {
-                    const cells = row.map((cell: any) => cell.text || cell.raw || "").filter((c: string) => c.trim());
-                    if (cells.length > 0) {
+                    const cells = row.map((cell: any) => (cell.text || cell.raw || "").trim()).filter((c: string) => c);
+                    if (cells.length === 0) continue;
+
+                    // タスクテーブルの場合: 実行タスク列の内容でチェックボックスを作成
+                    if (isTaskTable && cells.length >= 2) {
                         const start = fullText.length + 1;
-                        // 各セルを「項目: 値」形式でまとめる
+
+                        // 見やすい1行形式に整形: 「タスク内容 (担当: ○○ / 期限: ○○)」
+                        let taskLine = "";
+                        const taskIdx = headerTexts.findIndex((h: string) => /タスク|実行|action|task/i.test(h));
+                        const assigneeIdx = headerTexts.findIndex((h: string) => /担当|assignee|who/i.test(h));
+                        const dueIdx = headerTexts.findIndex((h: string) => /期限|due|when|date/i.test(h));
+                        const decisionIdx = headerTexts.findIndex((h: string) => /決定|decision/i.test(h));
+
+                        // タスク内容
+                        if (taskIdx >= 0 && cells[taskIdx] && cells[taskIdx] !== "-") {
+                            taskLine = cells[taskIdx];
+                        } else if (decisionIdx >= 0 && cells[decisionIdx]) {
+                            taskLine = cells[decisionIdx];
+                        } else {
+                            // 最初の意味のあるセルを使用
+                            taskLine = cells.find((c: string) => c && c !== "-") || cells.join(" / ");
+                        }
+
+                        // 担当者・期限を追加
+                        const meta: string[] = [];
+                        if (assigneeIdx >= 0 && cells[assigneeIdx] && cells[assigneeIdx] !== "-") {
+                            meta.push(`担当: ${cells[assigneeIdx]}`);
+                        }
+                        if (dueIdx >= 0 && cells[dueIdx] && cells[dueIdx] !== "-") {
+                            meta.push(`期限: ${cells[dueIdx]}`);
+                        }
+
+                        if (meta.length > 0) {
+                            taskLine += ` (${meta.join(" / ")})`;
+                        }
+
+                        fullText += taskLine + "\n";
+                        const end = fullText.length + 1;
+
+                        // チェックボックスとして追加
+                        styleRequests.push({
+                            createParagraphBullets: {
+                                range: { startIndex: start, endIndex: end },
+                                bulletPreset: "BULLET_CHECKBOX_PRESET",
+                            },
+                        });
+                    } else {
+                        // 通常のテーブル行は箇条書き
+                        const start = fullText.length + 1;
                         const rowContent = cells.join(" / ");
                         fullText += rowContent + "\n";
                         const end = fullText.length + 1;
 
-                        // タスク関連のキーワードがあればチェックボックス化
-                        const isTask = /task|todo|タスク|実行|アクション|to do/i.test(rowContent);
                         styleRequests.push({
                             createParagraphBullets: {
                                 range: { startIndex: start, endIndex: end },
-                                bulletPreset: isTask ? "BULLET_CHECKBOX_PRESET" : "BULLET_DISC_CIRCLE_SQUARE",
+                                bulletPreset: "BULLET_DISC_CIRCLE_SQUARE",
                             },
                         });
                     }
