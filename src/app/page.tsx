@@ -14,7 +14,7 @@ import MinutesEditor from "@/components/MinutesEditor";
 import ProcessingScreen from "@/components/ProcessingScreen";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
-import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile } from "@/lib/drive-client";
+import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile, uploadPdfFile } from "@/lib/drive-client";
 
 // FileをBase64に変換
 const fileToBase64 = (file: File): Promise<string> => {
@@ -30,7 +30,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.1.0";
+const APP_VERSION = "v4.2.0";
 type AppState = "idle" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -274,36 +274,89 @@ export default function Home() {
       const userName = session.user?.name || "不明";
       const baseFileName = `${yyyymmdd}_${modeLabel}_${topic || "会議"}(${userName})`;
 
-      // 4. 議事録をGoogleドキュメントとして保存 (サーバーサイド Docs API 経由)
-      console.log("Client: Creating styled Google Doc via server-side Docs API...");
-      let docResult: { id: string; webViewLink: string; insertError?: string | null } | null = null;
+      // 4. 議事録をPDFとして保存
+      console.log("Client: Generating PDF from minutes...");
 
-      try {
-        const docsResponse = await fetch("/api/docs", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            title: `${baseFileName}_議事録`,
-            markdown: minutes,
-            folderId: targetFolderId,
-          }),
-        });
+      // html2pdfをdynamic importで読み込む
+      const html2pdf = (await import("html2pdf.js")).default;
 
-        if (docsResponse.ok) {
-          docResult = await docsResponse.json();
-          console.log("Client: Docs API success!", docResult);
+      // 議事録プレビュー要素を取得（MinutesEditorのプレビュー部分）
+      const previewElement = document.querySelector('[data-minutes-preview]');
 
-          // insertErrorがある場合は警告を表示しフォールバック
-          if (docResult?.insertError) {
-            console.warn("Client: Docs API insert error:", docResult.insertError);
+      if (previewElement) {
+        // PDF生成用の一時スタイルを適用（白背景・黒文字）
+        const originalStyle = (previewElement as HTMLElement).getAttribute('style') || '';
+        (previewElement as HTMLElement).style.cssText = `
+          background: white !important;
+          color: #333 !important;
+          padding: 20px !important;
+          font-size: 12pt !important;
+          line-height: 1.6 !important;
+        `;
+
+        // テーブルや見出しのスタイルも調整
+        const styleSheet = document.createElement('style');
+        styleSheet.id = 'pdf-print-styles';
+        styleSheet.textContent = `
+          [data-minutes-preview] * { color: #333 !important; }
+          [data-minutes-preview] h1, [data-minutes-preview] h2, [data-minutes-preview] h3 { 
+            color: #111 !important; 
+            border-bottom: 1px solid #ccc !important; 
+            padding-bottom: 0.5rem !important;
           }
-        } else {
-          const errData = await docsResponse.json().catch(() => ({}));
-          throw new Error(errData.error || "Docs API失敗");
-        }
-      } catch (docsError: any) {
-        console.warn("Client: Docs API failed, falling back to simple upload:", docsError.message);
-        // フォールバック: シンプルなテキストアップロード
+          [data-minutes-preview] table { 
+            border: 1px solid #ddd !important; 
+            background: #fafafa !important;
+          }
+          [data-minutes-preview] th { 
+            background: #e8e8e8 !important; 
+            color: #111 !important;
+            font-weight: bold !important;
+          }
+          [data-minutes-preview] td, [data-minutes-preview] th { 
+            border: 1px solid #ddd !important; 
+            padding: 8px !important;
+          }
+          [data-minutes-preview] strong { color: #111 !important; }
+        `;
+        document.head.appendChild(styleSheet);
+
+        // PDF生成オプション
+        const pdfOptions = {
+          margin: [10, 15, 10, 15] as [number, number, number, number],
+          filename: `${baseFileName}_議事録.pdf`,
+          image: { type: 'jpeg' as const, quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            letterRendering: true,
+            backgroundColor: '#ffffff'
+          },
+          jsPDF: {
+            unit: 'mm',
+            format: 'a4',
+            orientation: 'portrait' as const
+          }
+        };
+
+        // PDFを生成してBlobとして取得
+        const pdfBlob = await html2pdf()
+          .set(pdfOptions)
+          .from(previewElement as HTMLElement)
+          .outputPdf('blob');
+
+        // 一時スタイルを元に戻す
+        (previewElement as HTMLElement).setAttribute('style', originalStyle);
+        document.getElementById('pdf-print-styles')?.remove();
+
+        console.log("Client: PDF generated, size:", pdfBlob.size, "bytes");
+
+        // Google Driveにアップロード
+        await uploadPdfFile(`${baseFileName}_議事録.pdf`, pdfBlob, targetFolderId, accessToken);
+        console.log("Client: PDF uploaded to Drive");
+      } else {
+        // プレビュー要素が見つからない場合はテキストとして保存
+        console.warn("Client: Preview element not found, falling back to text upload");
         await uploadMarkdownAsDoc(`${baseFileName}_議事録`, minutes, targetFolderId, accessToken);
       }
 

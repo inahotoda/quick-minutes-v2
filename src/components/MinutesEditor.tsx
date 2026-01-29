@@ -69,7 +69,7 @@ export default function MinutesEditor({
                         rows={20}
                     />
                 ) : (
-                    <div className={styles.preview}>
+                    <div className={styles.preview} data-minutes-preview>
                         <ReactMarkdown remarkPlugins={[remarkGfm]}>
                             {content}
                         </ReactMarkdown>

@@ -106,3 +106,8 @@ async function resumableUpload(
 
     return await uploadResponse.json();
 }
+
+export async function uploadPdfFile(name: string, pdfBlob: Blob, folderId: string, accessToken: string) {
+    // PDFとしてそのままアップロード
+    return await resumableUpload(name, pdfBlob, folderId, accessToken, "application/pdf", "application/pdf");
+}
