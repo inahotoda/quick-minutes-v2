@@ -31,7 +31,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.5.0";
+const APP_VERSION = "v4.5.1";
 type AppState = "idle" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -506,7 +506,7 @@ export default function Home() {
       <main className={styles.main}>
         <div className={styles.loginContainer}>
           <div className={styles.logo}>
-            <Image src="/inaho-logo.png" alt="INAHO" width={120} height={128} className={styles.logoImage} />
+            <img src="/inaho-logo.png" alt="INAHO" width={120} height={128} className={styles.logoImage} />
             <h1>議事録</h1>
           </div>
           <p className={styles.tagline}>
@@ -524,7 +524,7 @@ export default function Home() {
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
-          <Image src="/inaho-logo.png" alt="INAHO" width={28} height={30} className={styles.headerLogoImage} />
+          <img src="/inaho-logo.png" alt="INAHO" width={28} height={30} className={styles.headerLogoImage} />
           <span className={styles.appName}>議事録</span>
         </div>
         <div className={styles.headerRight}>
