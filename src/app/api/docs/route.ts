@@ -73,59 +73,86 @@ export async function POST(request: NextRequest) {
                     },
                 });
             } else if (token.type === "table") {
-                // Markdownテーブルを読みやすい形式に変換
+                // テーブルをチェックリスト形式に変換
                 const header = t.header || [];
                 const rows = t.rows || [];
 
-                // 各行をリスト形式で出力
                 for (const row of rows) {
                     const cells = row.map((cell: any) => cell.text || cell.raw || "").filter((c: string) => c.trim());
                     if (cells.length > 0) {
                         const start = fullText.length + 1;
-                        // 最初のセルを太字風に、残りを「: 値」形式で
-                        let rowText = "";
-                        if (header.length >= 2 && cells.length >= 2) {
-                            // ヘッダーがある場合: 「種別: Task」「内容: xxx」のような形式
-                            for (let i = 0; i < cells.length && i < header.length; i++) {
-                                const headerText = header[i]?.text || header[i]?.raw || "";
-                                if (headerText && cells[i]) {
-                                    rowText += `【${headerText.replace(/[|:-]/g, '').trim()}】${cells[i].trim()}\n`;
-                                }
-                            }
-                        } else {
-                            // ヘッダーがない場合はそのまま
-                            rowText = cells.join(" | ") + "\n";
-                        }
-                        fullText += rowText;
+                        // 各セルを「項目: 値」形式でまとめる
+                        const rowContent = cells.join(" / ");
+                        fullText += rowContent + "\n";
                         const end = fullText.length + 1;
 
-                        // 箇条書きスタイルを適用
+                        // タスク関連のキーワードがあればチェックボックス化
+                        const isTask = /task|todo|タスク|実行|アクション|to do/i.test(rowContent);
                         styleRequests.push({
                             createParagraphBullets: {
                                 range: { startIndex: start, endIndex: end },
-                                bulletPreset: "BULLET_DISC_CIRCLE_SQUARE",
+                                bulletPreset: isTask ? "BULLET_CHECKBOX_PRESET" : "BULLET_DISC_CIRCLE_SQUARE",
                             },
                         });
                     }
                 }
-                fullText += "\n"; // テーブル後に空行
+                fullText += "\n";
             } else if (token.type === "list") {
                 for (const item of t.items || []) {
                     const start = fullText.length + 1;
-                    const itemText = item.text || item.raw?.replace(/^[-*]\s*(\[.\])?\s*/, "") || "";
-                    fullText += itemText + "\n";
-                    const end = fullText.length + 1;
+                    let itemText = item.text || item.raw || "";
 
-                    const isChecklist = item.checked !== undefined || /^\[.\]/.test(item.raw || "");
-                    styleRequests.push({
-                        createParagraphBullets: {
-                            range: { startIndex: start, endIndex: end },
-                            bulletPreset: isChecklist ? "BULLET_CHECKBOX_PRESET" : "BULLET_DISC_CIRCLE_SQUARE",
-                        },
-                    });
+                    // チェックリスト形式 `- [ ]` または `- [x]` を検出
+                    const checklistMatch = itemText.match(/^\s*\[[ x]\]\s*/i);
+                    const hasChecklistSyntax = checklistMatch !== null || item.checked !== undefined;
+
+                    // チェックリスト記号を除去
+                    if (checklistMatch) {
+                        itemText = itemText.replace(/^\s*\[[ x]\]\s*/i, "");
+                    }
+                    // 先頭の - * なども除去
+                    itemText = itemText.replace(/^[-*]\s*/, "").trim();
+
+                    if (itemText) {
+                        fullText += itemText + "\n";
+                        const end = fullText.length + 1;
+
+                        // タスク関連キーワードの検出
+                        const isTask = hasChecklistSyntax ||
+                            /担当[:\s：]|期限[:\s：]|タスク|todo|実行タスク|アクション/i.test(itemText);
+
+                        styleRequests.push({
+                            createParagraphBullets: {
+                                range: { startIndex: start, endIndex: end },
+                                bulletPreset: isTask ? "BULLET_CHECKBOX_PRESET" : "BULLET_DISC_CIRCLE_SQUARE",
+                            },
+                        });
+                    }
                 }
             } else if (token.type === "paragraph") {
-                fullText += t.text + "\n\n";
+                // 段落内に【】形式がある場合、箇条書きに変換
+                const text = t.text || "";
+                if (/【[^】]+】/.test(text)) {
+                    // 【】形式を検出 - 各行を箇条書きに
+                    const lines = text.split(/\n/);
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            const start = fullText.length + 1;
+                            fullText += line.trim() + "\n";
+                            const end = fullText.length + 1;
+
+                            const isTask = /担当|期限|タスク|実行/i.test(line);
+                            styleRequests.push({
+                                createParagraphBullets: {
+                                    range: { startIndex: start, endIndex: end },
+                                    bulletPreset: isTask ? "BULLET_CHECKBOX_PRESET" : "BULLET_DISC_CIRCLE_SQUARE",
+                                },
+                            });
+                        }
+                    }
+                } else {
+                    fullText += text + "\n\n";
+                }
             } else if (token.type === "hr") {
                 fullText += "────────────────────────────────\n\n";
             } else if (token.type !== "space") {
