@@ -228,3 +228,157 @@
     color: white;
     border-color: #6366f1;
 }
+
+/* 話者登録 */
+.speakerList {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.speakerList h3 {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    margin-bottom: 0.75rem;
+}
+
+.speakerItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+}
+
+.speakerItem:last-child {
+    margin-bottom: 0;
+}
+
+.speakerName {
+    font-weight: 500;
+}
+
+.speakerStatus {
+    font-size: 0.8rem;
+    color: #10b981;
+}
+
+.deleteButton {
+    padding: 0.3rem 0.6rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: 6px;
+    color: #fca5a5;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.deleteButton:hover {
+    background: rgba(239, 68, 68, 0.3);
+    color: white;
+}
+
+.enrollmentForm {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.nameInput {
+    flex: 1;
+    min-width: 200px;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: white;
+    font-size: 0.95rem;
+}
+
+.nameInput:focus {
+    outline: none;
+    border-color: #6366f1;
+}
+
+.nameInput:disabled {
+    opacity: 0.5;
+}
+
+.recordButton {
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #ef4444, #f97316);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    box-shadow: 0 4px 15px rgba(239, 68, 68, 0.3);
+}
+
+.recordButton:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+}
+
+.recordButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.recordingStatus {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.recordingIndicator {
+    font-weight: 600;
+    color: #ef4444;
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.stopButton {
+    padding: 0.75rem 1.5rem;
+    background: linear-gradient(135deg, #10b981, #059669);
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.stopButton:hover:not(:disabled) {
+    transform: translateY(-2px);
+}
+
+.stopButton:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.note {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin-top: 1rem;
+    line-height: 1.5;
+}
