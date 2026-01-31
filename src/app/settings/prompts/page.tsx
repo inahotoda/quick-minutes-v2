@@ -153,8 +153,12 @@ export default function PromptsSettingsPage() {
                 </section>
 
                 <section className={styles.section}>
-                    <h2>専門用語・固有名詞</h2>
-                    <p className={styles.help}>誤字変換を防ぎたい会社名や専門用語を登録します。参加者名も登録すると話者識別の精度が上がります。</p>
+                    <h2>専門用語・固有名詞・参加者名</h2>
+                    <p className={styles.help}>
+                        誤字変換を防ぎたい会社名や専門用語を登録します。<br />
+                        <strong>💡 ヒント：参加者名を登録すると話者識別の精度が上がります。</strong><br />
+                        会議冒頭で「〇〇です」と自己紹介するルールにすると、より正確に識別できます。
+                    </p>
                     <textarea
                         value={settings.terminology}
                         onChange={(e) => setSettings({ ...settings, terminology: e.target.value })}

@@ -1,0 +1,188 @@
+.overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.modal {
+    background: linear-gradient(135deg, #1a1a2e, #16213e);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 16px;
+    padding: 2rem;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.timeUpHeader,
+.breakHeader {
+    margin-bottom: 1rem;
+}
+
+.timeUpIcon,
+.breakIcon {
+    font-size: 3rem;
+    margin-bottom: 0.5rem;
+    display: block;
+    animation: bounce 1s ease infinite;
+}
+
+@keyframes bounce {
+
+    0%,
+    100% {
+        transform: translateY(0);
+    }
+
+    50% {
+        transform: translateY(-10px);
+    }
+}
+
+.title {
+    font-size: 1.5rem;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin: 0;
+}
+
+.breakTitle {
+    font-size: 1.5rem;
+    color: #fbbf24;
+    margin: 0;
+}
+
+.subtitle {
+    color: rgba(255, 255, 255, 0.6);
+    margin: 0.5rem 0 1.5rem;
+}
+
+.options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.endButton,
+.breakButton,
+.directButton {
+    padding: 1rem;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
+}
+
+.endButton {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: white;
+}
+
+.endButton:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
+}
+
+.breakButton {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+}
+
+.breakButton:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 20px rgba(245, 158, 11, 0.4);
+}
+
+.directButton {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.directButton:hover {
+    background: rgba(239, 68, 68, 0.2);
+    border-color: rgba(239, 68, 68, 0.4);
+}
+
+/* Extend Options */
+.extendOptions {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+.extendButton {
+    flex: 1;
+    padding: 1rem;
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(168, 85, 247, 0.2));
+    border: 1px solid rgba(99, 102, 241, 0.4);
+    border-radius: 12px;
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.extendButton:hover {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    transform: scale(1.05);
+}
+
+.backButton {
+    width: 100%;
+    padding: 0.75rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+}
+
+/* Break Screen */
+.breakCountdown {
+    font-size: 4rem;
+    font-weight: 700;
+    color: #fbbf24;
+    margin: 1.5rem 0;
+    font-family: monospace;
+}
+
+.breakMessage {
+    color: rgba(255, 255, 255, 0.6);
+    margin-bottom: 1.5rem;
+}
+
+.skipBreakButton {
+    padding: 0.75rem 1.5rem;
+    background: transparent;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.7);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.skipBreakButton:hover {
+    background: rgba(255, 255, 255, 0.1);
+}

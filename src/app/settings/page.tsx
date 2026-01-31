@@ -26,11 +26,20 @@ export default function SettingsMenuPage() {
                     <span className={styles.menuArrow}>→</span>
                 </div>
 
-                <div className={styles.menuCard} onClick={() => router.push("/settings/speakers")}>
-                    <div className={styles.menuIcon}>🎤</div>
+                <div className={styles.menuCard} onClick={() => router.push("/settings/members")}>
+                    <div className={styles.menuIcon}>👥</div>
                     <div className={styles.menuInfo}>
-                        <h2>話者登録</h2>
-                        <p>メンバーの声を登録して、議事録の話者識別精度を向上</p>
+                        <h2>メンバー管理</h2>
+                        <p>参加者の声を登録して、話者識別の精度を向上</p>
+                    </div>
+                    <span className={styles.menuArrow}>→</span>
+                </div>
+
+                <div className={styles.menuCard} onClick={() => router.push("/settings/presets")}>
+                    <div className={styles.menuIcon}>📅</div>
+                    <div className={styles.menuInfo}>
+                        <h2>会議プリセット</h2>
+                        <p>定例会議を登録して、参加者を自動設定</p>
                     </div>
                     <span className={styles.menuArrow}>→</span>
                 </div>

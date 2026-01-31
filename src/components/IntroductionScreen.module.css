@@ -1,0 +1,599 @@
+.container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    gap: 2rem;
+    min-height: 60vh;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Background glow effect */
+.container::before {
+    content: "";
+    position: absolute;
+    width: 300px;
+    height: 300px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.15) 0%, transparent 70%);
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: breathe 4s ease-in-out infinite;
+    pointer-events: none;
+}
+
+@keyframes breathe {
+
+    0%,
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.6;
+    }
+
+    50% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 1;
+    }
+}
+
+/* Title Section */
+.titleSection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    z-index: 1;
+}
+
+.icon {
+    font-size: 2.5rem;
+    animation: micPulse 2s ease-in-out infinite;
+}
+
+/* Futuristic AI Icon */
+.aiIcon {
+    position: relative;
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.aiIconCore {
+    width: 24px;
+    height: 24px;
+    background: linear-gradient(135deg, #818cf8, #c084fc);
+    border-radius: 50%;
+    box-shadow: 0 0 20px rgba(129, 140, 248, 0.6), 0 0 40px rgba(192, 132, 252, 0.3);
+    animation: corePulse 2s ease-in-out infinite;
+}
+
+.aiIconRing {
+    position: absolute;
+    width: 50px;
+    height: 50px;
+    border: 2px solid transparent;
+    border-top-color: #818cf8;
+    border-right-color: #c084fc;
+    border-radius: 50%;
+    animation: ringRotate 3s linear infinite;
+}
+
+@keyframes corePulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 20px rgba(129, 140, 248, 0.6), 0 0 40px rgba(192, 132, 252, 0.3);
+    }
+
+    50% {
+        transform: scale(1.1);
+        box-shadow: 0 0 30px rgba(129, 140, 248, 0.8), 0 0 60px rgba(192, 132, 252, 0.5);
+    }
+}
+
+@keyframes ringRotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes micPulse {
+
+    0%,
+    100% {
+        transform: scale(1);
+        filter: drop-shadow(0 0 10px rgba(129, 140, 248, 0.4));
+    }
+
+    50% {
+        transform: scale(1.05);
+        filter: drop-shadow(0 0 20px rgba(129, 140, 248, 0.7));
+    }
+}
+
+.title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #fff, #a5b4fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    letter-spacing: 0.02em;
+}
+
+/* Waveform Visualizer */
+.waveformContainer {
+    width: 100%;
+    max-width: 300px;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    z-index: 1;
+}
+
+.waveBar {
+    width: 4px;
+    background: linear-gradient(180deg, #818cf8, #c084fc);
+    border-radius: 2px;
+    animation: wave 1.2s ease-in-out infinite;
+}
+
+.waveBar:nth-child(1) {
+    height: 20px;
+    animation-delay: 0s;
+}
+
+.waveBar:nth-child(2) {
+    height: 35px;
+    animation-delay: 0.1s;
+}
+
+.waveBar:nth-child(3) {
+    height: 50px;
+    animation-delay: 0.2s;
+}
+
+.waveBar:nth-child(4) {
+    height: 40px;
+    animation-delay: 0.3s;
+}
+
+.waveBar:nth-child(5) {
+    height: 55px;
+    animation-delay: 0.4s;
+}
+
+.waveBar:nth-child(6) {
+    height: 45px;
+    animation-delay: 0.5s;
+}
+
+.waveBar:nth-child(7) {
+    height: 60px;
+    animation-delay: 0.6s;
+}
+
+.waveBar:nth-child(8) {
+    height: 50px;
+    animation-delay: 0.7s;
+}
+
+.waveBar:nth-child(9) {
+    height: 35px;
+    animation-delay: 0.8s;
+}
+
+.waveBar:nth-child(10) {
+    height: 25px;
+    animation-delay: 0.9s;
+}
+
+.waveBar:nth-child(11) {
+    height: 40px;
+    animation-delay: 1.0s;
+}
+
+.waveBar:nth-child(12) {
+    height: 30px;
+    animation-delay: 1.1s;
+}
+
+@keyframes wave {
+
+    0%,
+    100% {
+        transform: scaleY(0.5);
+        opacity: 0.5;
+    }
+
+    50% {
+        transform: scaleY(1);
+        opacity: 1;
+    }
+}
+
+/* Active waveform - when actually recording */
+.waveBarActive {
+    animation: waveActive 0.5s ease-in-out infinite;
+}
+
+@keyframes waveActive {
+
+    0%,
+    100% {
+        transform: scaleY(0.3);
+    }
+
+    50% {
+        transform: scaleY(1.2);
+    }
+}
+
+/* Instructions */
+.instructions {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    z-index: 1;
+}
+
+.instructionText {
+    font-size: 1.1rem;
+    color: rgba(255, 255, 255, 0.9);
+    line-height: 1.6;
+}
+
+.instructionHint {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+/* Timer */
+.timer {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 2rem;
+    font-weight: 300;
+    color: rgba(255, 255, 255, 0.8);
+    letter-spacing: 0.08em;
+    text-shadow: 0 0 20px rgba(129, 140, 248, 0.3);
+    z-index: 1;
+    transition: color 0.3s ease;
+}
+
+.timerWarning {
+    color: #fbbf24;
+    text-shadow: 0 0 20px rgba(251, 191, 36, 0.4);
+}
+
+/* Complete Button */
+.completeButton {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 1rem 2.5rem;
+    border-radius: 50px;
+    border: none;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: white;
+    font-size: 1.1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(34, 197, 94, 0.4);
+    z-index: 1;
+}
+
+.completeButton:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(34, 197, 94, 0.5);
+}
+
+.completeButton:active {
+    transform: translateY(0);
+}
+
+.checkIcon {
+    font-size: 1.2rem;
+}
+
+.startIcon {
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Skip Button */
+.skipButton {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: color 0.2s;
+    z-index: 1;
+}
+
+.skipButton:hover {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+/* Participants indicator */
+.participantsSection {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+    z-index: 1;
+    width: 100%;
+    max-width: 360px;
+}
+
+.participantsHeader {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.participantsLabel {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.addMemberButton {
+    background: none;
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.addMemberButton:hover {
+    border-color: #6366f1;
+    color: #a5b4fc;
+}
+
+.participantsDots {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.participantDot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+.participantDotActive {
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    border-color: #22c55e;
+    box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+}
+
+/* Participant Cards */
+.participantCards {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    justify-content: center;
+    width: 100%;
+}
+
+.participantCard {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.75rem;
+    background: rgba(34, 197, 94, 0.15);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 20px;
+    animation: fadeInScale 0.3s ease;
+}
+
+@keyframes fadeInScale {
+    from {
+        opacity: 0;
+        transform: scale(0.8);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.participantName {
+    font-size: 0.9rem;
+    color: #22c55e;
+    font-weight: 500;
+}
+
+.voiceBadge {
+    font-size: 0.75rem;
+}
+
+.removeButton {
+    width: 18px;
+    height: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.4);
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: all 0.2s;
+}
+
+.removeButton:hover {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+}
+
+.noParticipants {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.4);
+    padding: 0.5rem;
+}
+
+/* Member Picker */
+.memberPicker {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    width: 100%;
+    padding: 0.5rem;
+    background: rgba(30, 30, 50, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    margin-top: 0.5rem;
+}
+
+.memberPickerItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 0.75rem;
+    background: none;
+    border: none;
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.memberPickerItem:hover {
+    background: rgba(99, 102, 241, 0.2);
+}
+
+/* Recognition Section */
+.recognitionSection {
+    min-height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1;
+}
+
+.nameRecognized {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    animation: recognizedPop 0.5s ease;
+}
+
+@keyframes recognizedPop {
+    0% {
+        transform: scale(0.5);
+        opacity: 0;
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+.nameRecognizedIcon {
+    font-size: 1.5rem;
+}
+
+.nameRecognizedText {
+    font-size: 1.5rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, #22c55e, #a5b4fc);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.nameRecognizedLabel {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.listening {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.75rem 1.25rem;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 8px;
+}
+
+.listeningDot {
+    width: 10px;
+    height: 10px;
+    background: #6366f1;
+    border-radius: 50%;
+    animation: blink 1s ease-in-out infinite;
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+}
+
+.listeningText {
+    font-size: 1rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* Responsive */
+@media (max-width: 640px) {
+    .container {
+        padding: 1.5rem 1rem;
+        min-height: 50vh;
+    }
+
+    .title {
+        font-size: 1.25rem;
+    }
+
+    .instructionText {
+        font-size: 1rem;
+    }
+
+    .waveformContainer {
+        max-width: 260px;
+        height: 60px;
+    }
+}

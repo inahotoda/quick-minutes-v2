@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# GCP credentials (NEVER commit these!)
+credentials/*.json
+!credentials/.gitkeep

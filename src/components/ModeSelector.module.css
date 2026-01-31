@@ -1,4 +1,7 @@
 .container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
     padding: 0.5rem;
     background: rgba(30, 30, 40, 0.6);
     border-radius: 16px;
@@ -40,7 +43,146 @@
     box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
 }
 
+.button.locked {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+.button.locked.active {
+    opacity: 1;
+    cursor: default;
+}
+
 .icon {
     font-size: 1.5rem;
     margin-bottom: 0.25rem;
+}
+
+/* Preset Section */
+.presetSection {
+    position: relative;
+}
+
+.presetToggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.presetToggle:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.toggleArrow {
+    font-size: 0.65rem;
+    margin-left: auto;
+}
+
+/* Selected Preset */
+.selectedPreset {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1rem;
+    background: linear-gradient(135deg, rgba(34, 197, 94, 0.15), rgba(16, 185, 129, 0.15));
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    border-radius: 10px;
+    color: #22c55e;
+}
+
+.presetIcon {
+    font-size: 0.9rem;
+}
+
+.presetName {
+    flex: 1;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.clearPreset {
+    padding: 0.2rem 0.5rem;
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.clearPreset:hover {
+    color: white;
+}
+
+/* Preset Dropdown */
+.presetDropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.5rem;
+    background: #1a1a2e;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 12px;
+    padding: 0.5rem;
+    z-index: 100;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    animation: slideDown 0.2s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.presetItem {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+}
+
+.presetItem:hover {
+    background: rgba(99, 102, 241, 0.15);
+    color: white;
+}
+
+.presetItemIcon {
+    font-size: 1.1rem;
+}
+
+.presetItemName {
+    flex: 1;
+}
+
+.presetItemCount {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.5);
 }

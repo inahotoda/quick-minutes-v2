@@ -175,6 +175,11 @@ export function useAudioRecorder() {
         setIsInterrupted(false);
     }, []);
 
+    // Reset only duration (for countdown timer extend)
+    const resetDuration = useCallback(() => {
+        setDuration(0);
+    }, []);
+
     return {
         isRecording,
         isPaused,
@@ -186,6 +191,7 @@ export function useAudioRecorder() {
         pauseRecording,
         resumeRecording,
         resetRecording,
+        resetDuration,
         resumeInterrupted,
     };
 }

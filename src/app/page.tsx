@@ -3,15 +3,20 @@
 import { useState, useCallback, useEffect } from "react";
 import { useSession } from "next-auth/react";
 import { MeetingMode, UploadedFile } from "@/types";
+import { MeetingPreset, MeetingDuration } from "@/lib/member-storage";
 import { useAudioRecorder, blobToBase64 } from "@/hooks/useAudioRecorder";
 
 import LoginButton from "@/components/LoginButton";
 import RecordButton from "@/components/RecordButton";
 import ModeSelector from "@/components/ModeSelector";
+import TimerSelector from "@/components/TimerSelector";
+import TimerEndModal from "@/components/TimerEndModal";
 import FileUpload from "@/components/FileUpload";
 import TranscriptInput from "@/components/TranscriptInput";
 import MinutesEditor from "@/components/MinutesEditor";
 import ProcessingScreen from "@/components/ProcessingScreen";
+import IntroductionScreen from "@/components/IntroductionScreen";
+import ParticipantConfirmation, { ConfirmedParticipant, ParticipantEditButton } from "@/components/ParticipantConfirmation";
 import Image from "next/image";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
@@ -31,8 +36,8 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.5.1";
-type AppState = "idle" | "recording" | "uploading" | "processing" | "editing";
+const APP_VERSION = "v4.7.0";
+type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
 const stripMarkdown = (markdown: string) => {
@@ -54,6 +59,7 @@ export default function Home() {
   const [appState, setAppState] = useState<AppState>("idle");
   const [uploadProgress, setUploadProgress] = useState<string>("");
   const [mode, setMode] = useState<MeetingMode>("internal");
+  const [selectedPreset, setSelectedPreset] = useState<MeetingPreset | null>(null);
   const [transcript, setTranscript] = useState("");
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [minutes, setMinutes] = useState("");
@@ -62,6 +68,10 @@ export default function Home() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPwaMode, setIsPwaMode] = useState(false);
+  const [confirmedParticipants, setConfirmedParticipants] = useState<ConfirmedParticipant[]>([]);
+  const [showParticipantEdit, setShowParticipantEdit] = useState(false);
+  const [selectedDuration, setSelectedDuration] = useState<MeetingDuration>(30);
+  const [showTimerEndModal, setShowTimerEndModal] = useState(false);
 
   // Audio recorder
   const recorder = useAudioRecorder();
@@ -78,11 +88,67 @@ export default function Home() {
     }
   }, []);
 
-  // Handle recording start
+  // Handle recording start - check if preset selected
   const handleStartRecording = useCallback(async () => {
     setError(null);
     await recorder.startRecording();
+
+    // プリセット選択時は参加者確認画面へ
+    if (selectedPreset) {
+      setAppState("confirming");
+    } else {
+      // 未選択時は自己紹介画面へ
+      setAppState("introduction");
+    }
+  }, [recorder, selectedPreset]);
+
+  // Handle participant confirmation complete
+  const handleParticipantConfirm = useCallback((participants: ConfirmedParticipant[]) => {
+    setConfirmedParticipants(participants);
     setAppState("recording");
+  }, []);
+
+  // Handle participant confirmation cancel
+  const handleParticipantCancel = useCallback(() => {
+    recorder.stopRecording();
+    recorder.resetRecording();
+    setAppState("idle");
+  }, [recorder]);
+
+  // Handle introduction complete - move to main recording with participants
+  const handleIntroductionComplete = useCallback((participants: ConfirmedParticipant[]) => {
+    setConfirmedParticipants(participants);
+    setAppState("recording");
+  }, []);
+
+  // Handle introduction skip - move directly to recording
+  const handleIntroductionSkip = useCallback(() => {
+    setAppState("recording");
+  }, []);
+
+  // Handle timer time up - show modal
+  const handleTimeUp = useCallback(() => {
+    setShowTimerEndModal(true);
+  }, []);
+
+  // Handle timer end - stop recording
+  const handleTimerEnd = useCallback(async () => {
+    setShowTimerEndModal(false);
+    await handleStopRecording();
+  }, []);
+
+  // Handle timer extend (without break)
+  const handleTimerExtend = useCallback((duration: MeetingDuration) => {
+    setShowTimerEndModal(false);
+    setSelectedDuration(duration);
+    recorder.resetDuration(); // Reset timer for new countdown
+  }, [recorder]);
+
+  // Handle timer extend with break
+  const handleTimerExtendWithBreak = useCallback((duration: MeetingDuration) => {
+    setShowTimerEndModal(false);
+    setSelectedDuration(duration);
+    recorder.resetDuration(); // Reset timer for new countdown
   }, [recorder]);
 
   // Handle recording stop
@@ -234,8 +300,15 @@ export default function Home() {
       setError("文字起こしテキストを入力するか、ファイルをアップロードしてください");
       return;
     }
-    generateMinutes();
+    // 参加者確認画面へ遷移
+    setAppState("uploadConfirming");
   };
+
+  // Handle upload participant confirmation complete
+  const handleUploadParticipantConfirm = useCallback((participants: ConfirmedParticipant[]) => {
+    setConfirmedParticipants(participants);
+    generateMinutes();
+  }, [transcript, files, mode]);
 
   // Handle save to Google Drive - Direct client upload to bypass Vercel limits
   const handleSave = async () => {
@@ -573,7 +646,24 @@ export default function Home() {
             />
 
             {/* Mode Selector */}
-            <ModeSelector selectedMode={mode} onModeChange={setMode} />
+            <ModeSelector
+              selectedMode={mode}
+              onModeChange={setMode}
+              selectedPreset={selectedPreset}
+              onPresetChange={(preset) => {
+                setSelectedPreset(preset);
+                if (preset?.duration) {
+                  setSelectedDuration(preset.duration);
+                }
+              }}
+            />
+
+            {/* Timer Selector */}
+            <TimerSelector
+              selected={selectedDuration}
+              onChange={setSelectedDuration}
+              disabled={!!selectedPreset}
+            />
 
             {/* Input Section Header */}
             <div className={styles.inputSectionHeader}>
@@ -602,23 +692,105 @@ export default function Home() {
           </div>
         )}
 
+        {appState === "confirming" && (
+          <ParticipantConfirmation
+            preset={selectedPreset}
+            onConfirm={handleParticipantConfirm}
+            onCancel={handleParticipantCancel}
+          />
+        )}
+
+        {appState === "uploadConfirming" && (
+          <ParticipantConfirmation
+            preset={selectedPreset}
+            onConfirm={handleUploadParticipantConfirm}
+            onCancel={() => setAppState("idle")}
+          />
+        )}
+
+        {appState === "introduction" && (
+          <IntroductionScreen
+            duration={recorder.duration}
+            countdownFrom={selectedDuration * 60}
+            onComplete={handleIntroductionComplete}
+            onSkip={handleIntroductionSkip}
+            existingParticipants={confirmedParticipants}
+          />
+        )}
+
         {appState === "recording" && (
-          <div className={styles.recordingScreen}>
-            <RecordButton
-              isRecording={recorder.isRecording}
-              isPaused={recorder.isPaused}
-              isInterrupted={recorder.isInterrupted}
-              duration={recorder.duration}
-              onStart={handleStartRecording}
-              onStop={handleStopRecording}
-              onPause={recorder.pauseRecording}
-              onResume={recorder.resumeRecording}
-              onResumeInterrupted={recorder.resumeInterrupted}
-              onCancel={handleCancelRecording}
+          <>
+            <div className={styles.recordingScreen}>
+              <RecordButton
+                isRecording={recorder.isRecording}
+                isPaused={recorder.isPaused}
+                isInterrupted={recorder.isInterrupted}
+                duration={recorder.duration}
+                countdownFrom={selectedDuration * 60}
+                onStart={handleStartRecording}
+                onStop={handleStopRecording}
+                onPause={recorder.pauseRecording}
+                onResume={recorder.resumeRecording}
+                onResumeInterrupted={recorder.resumeInterrupted}
+                onCancel={handleCancelRecording}
+                onTimeUp={handleTimeUp}
+              />
+
+              <ModeSelector
+                selectedMode={mode}
+                onModeChange={setMode}
+                selectedPreset={selectedPreset}
+                onPresetChange={setSelectedPreset}
+              />
+            </div>
+
+            {/* Floating participant edit button */}
+            <ParticipantEditButton
+              onClick={() => setShowParticipantEdit(true)}
+              participantCount={confirmedParticipants.length}
             />
 
-            <ModeSelector selectedMode={mode} onModeChange={setMode} />
-          </div>
+            {/* Floating participant edit modal */}
+            {showParticipantEdit && (
+              <div style={{
+                position: "fixed",
+                inset: 0,
+                background: "rgba(0,0,0,0.8)",
+                zIndex: 1000,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: "1rem"
+              }}>
+                <div style={{
+                  background: "#1a1a2e",
+                  borderRadius: "16px",
+                  maxWidth: "450px",
+                  width: "100%",
+                  maxHeight: "90vh",
+                  overflow: "auto"
+                }}>
+                  <ParticipantConfirmation
+                    isFloating={true}
+                    currentParticipants={confirmedParticipants}
+                    onUpdate={setConfirmedParticipants}
+                    onClose={() => setShowParticipantEdit(false)}
+                    onConfirm={() => { }}
+                    onCancel={() => { }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Timer End Modal */}
+            {showTimerEndModal && (
+              <TimerEndModal
+                onEnd={handleTimerEnd}
+                onExtend={handleTimerExtend}
+                onExtendWithBreak={handleTimerExtendWithBreak}
+              />
+            )}
+          </>
         )}
 
         {appState === "uploading" && (

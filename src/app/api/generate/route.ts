@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateEverythingStream, GEMINI_MODEL, fileManager, waitForFileActive } from "@/lib/gemini";
+import { generateEverythingStream, GEMINI_MODEL, fileManager, waitForFileActive, SpeakerInfo } from "@/lib/gemini";
+import { transcribeWithSpeakerDiarization, TranscriptionResult } from "@/lib/speech-to-text";
 import { MeetingMode } from "@/types";
 import { promises as fs } from "fs";
 import path from "path";
@@ -40,11 +41,12 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
-        const { mode, transcript, audioData, uploadedFiles, date } = body;
+        const { mode, transcript, audioData, uploadedFiles, date, useSpeakerDiarization = true } = body;
         console.log("🚀 [API] Start processing generation request", {
             mode,
             hasAudio: !!audioData,
-            filesCount: uploadedFiles?.length
+            filesCount: uploadedFiles?.length,
+            useSpeakerDiarization
         });
 
         console.log("🚀 [API] Loading custom prompts...");
@@ -61,6 +63,29 @@ export async function POST(request: NextRequest) {
             console.log("🚀 [API] Phase 1: Complete");
         }
 
+        // Phase 1.5: Speech-to-Textで話者分離付き文字起こし（音声データがある場合）
+        let speakerInfo: SpeakerInfo | undefined;
+
+        if (audioData?.base64 && useSpeakerDiarization) {
+            console.log("🚀 [API] Phase 1.5: Starting Speech-to-Text with speaker diarization...");
+            try {
+                const audioBuffer = Buffer.from(audioData.base64, "base64");
+                const transcriptionResult = await transcribeWithSpeakerDiarization(audioBuffer);
+
+                if (transcriptionResult.formattedTranscript) {
+                    speakerInfo = {
+                        speakerMapping: transcriptionResult.speakerMapping,
+                        formattedTranscript: transcriptionResult.formattedTranscript,
+                    };
+                    console.log(`🚀 [API] Phase 1.5: Complete. Identified ${Object.keys(transcriptionResult.speakerMapping).length} speakers`);
+                    console.log(`🚀 [API] Speakers: ${JSON.stringify(transcriptionResult.speakerMapping)}`);
+                }
+            } catch (error) {
+                console.error("⚠️ [API] Speech-to-Text failed, falling back to Gemini-only:", error);
+                // Speech-to-Textが失敗しても、Geminiで処理を続行
+            }
+        }
+
         const stream = new ReadableStream({
             async start(controller) {
                 console.log("🚀 [API] Phase 2: Starting generation stream...");
@@ -72,6 +97,7 @@ export async function POST(request: NextRequest) {
                         uploadedFiles: uploadedFiles,
                         date,
                         customPrompts,
+                        speakerInfo,
                     });
 
                     let chunkCount = 0;

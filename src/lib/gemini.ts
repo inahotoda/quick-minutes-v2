@@ -9,6 +9,12 @@ export const GEMINI_MODEL = "Gemini 3.0 Flash";
 const MODEL_NAME = "gemini-flash-latest";
 
 
+// 話者マッピング（Speech-to-Textから取得）
+export interface SpeakerInfo {
+    speakerMapping: { [speakerTag: string]: string }; // "1" → "田中"
+    formattedTranscript: string; // "田中: こんにちは\n鈴木: よろしく"
+}
+
 // 生成用パラメータ
 interface GenerateStreamParams {
     mode: MeetingMode;
@@ -32,6 +38,8 @@ interface GenerateStreamParams {
         otherPrompt?: string;
         terminology?: string;
     };
+    // Speech-to-Textで抽出した話者情報
+    speakerInfo?: SpeakerInfo;
 }
 
 /**
@@ -75,6 +83,7 @@ export async function* generateEverythingStream({
     uploadedFiles,
     date,
     customPrompts,
+    speakerInfo,
 }: GenerateStreamParams): AsyncGenerator<string> {
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
@@ -92,10 +101,20 @@ export async function* generateEverythingStream({
         ? `\n## 用語・表記ルール\n${customPrompts.terminology}`
         : "";
 
+    // 話者情報セクション（Speech-to-Textで抽出された場合）
+    let speakerSection = "";
+    if (speakerInfo && Object.keys(speakerInfo.speakerMapping).length > 0) {
+        const speakerList = Object.entries(speakerInfo.speakerMapping)
+            .map(([tag, name]) => `- ${name}（話者${tag}）`)
+            .join("\n");
+        speakerSection = `\n## 🎯 話者情報（自動認識済み）\n以下の話者が会議冒頭の自己紹介から特定されました：\n${speakerList}\n\n**重要**: 以下に提供する話者付きトランスクリプトの話者名を正確に使用してください。`;
+    }
+
     const mainInstruction = `
 ${basePrompt}
 ${modePrompts[mode]}
 ${terminologySection}
+${speakerSection}
 
 ---
 日付: ${date || new Date().toLocaleDateString("ja-JP")}
@@ -133,6 +152,13 @@ ${terminologySection}
             });
         }
         contents.push({ text: "メインの会議音声です。" });
+    }
+
+    // Speech-to-Textで作成した話者付きトランスクリプト（最優先）
+    if (speakerInfo?.formattedTranscript) {
+        contents.push({
+            text: `## 話者付き文字起こし（Speech-to-Text）\n以下は会議音声の正確な文字起こしです。各発言の話者名を維持してください：\n\n${speakerInfo.formattedTranscript}`
+        });
     }
 
     // 既存のテキスト入力
