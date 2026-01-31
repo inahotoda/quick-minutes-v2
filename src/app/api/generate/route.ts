@@ -8,6 +8,9 @@ import os from "os";
 
 import { findFileByName, getFileContent } from "@/lib/drive";
 
+// Vercel function configuration - 60 seconds max for speech-to-text processing
+export const maxDuration = 60;
+
 const PROMPTS_FILENAME = "prompts-config.json";
 const LOCAL_PROMPTS_FILE = path.join(process.cwd(), "prompts-config.json");
 const CONFIG_FOLDER_ID = "1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY";
