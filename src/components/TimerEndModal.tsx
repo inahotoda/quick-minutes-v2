@@ -1,16 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { MeetingDuration } from "@/lib/member-storage";
 import styles from "./TimerEndModal.module.css";
 
 interface TimerEndModalProps {
     onEnd: () => void;
-    onExtend: (duration: MeetingDuration) => void;
-    onExtendWithBreak: (duration: MeetingDuration) => void;
+    onExtend: (duration: number) => void;
+    onExtendWithBreak: (duration: number) => void;
 }
 
-const EXTEND_OPTIONS: { value: MeetingDuration; label: string }[] = [
+const EXTEND_OPTIONS: { value: number; label: string }[] = [
     { value: 15, label: "15分" },
     { value: 30, label: "30分" },
     { value: 45, label: "45分" },
@@ -25,7 +24,7 @@ export default function TimerEndModal({
 }: TimerEndModalProps) {
     const [showExtendOptions, setShowExtendOptions] = useState<"direct" | "break" | null>(null);
     const [breakCountdown, setBreakCountdown] = useState<number | null>(null);
-    const [selectedExtendDuration, setSelectedExtendDuration] = useState<MeetingDuration | null>(null);
+    const [selectedExtendDuration, setSelectedExtendDuration] = useState<number | null>(null);
 
     // 休憩カウントダウン
     useEffect(() => {
@@ -46,13 +45,13 @@ export default function TimerEndModal({
         return `${mins}:${secs.toString().padStart(2, "0")}`;
     };
 
-    const handleDirectExtend = (duration: MeetingDuration) => {
+    const handleDirectExtend = (duration: number) => {
         if (confirm("⚠️ 休憩なしで延長しますか？\n\n長時間の会議は集中力が低下する可能性があります。")) {
             onExtend(duration);
         }
     };
 
-    const handleBreakExtend = (duration: MeetingDuration) => {
+    const handleBreakExtend = (duration: number) => {
         setSelectedExtendDuration(duration);
         setBreakCountdown(BREAK_DURATION);
     };

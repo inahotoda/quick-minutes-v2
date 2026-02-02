@@ -10,9 +10,9 @@ interface TimerSelectorProps {
 }
 
 const DURATIONS: { value: MeetingDuration; label: string }[] = [
-    { value: 15, label: "15分" },
     { value: 30, label: "30分" },
-    { value: 45, label: "45分" },
+    { value: 60, label: "60分" },
+    { value: 0, label: "無制限" },
 ];
 
 export default function TimerSelector({

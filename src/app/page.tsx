@@ -161,16 +161,16 @@ export default function Home() {
   }, []);
 
   // Handle timer extend (without break)
-  const handleTimerExtend = useCallback((duration: MeetingDuration) => {
+  const handleTimerExtend = useCallback((duration: number) => {
     setShowTimerEndModal(false);
-    setSelectedDuration(duration);
+    setSelectedDuration(duration as MeetingDuration);
     recorder.resetDuration(); // Reset timer for new countdown
   }, [recorder]);
 
   // Handle timer extend with break
-  const handleTimerExtendWithBreak = useCallback((duration: MeetingDuration) => {
+  const handleTimerExtendWithBreak = useCallback((duration: number) => {
     setShowTimerEndModal(false);
-    setSelectedDuration(duration);
+    setSelectedDuration(duration as MeetingDuration);
     recorder.resetDuration(); // Reset timer for new countdown
   }, [recorder]);
 
@@ -790,7 +790,7 @@ export default function Home() {
         {appState === "introduction" && (
           <IntroductionScreen
             duration={recorder.duration}
-            countdownFrom={selectedDuration * 60}
+            countdownFrom={selectedDuration > 0 ? selectedDuration * 60 : undefined}
             onComplete={handleIntroductionComplete}
             onSkip={handleIntroductionSkip}
             existingParticipants={confirmedParticipants}
@@ -805,7 +805,7 @@ export default function Home() {
                 isPaused={recorder.isPaused}
                 isInterrupted={recorder.isInterrupted}
                 duration={recorder.duration}
-                countdownFrom={selectedDuration * 60}
+                countdownFrom={selectedDuration > 0 ? selectedDuration * 60 : undefined}
                 onStart={handleStartRecording}
                 onStop={handleStopRecording}
                 onPause={recorder.pauseRecording}

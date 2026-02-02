@@ -30,7 +30,7 @@ interface MemberData {
 }
 
 // 会議プリセット型定義
-export type MeetingDuration = 15 | 30 | 45;
+export type MeetingDuration = 30 | 60 | 0; // 0 = 無制限
 
 export interface MeetingPreset {
     id: string;

@@ -10,7 +10,7 @@ interface PresetData {
     id: string;
     name: string;
     mode: "internal" | "business" | "other";
-    duration?: 15 | 30 | 45;
+    duration?: 30 | 60 | 0; // 0 = 無制限
     memberIds: string[];
     createdAt: string;
     updatedAt: string;

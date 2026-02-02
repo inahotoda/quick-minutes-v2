@@ -271,14 +271,14 @@ export default function PresetsPage() {
                         <div className={presetStyles.formGroup}>
                             <label className={presetStyles.label}>会議時間</label>
                             <div className={presetStyles.modeSelector}>
-                                {([15, 30, 45] as const).map((duration) => (
+                                {([30, 60, 0] as const).map((duration) => (
                                     <button
                                         key={duration}
                                         className={`${presetStyles.modeButton} ${presetDuration === duration ? presetStyles.modeButtonActive : ""
                                             }`}
                                         onClick={() => setPresetDuration(duration)}
                                     >
-                                        {duration}分
+                                        {duration === 0 ? "無制限" : `${duration}分`}
                                     </button>
                                 ))}
                             </div>
