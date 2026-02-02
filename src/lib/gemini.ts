@@ -40,6 +40,8 @@ interface GenerateStreamParams {
     };
     // Speech-to-Textで抽出した話者情報
     speakerInfo?: SpeakerInfo;
+    // 参加者確認画面で選択された参加者名リスト
+    participants?: string[];
 }
 
 /**
@@ -84,6 +86,7 @@ export async function* generateEverythingStream({
     date,
     customPrompts,
     speakerInfo,
+    participants,
 }: GenerateStreamParams): AsyncGenerator<string> {
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
@@ -110,11 +113,18 @@ export async function* generateEverythingStream({
         speakerSection = `\n## 🎯 話者情報（自動認識済み）\n以下の話者が会議冒頭の自己紹介から特定されました：\n${speakerList}\n\n**重要**: 以下に提供する話者付きトランスクリプトの話者名を正確に使用してください。`;
     }
 
+    // 参加者セクション（参加者確認画面で選択された場合）
+    let participantsSection = "";
+    if (participants && participants.length > 0) {
+        participantsSection = `\n## 👥 会議参加者（事前に確認済み）\n以下の参加者がこの会議に出席しています：\n${participants.map(p => `- ${p}`).join("\n")}\n\n**重要**: 話者識別では上記の参加者名を使用してください。「話者A」「話者B」ではなく、可能な限り実際の参加者名で発言者を記載してください。`;
+    }
+
     const mainInstruction = `
 ${basePrompt}
 ${modePrompts[mode]}
 ${terminologySection}
 ${speakerSection}
+${participantsSection}
 
 ---
 日付: ${date || new Date().toLocaleDateString("ja-JP")}

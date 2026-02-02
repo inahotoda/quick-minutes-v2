@@ -44,12 +44,13 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
-        const { mode, transcript, audioData, uploadedFiles, date, useSpeakerDiarization = true } = body;
+        const { mode, transcript, audioData, uploadedFiles, date, useSpeakerDiarization = true, participants = [] } = body;
         console.log("🚀 [API] Start processing generation request", {
             mode,
             hasAudio: !!audioData,
             filesCount: uploadedFiles?.length,
-            useSpeakerDiarization
+            useSpeakerDiarization,
+            participantsCount: participants?.length
         });
 
         console.log("🚀 [API] Loading custom prompts...");
@@ -101,6 +102,7 @@ export async function POST(request: NextRequest) {
                         date,
                         customPrompts,
                         speakerInfo,
+                        participants,
                     });
 
                     let chunkCount = 0;

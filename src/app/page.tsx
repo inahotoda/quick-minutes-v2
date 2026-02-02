@@ -197,6 +197,7 @@ export default function Home() {
       const requestBody: Record<string, unknown> = {
         mode,
         date: new Date().toLocaleDateString("ja-JP"),
+        participants: confirmedParticipants.map(p => p.name), // 参加者名をGeminiに送信
       };
 
       // 1. Gemini File API へ直接アップロード (ブラウザから)
