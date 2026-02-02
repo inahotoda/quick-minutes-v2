@@ -80,10 +80,10 @@ export default function Home() {
   // Audio recorder
   const recorder = useAudioRecorder();
 
-  // Check folder access after login
+  // Check folder access after login (only once)
   useEffect(() => {
-    if (session && status === "authenticated") {
-      setAccessCheckState("checking");
+    // ログイン済みで、まだアクセス権が確認されていない場合のみチェック
+    if (session && status === "authenticated" && accessCheckState === "checking") {
       fetch("/api/check-access")
         .then(res => res.json())
         .then(data => {
@@ -103,7 +103,7 @@ export default function Home() {
           setAccessError({ message: "アクセス権の確認に失敗しました" });
         });
     }
-  }, [session, status]);
+  }, [session, status, accessCheckState]);
 
   // Browser detection
   useEffect(() => {
