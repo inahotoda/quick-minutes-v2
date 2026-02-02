@@ -34,9 +34,9 @@ export default function MemberManager({ onMembersChange }: MemberManagerProps) {
     const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
     // Load members
-    const loadMembers = useCallback(async () => {
+    const loadMembers = useCallback(async (forceLocal: boolean = false) => {
         try {
-            const data = await getAllMembers();
+            const data = await getAllMembers(forceLocal);
             setMembers(data);
             onMembersChange?.(data);
         } catch (error) {
@@ -255,7 +255,7 @@ export default function MemberManager({ onMembersChange }: MemberManagerProps) {
                 await addMember(name.trim(), finalVoiceBlob || undefined, finalVoiceBlob ? finalDuration : undefined);
             }
 
-            await loadMembers();
+            await loadMembers(true); // 更新直後はローカルから取得
             handleCloseModal();
         } catch (error) {
             console.error("Failed to save member:", error);
@@ -269,7 +269,7 @@ export default function MemberManager({ onMembersChange }: MemberManagerProps) {
 
         try {
             await deleteMember(member.id);
-            await loadMembers();
+            await loadMembers(true); // 削除直後はローカルから取得
         } catch (error) {
             console.error("Failed to delete member:", error);
             alert("削除に失敗しました");

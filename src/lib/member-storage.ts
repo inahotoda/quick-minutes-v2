@@ -195,7 +195,19 @@ async function savePresetsToAPI(presets: MeetingPreset[]): Promise<void> {
 // メンバー操作
 // ===============================
 
-export async function getAllMembers(): Promise<Member[]> {
+export async function getAllMembers(forceLocal: boolean = false): Promise<Member[]> {
+    // forceLocal が true の場合はローカルDBから直接取得（更新直後など）
+    if (forceLocal) {
+        const db = await openDB();
+        return new Promise((resolve, reject) => {
+            const transaction = db.transaction(MEMBERS_STORE, "readonly");
+            const store = transaction.objectStore(MEMBERS_STORE);
+            const request = store.getAll();
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => resolve(request.result || []);
+        });
+    }
+
     try {
         // 1. まずGoogle Drive APIから取得を試みる（クラウド優先）
         const cloudMembers = await fetchMembersFromAPI();
