@@ -73,8 +73,37 @@ export default function Home() {
   const [selectedDuration, setSelectedDuration] = useState<MeetingDuration>(30);
   const [showTimerEndModal, setShowTimerEndModal] = useState(false);
 
+  // Access check state
+  const [accessCheckState, setAccessCheckState] = useState<"checking" | "granted" | "denied">("checking");
+  const [accessError, setAccessError] = useState<{ message: string; requestUrl?: string } | null>(null);
+
   // Audio recorder
   const recorder = useAudioRecorder();
+
+  // Check folder access after login
+  useEffect(() => {
+    if (session && status === "authenticated") {
+      setAccessCheckState("checking");
+      fetch("/api/check-access")
+        .then(res => res.json())
+        .then(data => {
+          if (data.hasAccess) {
+            setAccessCheckState("granted");
+          } else {
+            setAccessCheckState("denied");
+            setAccessError({
+              message: data.error || "共有フォルダへのアクセス権がありません",
+              requestUrl: data.requestAccessUrl
+            });
+          }
+        })
+        .catch(err => {
+          console.error("Access check failed:", err);
+          setAccessCheckState("denied");
+          setAccessError({ message: "アクセス権の確認に失敗しました" });
+        });
+    }
+  }, [session, status]);
 
   // Browser detection
   useEffect(() => {
@@ -581,6 +610,55 @@ export default function Home() {
           </p>
           <div className={styles.versionBadge}>{APP_VERSION}</div>
           <LoginButton />
+        </div>
+      </main>
+    );
+  }
+
+  // Access check in progress
+  if (accessCheckState === "checking") {
+    return (
+      <main className={styles.main}>
+        <div className={styles.loading}>
+          <div className={styles.spinner} />
+          <p>アクセス権を確認中...</p>
+        </div>
+      </main>
+    );
+  }
+
+  // Access denied
+  if (accessCheckState === "denied") {
+    return (
+      <main className={styles.main}>
+        <div className={styles.loginContainer}>
+          <div className={styles.logo}>
+            <img src="/inaho-logo.png" alt="INAHO" width={120} height={128} className={styles.logoImage} />
+            <h1>議事録</h1>
+          </div>
+          <div className={styles.accessDenied}>
+            <p className={styles.accessDeniedIcon}>🔒</p>
+            <p className={styles.accessDeniedTitle}>アクセス権が必要です</p>
+            <p className={styles.accessDeniedMessage}>
+              {accessError?.message || "共有フォルダへのアクセス権がありません"}
+            </p>
+            <p className={styles.accessDeniedHint}>
+              このアプリを使用するには、組織の共有フォルダへのアクセス権が必要です。
+              <br />
+              管理者に連絡してアクセス権をリクエストしてください。
+            </p>
+            {accessError?.requestUrl && (
+              <a
+                href={accessError.requestUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.requestAccessButton}
+              >
+                📁 共有フォルダを開いてアクセス権をリクエスト
+              </a>
+            )}
+            <LoginButton />
+          </div>
         </div>
       </main>
     );
