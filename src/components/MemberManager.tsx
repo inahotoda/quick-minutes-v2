@@ -239,16 +239,18 @@ export default function MemberManager({ onMembersChange }: MemberManagerProps) {
 
         try {
             if (editingMember) {
-                await updateMember(editingMember.id, {
+                // 編集時：新しい音声がある場合のみvoiceSampleを更新、なければ既存を保持
+                const updates: { name: string; voiceSample?: { blob: Blob; duration: number; recordedAt: string } } = {
                     name: name.trim(),
-                    voiceSample: finalVoiceBlob
-                        ? {
-                            blob: finalVoiceBlob,
-                            duration: finalDuration,
-                            recordedAt: new Date().toISOString(),
-                        }
-                        : undefined,
-                });
+                };
+                if (finalVoiceBlob) {
+                    updates.voiceSample = {
+                        blob: finalVoiceBlob,
+                        duration: finalDuration,
+                        recordedAt: new Date().toISOString(),
+                    };
+                }
+                await updateMember(editingMember.id, updates);
             } else {
                 await addMember(name.trim(), finalVoiceBlob || undefined, finalVoiceBlob ? finalDuration : undefined);
             }
