@@ -1,14 +1,7 @@
 /**
- * メンバー管理 - IndexedDB ストレージ + Firestore 同期
+ * メンバー管理 - IndexedDB ストレージ + Google Drive 同期
  * 「私は〇〇です」の音声サンプルを保存
  */
-
-import {
-    saveMemberToCloud,
-    deleteMemberFromCloud,
-    savePresetToCloud,
-    deletePresetFromCloud,
-} from "./cloud-storage";
 
 // メンバー型定義
 export interface Member {
@@ -16,6 +9,19 @@ export interface Member {
     name: string;
     voiceSample?: {
         blob: Blob;
+        duration: number;
+        recordedAt: string;
+    };
+    createdAt: string;
+    updatedAt: string;
+}
+
+// API用のメンバー型（BlobはBase64として保存）
+interface MemberData {
+    id: string;
+    name: string;
+    voiceSample?: {
+        blobBase64: string;
         duration: number;
         recordedAt: string;
     };
@@ -68,14 +74,131 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 // ===============================
+// ユーティリティ関数
+// ===============================
+
+// Blob to Base64
+async function blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64 = reader.result as string;
+            const base64Data = base64.split(",")[1];
+            resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+// Base64 to Blob
+function base64ToBlob(base64: string, mimeType: string): Blob {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+}
+
+// Member to MemberData (for API)
+async function memberToData(member: Member): Promise<MemberData> {
+    const data: MemberData = {
+        id: member.id,
+        name: member.name,
+        createdAt: member.createdAt,
+        updatedAt: member.updatedAt,
+    };
+    if (member.voiceSample) {
+        data.voiceSample = {
+            blobBase64: await blobToBase64(member.voiceSample.blob),
+            duration: member.voiceSample.duration,
+            recordedAt: member.voiceSample.recordedAt,
+        };
+    }
+    return data;
+}
+
+// MemberData to Member (from API)
+function dataToMember(data: MemberData): Member {
+    const member: Member = {
+        id: data.id,
+        name: data.name,
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+    };
+    if (data.voiceSample) {
+        member.voiceSample = {
+            blob: base64ToBlob(data.voiceSample.blobBase64, "audio/webm"),
+            duration: data.voiceSample.duration,
+            recordedAt: data.voiceSample.recordedAt,
+        };
+    }
+    return member;
+}
+
+// ===============================
+// Google Drive API呼び出し
+// ===============================
+
+async function fetchMembersFromAPI(): Promise<Member[]> {
+    try {
+        const response = await fetch("/api/members");
+        if (!response.ok) return [];
+        const { members } = await response.json();
+        return (members || []).map(dataToMember);
+    } catch (error) {
+        console.warn("Failed to fetch members from API:", error);
+        return [];
+    }
+}
+
+async function saveMembersToAPI(members: Member[]): Promise<void> {
+    try {
+        const membersData = await Promise.all(members.map(memberToData));
+        await fetch("/api/members", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ members: membersData }),
+        });
+    } catch (error) {
+        console.error("Failed to save members to API:", error);
+    }
+}
+
+async function fetchPresetsFromAPI(): Promise<MeetingPreset[]> {
+    try {
+        const response = await fetch("/api/presets");
+        if (!response.ok) return [];
+        const { presets } = await response.json();
+        return presets || [];
+    } catch (error) {
+        console.warn("Failed to fetch presets from API:", error);
+        return [];
+    }
+}
+
+async function savePresetsToAPI(presets: MeetingPreset[]): Promise<void> {
+    try {
+        await fetch("/api/presets", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ presets }),
+        });
+    } catch (error) {
+        console.error("Failed to save presets to API:", error);
+    }
+}
+
+// ===============================
 // メンバー操作
 // ===============================
 
 export async function getAllMembers(): Promise<Member[]> {
     try {
-        // 1. まずFirestoreから取得を試みる（クラウド優先）
-        const { fetchMembersFromCloud } = await import("./cloud-storage");
-        const cloudMembers = await fetchMembersFromCloud();
+        // 1. まずGoogle Drive APIから取得を試みる（クラウド優先）
+        const cloudMembers = await fetchMembersFromAPI();
 
         if (cloudMembers.length > 0) {
             // クラウドデータをローカルIndexedDBに同期
@@ -83,7 +206,6 @@ export async function getAllMembers(): Promise<Member[]> {
             const transaction = db.transaction(MEMBERS_STORE, "readwrite");
             const store = transaction.objectStore(MEMBERS_STORE);
 
-            // クラウドのメンバーをローカルに保存
             for (const member of cloudMembers) {
                 store.put(member);
             }
@@ -142,11 +264,24 @@ export async function addMember(name: string, voiceBlob?: Blob, voiceDuration?: 
         const request = store.add(member);
 
         request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
-            // Sync to cloud (non-blocking)
-            saveMemberToCloud(member).catch(console.error);
+        request.onsuccess = async () => {
+            // Sync to Google Drive (non-blocking)
+            const allMembers = await getAllMembersLocal();
+            saveMembersToAPI(allMembers).catch(console.error);
             resolve(member);
         };
+    });
+}
+
+// ローカルのみから取得（同期用）
+async function getAllMembersLocal(): Promise<Member[]> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(MEMBERS_STORE, "readonly");
+        const store = transaction.objectStore(MEMBERS_STORE);
+        const request = store.getAll();
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result || []);
     });
 }
 
@@ -167,9 +302,10 @@ export async function updateMember(id: string, updates: Partial<Pick<Member, "na
         const request = store.put(updatedMember);
 
         request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
-            // Sync to cloud (non-blocking)
-            saveMemberToCloud(updatedMember).catch(console.error);
+        request.onsuccess = async () => {
+            // Sync to Google Drive (non-blocking)
+            const allMembers = await getAllMembersLocal();
+            saveMembersToAPI(allMembers).catch(console.error);
             resolve();
         };
     });
@@ -183,9 +319,10 @@ export async function deleteMember(id: string): Promise<void> {
         const request = store.delete(id);
 
         request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
-            // Sync to cloud (non-blocking)
-            deleteMemberFromCloud(id).catch(console.error);
+        request.onsuccess = async () => {
+            // Sync to Google Drive (non-blocking)
+            const allMembers = await getAllMembersLocal();
+            saveMembersToAPI(allMembers).catch(console.error);
             resolve();
         };
     });
@@ -197,9 +334,8 @@ export async function deleteMember(id: string): Promise<void> {
 
 export async function getAllPresets(): Promise<MeetingPreset[]> {
     try {
-        // 1. まずFirestoreから取得を試みる（クラウド優先）
-        const { fetchPresetsFromCloud } = await import("./cloud-storage");
-        const cloudPresets = await fetchPresetsFromCloud();
+        // 1. まずGoogle Drive APIから取得を試みる（クラウド優先）
+        const cloudPresets = await fetchPresetsFromAPI();
 
         if (cloudPresets.length > 0) {
             // クラウドデータをローカルIndexedDBに同期
@@ -207,7 +343,6 @@ export async function getAllPresets(): Promise<MeetingPreset[]> {
             const transaction = db.transaction(PRESETS_STORE, "readwrite");
             const store = transaction.objectStore(PRESETS_STORE);
 
-            // クラウドのプリセットをローカルに保存
             for (const preset of cloudPresets) {
                 store.put(preset);
             }
@@ -242,6 +377,18 @@ export async function getPreset(id: string): Promise<MeetingPreset | undefined> 
     });
 }
 
+// ローカルのみから取得（同期用）
+async function getAllPresetsLocal(): Promise<MeetingPreset[]> {
+    const db = await openDB();
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(PRESETS_STORE, "readonly");
+        const store = transaction.objectStore(PRESETS_STORE);
+        const request = store.getAll();
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => resolve(request.result || []);
+    });
+}
+
 export async function addPreset(
     name: string,
     mode: MeetingPreset["mode"],
@@ -266,9 +413,10 @@ export async function addPreset(
         const request = store.add(preset);
 
         request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
-            // Sync to cloud (non-blocking)
-            savePresetToCloud(preset).catch(console.error);
+        request.onsuccess = async () => {
+            // Sync to Google Drive (non-blocking)
+            const allPresets = await getAllPresetsLocal();
+            savePresetsToAPI(allPresets).catch(console.error);
             resolve(preset);
         };
     });
@@ -294,9 +442,10 @@ export async function updatePreset(
         const request = store.put(updatedPreset);
 
         request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
-            // Sync to cloud (non-blocking)
-            savePresetToCloud(updatedPreset).catch(console.error);
+        request.onsuccess = async () => {
+            // Sync to Google Drive (non-blocking)
+            const allPresets = await getAllPresetsLocal();
+            savePresetsToAPI(allPresets).catch(console.error);
             resolve();
         };
     });
@@ -310,9 +459,10 @@ export async function deletePreset(id: string): Promise<void> {
         const request = store.delete(id);
 
         request.onerror = () => reject(request.error);
-        request.onsuccess = () => {
-            // Sync to cloud (non-blocking)
-            deletePresetFromCloud(id).catch(console.error);
+        request.onsuccess = async () => {
+            // Sync to Google Drive (non-blocking)
+            const allPresets = await getAllPresetsLocal();
+            savePresetsToAPI(allPresets).catch(console.error);
             resolve();
         };
     });
