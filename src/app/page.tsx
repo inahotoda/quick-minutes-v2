@@ -117,6 +117,28 @@ export default function Home() {
     }
   }, []);
 
+  // 録音中はページを閉じる・リロード時に警告を表示
+  useEffect(() => {
+    const isRecordingActive = appState === "recording" || appState === "confirming" || appState === "introduction";
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (isRecordingActive) {
+        e.preventDefault();
+        // Chrome requires returnValue to be set
+        e.returnValue = "録音中です。本当にページを離れますか？";
+        return e.returnValue;
+      }
+    };
+
+    if (isRecordingActive) {
+      window.addEventListener("beforeunload", handleBeforeUnload);
+    }
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+    };
+  }, [appState]);
+
   // Handle recording start - always go to participant confirmation
   const handleStartRecording = useCallback(async () => {
     setError(null);
