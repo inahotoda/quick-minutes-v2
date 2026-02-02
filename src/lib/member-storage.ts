@@ -72,6 +72,29 @@ function openDB(): Promise<IDBDatabase> {
 // ===============================
 
 export async function getAllMembers(): Promise<Member[]> {
+    try {
+        // 1. まずFirestoreから取得を試みる（クラウド優先）
+        const { fetchMembersFromCloud } = await import("./cloud-storage");
+        const cloudMembers = await fetchMembersFromCloud();
+
+        if (cloudMembers.length > 0) {
+            // クラウドデータをローカルIndexedDBに同期
+            const db = await openDB();
+            const transaction = db.transaction(MEMBERS_STORE, "readwrite");
+            const store = transaction.objectStore(MEMBERS_STORE);
+
+            // クラウドのメンバーをローカルに保存
+            for (const member of cloudMembers) {
+                store.put(member);
+            }
+
+            return cloudMembers;
+        }
+    } catch (error) {
+        console.warn("Cloud fetch failed, falling back to local:", error);
+    }
+
+    // 2. クラウドから取得できなければローカルから取得
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(MEMBERS_STORE, "readonly");
@@ -173,6 +196,29 @@ export async function deleteMember(id: string): Promise<void> {
 // ===============================
 
 export async function getAllPresets(): Promise<MeetingPreset[]> {
+    try {
+        // 1. まずFirestoreから取得を試みる（クラウド優先）
+        const { fetchPresetsFromCloud } = await import("./cloud-storage");
+        const cloudPresets = await fetchPresetsFromCloud();
+
+        if (cloudPresets.length > 0) {
+            // クラウドデータをローカルIndexedDBに同期
+            const db = await openDB();
+            const transaction = db.transaction(PRESETS_STORE, "readwrite");
+            const store = transaction.objectStore(PRESETS_STORE);
+
+            // クラウドのプリセットをローカルに保存
+            for (const preset of cloudPresets) {
+                store.put(preset);
+            }
+
+            return cloudPresets;
+        }
+    } catch (error) {
+        console.warn("Cloud fetch failed, falling back to local:", error);
+    }
+
+    // 2. クラウドから取得できなければローカルから取得
     const db = await openDB();
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(PRESETS_STORE, "readonly");
