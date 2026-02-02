@@ -603,12 +603,18 @@ export default function Home() {
         <div className={styles.headerRight}>
           <button
             className={styles.settingsButton}
-            onClick={() => window.location.href = "/settings"}
+            onClick={() => {
+              if (appState === "recording" || appState === "confirming" || appState === "introduction") {
+                alert("録音中は操作できません");
+                return;
+              }
+              window.location.href = "/settings";
+            }}
             title="プロンプト設定"
           >
             ⚙️ 設定
           </button>
-          <LoginButton />
+          <LoginButton isRecording={appState === "recording" || appState === "confirming" || appState === "introduction"} />
         </div>
       </header>
 

@@ -3,8 +3,20 @@
 import { signIn, signOut, useSession } from "next-auth/react";
 import styles from "./LoginButton.module.css";
 
-export default function LoginButton() {
+interface LoginButtonProps {
+    isRecording?: boolean;
+}
+
+export default function LoginButton({ isRecording = false }: LoginButtonProps) {
     const { data: session, status } = useSession();
+
+    const handleLogout = () => {
+        if (isRecording) {
+            alert("録音中は操作できません");
+            return;
+        }
+        signOut();
+    };
 
     if (status === "loading") {
         return <div className={styles.loading}>...</div>;
@@ -18,7 +30,7 @@ export default function LoginButton() {
                     alt={session.user?.name || "User"}
                     className={styles.avatar}
                 />
-                <button className={styles.logoutButton} onClick={() => signOut()}>
+                <button className={styles.logoutButton} onClick={handleLogout}>
                     ログアウト
                 </button>
             </div>
