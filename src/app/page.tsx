@@ -150,8 +150,9 @@ export default function Home() {
   // Handle participant confirmation complete
   const handleParticipantConfirm = useCallback((participants: ConfirmedParticipant[]) => {
     setConfirmedParticipants(participants);
+    recorder.resetDuration(); // タイマーをリセット（ミーティングスタート時からカウント開始）
     setAppState("recording");
-  }, []);
+  }, [recorder]);
 
   // Handle participant confirmation cancel
   const handleParticipantCancel = useCallback(() => {
