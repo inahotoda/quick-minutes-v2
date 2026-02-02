@@ -423,10 +423,18 @@ export default function Home() {
             color: #111 !important; 
             border-bottom: 1px solid #ccc !important; 
             padding-bottom: 0.5rem !important;
+            page-break-after: avoid !important;
+            break-after: avoid !important;
           }
           [data-minutes-preview] table { 
             border: 1px solid #ddd !important; 
             background: #fafafa !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          [data-minutes-preview] tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
           }
           [data-minutes-preview] th { 
             background: #e8e8e8 !important; 
@@ -438,6 +446,24 @@ export default function Home() {
             padding: 8px !important;
           }
           [data-minutes-preview] strong { color: #111 !important; }
+          [data-minutes-preview] p {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            orphans: 3 !important;
+            widows: 3 !important;
+          }
+          [data-minutes-preview] li {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          [data-minutes-preview] ul, [data-minutes-preview] ol {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          [data-minutes-preview] blockquote {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
         `;
         document.head.appendChild(styleSheet);
 
@@ -456,6 +482,12 @@ export default function Home() {
             unit: 'mm',
             format: 'a4',
             orientation: 'portrait' as const
+          },
+          pagebreak: {
+            mode: ['avoid-all', 'css', 'legacy'],
+            before: '.page-break-before',
+            after: '.page-break-after',
+            avoid: ['table', 'tr', 'thead', 'tbody', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'li', 'blockquote']
           }
         };
 
