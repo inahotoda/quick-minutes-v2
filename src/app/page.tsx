@@ -88,19 +88,13 @@ export default function Home() {
     }
   }, []);
 
-  // Handle recording start - check if preset selected
+  // Handle recording start - always go to participant confirmation
   const handleStartRecording = useCallback(async () => {
     setError(null);
     await recorder.startRecording();
-
-    // プリセット選択時は参加者確認画面へ
-    if (selectedPreset) {
-      setAppState("confirming");
-    } else {
-      // 未選択時は自己紹介画面へ
-      setAppState("introduction");
-    }
-  }, [recorder, selectedPreset]);
+    // 常に参加者確認画面へ遷移
+    setAppState("confirming");
+  }, [recorder]);
 
   // Handle participant confirmation complete
   const handleParticipantConfirm = useCallback((participants: ConfirmedParticipant[]) => {
