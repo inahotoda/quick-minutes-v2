@@ -1,10 +1,20 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import AuthProvider from "@/components/AuthProvider";
 
 export const metadata: Metadata = {
   title: "INAHO議事録 - AI議事録自動生成",
   description: "AIを使って会議の議事録を自動生成するWebアプリケーション",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "議事録",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#6366f1",
 };
 
 export default function RootLayout({

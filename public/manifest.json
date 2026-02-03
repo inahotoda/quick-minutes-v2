@@ -1,0 +1,17 @@
+{
+    "name": "議事録アプリ",
+    "short_name": "議事録",
+    "description": "AIが議事録を自動生成",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#0a0a1a",
+    "theme_color": "#6366f1",
+    "icons": [
+        {
+            "src": "/inaho-logo.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ]
+}
