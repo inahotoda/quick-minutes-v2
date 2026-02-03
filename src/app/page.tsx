@@ -710,7 +710,7 @@ export default function Home() {
 
     try {
       const topic = extractTopic(minutes);
-      const subject = `【議事録】${topic || "会議"}`;
+      const subject = `議事録送付サービス（INAHO AI）`;
       const plainContent = stripMarkdown(minutes);
 
       const response = await fetch("/api/mail/send", {
