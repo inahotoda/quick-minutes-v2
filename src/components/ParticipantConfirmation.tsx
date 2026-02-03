@@ -20,6 +20,8 @@ interface ParticipantConfirmationProps {
     currentParticipants?: ConfirmedParticipant[];
     onUpdate?: (participants: ConfirmedParticipant[]) => void;
     onClose?: () => void;
+    // For upload mode (show "議事録生成" instead of "Mtgスタート")
+    isUploadMode?: boolean;
 }
 
 export default function ParticipantConfirmation({
@@ -30,6 +32,7 @@ export default function ParticipantConfirmation({
     currentParticipants = [],
     onUpdate,
     onClose,
+    isUploadMode = false,
 }: ParticipantConfirmationProps) {
     const [members, setMembers] = useState<Member[]>([]);
     const [participants, setParticipants] = useState<ConfirmedParticipant[]>([]);
@@ -466,7 +469,7 @@ export default function ParticipantConfirmation({
             {/* Actions */}
             <div className={styles.actions}>
                 <button className={styles.startButton} onClick={handleConfirm}>
-                    {isFloating ? "✓ 確定" : "▶ 議事録生成"}
+                    {isFloating ? "✓ 確定" : isUploadMode ? "✨ 議事録生成" : "▶ Mtgスタート"}
                 </button>
                 <button
                     className={styles.cancelButton}
