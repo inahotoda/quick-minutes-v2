@@ -91,6 +91,7 @@ export async function* generateEverythingStream({
     participants,
     feedback,
 }: GenerateStreamParams): AsyncGenerator<string> {
+    console.log("🎯 [Gemini] generateEverythingStream called with participants:", participants);
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
     const basePrompt =

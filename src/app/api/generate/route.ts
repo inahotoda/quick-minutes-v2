@@ -50,7 +50,8 @@ export async function POST(request: NextRequest) {
             hasAudio: !!audioData,
             filesCount: uploadedFiles?.length,
             useSpeakerDiarization,
-            participantsCount: participants?.length
+            participantsCount: participants?.length,
+            participants: participants
         });
 
         console.log("🚀 [API] Loading custom prompts...");
