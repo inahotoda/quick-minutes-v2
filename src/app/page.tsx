@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.15.0";
+const APP_VERSION = "v4.16.0";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -774,8 +774,8 @@ export default function Home() {
           <button
             className={styles.settingsButton}
             onClick={() => {
-              if (appState === "recording" || appState === "confirming" || appState === "introduction") {
-                alert("録音中は操作できません");
+              if (appState === "recording" || appState === "confirming" || appState === "introduction" || appState === "uploading" || appState === "processing") {
+                alert("処理中は操作できません");
                 return;
               }
               if (appState === "editing" && !isSaved) {
@@ -789,7 +789,7 @@ export default function Home() {
             ⚙️ 設定
           </button>
           <LoginButton
-            isRecording={appState === "recording" || appState === "confirming" || appState === "introduction"}
+            isRecording={appState === "recording" || appState === "confirming" || appState === "introduction" || appState === "uploading" || appState === "processing"}
             isEditing={appState === "editing"}
             isSaved={isSaved}
           />
