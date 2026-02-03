@@ -385,9 +385,9 @@
 
 .feedbackToggle {
     padding: 0.75rem 1rem;
-    background: rgba(255, 255, 255, 0.1);
-    color: rgba(255, 255, 255, 0.8);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #2d2d44;
+    color: #ffffff;
+    border: 1px solid #4b5563;
     border-radius: 8px;
     font-size: 0.85rem;
     cursor: pointer;
@@ -396,7 +396,7 @@
 }
 
 .feedbackToggle:hover:not(:disabled) {
-    background: rgba(255, 255, 255, 0.15);
+    background: #3b3b55;
 }
 
 .feedbackToggle:disabled {
@@ -427,16 +427,16 @@
 .feedbackInput {
     width: 100%;
     padding: 0.75rem;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: #1e1e2e;
+    border: 1px solid #3b3b4f;
     border-radius: 8px;
-    color: white;
+    color: #ffffff;
     font-size: 0.9rem;
     resize: none;
 }
 
 .feedbackInput::placeholder {
-    color: rgba(255, 255, 255, 0.4);
+    color: #9ca3af;
 }
 
 .feedbackInput:focus {
