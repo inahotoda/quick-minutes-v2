@@ -14,6 +14,7 @@ interface MinutesEditorProps {
     onSendEmail?: () => void;
     onDownloadAudio?: () => void;
     isSaving: boolean;
+    isSaved: boolean;
     isSendingEmail?: boolean;
     modelVersion?: string;
 }
@@ -26,6 +27,7 @@ export default function MinutesEditor({
     onSendEmail,
     onDownloadAudio,
     isSaving,
+    isSaved,
     isSendingEmail = false,
     modelVersion,
 }: MinutesEditorProps) {
@@ -79,11 +81,11 @@ export default function MinutesEditor({
 
             <div className={styles.footer}>
                 <button
-                    className={styles.saveButton}
+                    className={`${styles.saveButton} ${isSaved ? styles.saveButtonSaved : ''}`}
                     onClick={onSave}
-                    disabled={isSaving || isSendingEmail}
+                    disabled={isSaving || isSendingEmail || isSaved}
                 >
-                    {isSaving ? "保存中..." : "🚀 ドライブに直保存(V3)"}
+                    {isSaving ? "保存中..." : isSaved ? "✅ 保存済み" : "🚀 ドライブに保存"}
                 </button>
 
                 <div className={styles.footerSubActions}>

@@ -337,3 +337,12 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+.saveButtonSaved {
+    background: linear-gradient(135deg, #6b7280, #4b5563);
+    box-shadow: 0 2px 8px rgba(107, 114, 128, 0.3);
+}
+
+.saveButtonSaved:disabled {
+    opacity: 1;
+}
