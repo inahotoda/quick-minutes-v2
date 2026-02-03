@@ -116,6 +116,17 @@ export default function Home() {
     if (isIos && isStandalone) {
       setIsPwaMode(true);
     }
+
+    // Service Worker登録（オフライン対応）
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js')
+        .then((registration) => {
+          console.log('Service Worker registered:', registration.scope);
+        })
+        .catch((error) => {
+          console.error('Service Worker registration failed:', error);
+        });
+    }
   }, []);
 
   // 録音中または未保存の議事録がある場合はページを閉じる・リロード時に警告を表示
