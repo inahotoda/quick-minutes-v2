@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { MeetingMode } from "@/types";
 import styles from "./MinutesEditor.module.css";
 import ReactMarkdown from "react-markdown";
@@ -38,6 +38,30 @@ export default function MinutesEditor({
     const [isEditing, setIsEditing] = useState(false);
     const [showFeedback, setShowFeedback] = useState(false);
     const [feedback, setFeedback] = useState("");
+    const [countdown, setCountdown] = useState(120); // 2分 = 120秒
+
+    // 再生成中のカウントダウン
+    useEffect(() => {
+        if (isRegenerating) {
+            setCountdown(120);
+            const timer = setInterval(() => {
+                setCountdown((prev) => {
+                    if (prev <= 1) {
+                        clearInterval(timer);
+                        return 0;
+                    }
+                    return prev - 1;
+                });
+            }, 1000);
+            return () => clearInterval(timer);
+        }
+    }, [isRegenerating]);
+
+    const formatCountdown = (seconds: number) => {
+        const mins = Math.floor(seconds / 60);
+        const secs = seconds % 60;
+        return `${mins}:${secs.toString().padStart(2, "0")}`;
+    };
 
     const copyToClipboard = async () => {
         try {
@@ -108,7 +132,7 @@ export default function MinutesEditor({
                             onClick={handleRegenerate}
                             disabled={isRegenerating || isSaving}
                         >
-                            {isRegenerating ? "⏳ 再生成中..." : "🔄 再生成"}
+                            {isRegenerating ? `⏳ 再生成中... ${formatCountdown(countdown)}` : "🔄 再生成"}
                         </button>
                         <button
                             className={styles.feedbackToggle}
