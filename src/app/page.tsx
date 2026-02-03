@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.8.0";
+const APP_VERSION = "v4.9.0";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -727,6 +727,7 @@ export default function Home() {
         <div className={styles.headerLeft}>
           <img src="/inaho-logo.png" alt="INAHO" width={28} height={30} className={styles.headerLogoImage} />
           <span className={styles.appName}>議事録</span>
+          <span className={styles.headerVersionBadge}>{APP_VERSION}</span>
         </div>
         <div className={styles.headerRight}>
           <button

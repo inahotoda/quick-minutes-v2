@@ -112,6 +112,16 @@
     color: white;
 }
 
+.headerVersionBadge {
+    font-size: 0.65rem;
+    color: var(--color-text-muted);
+    background: rgba(255, 255, 255, 0.08);
+    padding: 0.15rem 0.5rem;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    margin-left: 0.25rem;
+}
+
 .headerRight {
     display: flex;
     align-items: center;

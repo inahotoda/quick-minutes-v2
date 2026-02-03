@@ -466,7 +466,7 @@ export default function ParticipantConfirmation({
             {/* Actions */}
             <div className={styles.actions}>
                 <button className={styles.startButton} onClick={handleConfirm}>
-                    {isFloating ? "✓ 確定" : "▶ Mtgスタート"}
+                    {isFloating ? "✓ 確定" : "▶ 議事録生成"}
                 </button>
                 <button
                     className={styles.cancelButton}
