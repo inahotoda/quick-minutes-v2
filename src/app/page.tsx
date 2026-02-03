@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.11.0";
+const APP_VERSION = "v4.12.0";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -893,6 +893,15 @@ export default function Home() {
                 onModeChange={setMode}
                 selectedPreset={selectedPreset}
                 onPresetChange={setSelectedPreset}
+              />
+
+              {/* 録音中の資料アップロード（音声ファイル以外） */}
+              <FileUpload
+                files={files}
+                onFilesChange={setFiles}
+                acceptTypes="application/pdf,image/*,.txt"
+                compact={true}
+                compactLabel="資料を追加"
               />
             </div>
 
