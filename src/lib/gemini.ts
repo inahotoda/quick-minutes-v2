@@ -119,7 +119,8 @@ export async function* generateEverythingStream({
     // 参加者セクション（参加者確認画面で選択された場合）
     let participantsSection = "";
     if (participants && participants.length > 0) {
-        participantsSection = `\n## 👥 会議参加者（事前に確認済み）\n以下の参加者がこの会議に出席しています：\n${participants.map(p => `- ${p}`).join("\n")}\n\n**重要**: 話者識別では上記の参加者名を使用してください。「話者A」「話者B」ではなく、可能な限り実際の参加者名で発言者を記載してください。`;
+        const participantsList = participants.join("、");
+        participantsSection = `\n## 👥 会議参加者（確定済み - 必ず使用すること）\n以下の参加者がこの会議に出席しています：\n${participants.map(p => `- ${p}`).join("\n")}\n\n**【最重要】参加メンバー欄について**:\n- 議事録の「【参加メンバー】」欄には、必ず上記の参加者リストをそのまま使用してください\n- 【参加メンバー】 ${participantsList}\n- この参加者リストは音声から推測するのではなく、ユーザーが事前に確定したものです\n- 音声認識で聞き取れなかった人がいても、上記リストの全員を参加者として記載してください`;
     }
 
     // フィードバックセクション（再生成時の修正指示）
