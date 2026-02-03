@@ -43,9 +43,3 @@ next-env.d.ts
 # GCP credentials (NEVER commit these!)
 credentials/*.json
 !credentials/.gitkeep
-
-# PWA generated files
-public/sw.js
-public/sw.js.map
-public/workbox-*.js
-public/workbox-*.js.map
