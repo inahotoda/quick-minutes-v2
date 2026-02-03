@@ -1045,7 +1045,13 @@ export default function Home() {
 
             <button
               className={styles.newButton}
-              onClick={handleReset}
+              onClick={() => {
+                if (!isSaved) {
+                  const confirmed = window.confirm("議事録がGoogle Driveに保存されていません。\n\nトップに戻ってもよろしいですか？");
+                  if (!confirmed) return;
+                }
+                handleReset();
+              }}
             >
               トップに戻る
             </button>
