@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.10.0";
+const APP_VERSION = "v4.11.0";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -72,6 +72,7 @@ export default function Home() {
   const [showParticipantEdit, setShowParticipantEdit] = useState(false);
   const [selectedDuration, setSelectedDuration] = useState<MeetingDuration>(30);
   const [showTimerEndModal, setShowTimerEndModal] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   // Access check state
   const [accessCheckState, setAccessCheckState] = useState<"checking" | "granted" | "denied">("checking");
@@ -117,27 +118,32 @@ export default function Home() {
     }
   }, []);
 
-  // 録音中はページを閉じる・リロード時に警告を表示
+  // 録音中または未保存の議事録がある場合はページを閉じる・リロード時に警告を表示
   useEffect(() => {
     const isRecordingActive = appState === "recording" || appState === "confirming" || appState === "introduction";
+    const hasUnsavedMinutes = appState === "editing" && !isSaved;
 
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isRecordingActive) {
         e.preventDefault();
-        // Chrome requires returnValue to be set
         e.returnValue = "録音中です。本当にページを離れますか？";
+        return e.returnValue;
+      }
+      if (hasUnsavedMinutes) {
+        e.preventDefault();
+        e.returnValue = "議事録が保存されていません。本当にページを離れますか？";
         return e.returnValue;
       }
     };
 
-    if (isRecordingActive) {
+    if (isRecordingActive || hasUnsavedMinutes) {
       window.addEventListener("beforeunload", handleBeforeUnload);
     }
 
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [appState]);
+  }, [appState, isSaved]);
 
   // Handle recording start - always go to participant confirmation
   const handleStartRecording = useCallback(async () => {
@@ -534,6 +540,7 @@ export default function Home() {
       }
 
       // 7. 保存成功
+      setIsSaved(true);
       alert(`✓ Google Driveに保存しました\nフォルダ: ${dateFolderName}`);
     } catch (err: any) {
       console.error("Client Save error details:", err);
@@ -619,6 +626,7 @@ export default function Home() {
     setMinutes("");
     setFiles([]);
     setError(null);
+    setIsSaved(false);
     recorder.resetRecording();
   };
 
@@ -737,13 +745,21 @@ export default function Home() {
                 alert("録音中は操作できません");
                 return;
               }
+              if (appState === "editing" && !isSaved) {
+                const confirmed = window.confirm("議事録が保存されていません。\n設定画面に移動してもよろしいですか？");
+                if (!confirmed) return;
+              }
               window.location.href = "/settings";
             }}
             title="プロンプト設定"
           >
             ⚙️ 設定
           </button>
-          <LoginButton isRecording={appState === "recording" || appState === "confirming" || appState === "introduction"} />
+          <LoginButton
+            isRecording={appState === "recording" || appState === "confirming" || appState === "introduction"}
+            isEditing={appState === "editing"}
+            isSaved={isSaved}
+          />
         </div>
       </header>
 

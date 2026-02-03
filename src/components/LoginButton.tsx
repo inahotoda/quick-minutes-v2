@@ -5,15 +5,25 @@ import styles from "./LoginButton.module.css";
 
 interface LoginButtonProps {
     isRecording?: boolean;
+    isEditing?: boolean;
+    isSaved?: boolean;
 }
 
-export default function LoginButton({ isRecording = false }: LoginButtonProps) {
+export default function LoginButton({
+    isRecording = false,
+    isEditing = false,
+    isSaved = true,
+}: LoginButtonProps) {
     const { data: session, status } = useSession();
 
     const handleLogout = () => {
         if (isRecording) {
             alert("録音中は操作できません");
             return;
+        }
+        if (isEditing && !isSaved) {
+            const confirmed = window.confirm("議事録が保存されていません。\nログアウトしてもよろしいですか？");
+            if (!confirmed) return;
         }
         signOut();
     };
