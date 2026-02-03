@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.18.1";
+const APP_VERSION = "v4.18.2";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -77,6 +77,7 @@ export default function Home() {
   const [lastGenerationParams, setLastGenerationParams] = useState<{
     audioData?: { fileUri?: string; fileId?: string; base64?: string };
     uploadedFiles?: any[];
+    participants?: string[];
   } | null>(null);
 
   // Access check state
@@ -233,7 +234,9 @@ export default function Home() {
   }, [recorder]);
 
   // Generate minutes from audio, transcript, or uploaded files
-  const generateMinutes = async (audioBlob?: Blob) => {
+  const generateMinutes = async (audioBlob?: Blob, passedParticipants?: ConfirmedParticipant[]) => {
+    // 引数で渡された参加者があればそれを使用、なければstateを使用
+    const participantsToUse = passedParticipants || confirmedParticipants;
     // オフラインチェック
     if (!navigator.onLine) {
       setError("オフラインです。議事録生成にはインターネット接続が必要です。");
@@ -262,11 +265,11 @@ export default function Home() {
     setError(null);
 
     try {
-      console.log("🔍 [DEBUG] confirmedParticipants:", confirmedParticipants);
+      console.log("🔍 [DEBUG] participantsToUse:", participantsToUse);
       const requestBody: Record<string, unknown> = {
         mode,
         date: new Date().toLocaleDateString("ja-JP"),
-        participants: confirmedParticipants.map(p => p.name), // 参加者名をGeminiに送信
+        participants: participantsToUse.map(p => p.name), // 参加者名をGeminiに送信
       };
 
       // 1. Gemini File API へ直接アップロード (ブラウザから)
@@ -319,6 +322,7 @@ export default function Home() {
       setLastGenerationParams({
         audioData: requestBody.audioData as { fileUri?: string; fileId?: string; base64?: string } | undefined,
         uploadedFiles: requestBody.uploadedFiles as any[] | undefined,
+        participants: participantsToUse.map(p => p.name),
       });
 
       const response = await fetch("/api/generate", {
@@ -418,7 +422,7 @@ export default function Home() {
       const requestBody: Record<string, unknown> = {
         mode,
         date: new Date().toLocaleDateString("ja-JP"),
-        participants: confirmedParticipants.map(p => p.name),
+        participants: lastGenerationParams.participants || confirmedParticipants.map(p => p.name),
         audioData: lastGenerationParams.audioData,
         uploadedFiles: lastGenerationParams.uploadedFiles,
       };
@@ -498,7 +502,7 @@ export default function Home() {
   // Handle upload participant confirmation complete
   const handleUploadParticipantConfirm = useCallback((participants: ConfirmedParticipant[]) => {
     setConfirmedParticipants(participants);
-    generateMinutes();
+    generateMinutes(undefined, participants);  // 参加者を直接渡す
   }, [transcript, files, mode]);
 
   // Handle save to Google Drive - Direct client upload to bypass Vercel limits
