@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.17.1";
+const APP_VERSION = "v4.18.0";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -73,6 +73,11 @@ export default function Home() {
   const [selectedDuration, setSelectedDuration] = useState<MeetingDuration>(30);
   const [showTimerEndModal, setShowTimerEndModal] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [lastGenerationParams, setLastGenerationParams] = useState<{
+    audioData?: { fileUri?: string; fileId?: string; base64?: string };
+    uploadedFiles?: any[];
+  } | null>(null);
 
   // Access check state
   const [accessCheckState, setAccessCheckState] = useState<"checking" | "granted" | "denied">("checking");
@@ -309,6 +314,12 @@ export default function Home() {
       setAppState("processing");
       setUploadProgress("");
 
+      // 再生成用にパラメータを保存
+      setLastGenerationParams({
+        audioData: requestBody.audioData as { fileUri?: string; fileId?: string; base64?: string } | undefined,
+        uploadedFiles: requestBody.uploadedFiles as any[] | undefined,
+      });
+
       const response = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -388,6 +399,88 @@ export default function Home() {
           URL.revokeObjectURL(url);
         }
       }
+    }
+  };
+
+  // Handle regeneration (with optional feedback)
+  const handleRegenerate = async (feedback?: string) => {
+    if (!lastGenerationParams) {
+      setError("再生成に必要なデータがありません");
+      return;
+    }
+
+    setIsRegenerating(true);
+    setError(null);
+    setIsSaved(false);
+
+    try {
+      const requestBody: Record<string, unknown> = {
+        mode,
+        date: new Date().toLocaleDateString("ja-JP"),
+        participants: confirmedParticipants.map(p => p.name),
+        audioData: lastGenerationParams.audioData,
+        uploadedFiles: lastGenerationParams.uploadedFiles,
+      };
+
+      if (transcript) {
+        requestBody.transcript = transcript;
+      }
+
+      // フィードバックがある場合は追加
+      if (feedback) {
+        requestBody.feedback = feedback;
+      }
+
+      const response = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || "議事録の再生成に失敗しました");
+      }
+
+      // モデルバージョンをヘッダーから取得
+      const ver = response.headers.get("X-Model-Version");
+      if (ver) {
+        setModelVersion(decodeURIComponent(ver));
+      }
+
+      const reader = response.body?.getReader();
+      const textDecoder = new TextDecoder();
+      let fullText = "";
+
+      if (reader) {
+        setMinutes("");
+
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+
+          const chunk = textDecoder.decode(value, { stream: true });
+          fullText += chunk;
+
+          // モデルバージョンの抽出
+          const modelMatch = fullText.match(/\[MODEL_VERSION:([\s\S]*?)\]/);
+          if (modelMatch) {
+            setModelVersion(modelMatch[1]);
+          }
+
+          // 議事録パートの抽出
+          const minutesMatch = fullText.match(/\[MINUTES_START\]([\s\S]*?)(\[MINUTES_END\]|$)/);
+          if (minutesMatch) {
+            const currentMinutes = minutesMatch[1].trim();
+            setMinutes(currentMinutes);
+          }
+        }
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "再生成エラー";
+      setError(errorMessage);
+    } finally {
+      setIsRegenerating(false);
     }
   };
 
@@ -1026,9 +1119,11 @@ export default function Home() {
               mode={mode}
               onChange={setMinutes}
               onSave={handleSave}
+              onRegenerate={lastGenerationParams ? handleRegenerate : undefined}
               onDownloadAudio={recorder.audioBlob ? handleDownloadAudio : undefined}
               isSaving={isSaving}
               isSaved={isSaved}
+              isRegenerating={isRegenerating}
               isSendingEmail={isSendingEmail}
               modelVersion={modelVersion}
             />

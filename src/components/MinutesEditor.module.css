@@ -346,3 +346,124 @@
 .saveButtonSaved:disabled {
     opacity: 1;
 }
+
+/* 再生成セクション */
+.regenerateSection {
+    padding: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.regenerateButtons {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.regenerateButton {
+    flex: 1;
+    padding: 0.75rem 1rem;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.regenerateButton:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+}
+
+.regenerateButton:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.feedbackToggle {
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.feedbackToggle:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.15);
+}
+
+.feedbackToggle:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.feedbackContainer {
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.feedbackInput {
+    width: 100%;
+    padding: 0.75rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 8px;
+    color: white;
+    font-size: 0.9rem;
+    resize: none;
+}
+
+.feedbackInput::placeholder {
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.feedbackInput:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.2);
+}
+
+.feedbackSubmit {
+    align-self: flex-end;
+    padding: 0.6rem 1.2rem;
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.feedbackSubmit:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
+}
+
+.feedbackSubmit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}

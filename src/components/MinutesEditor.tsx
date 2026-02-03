@@ -13,9 +13,11 @@ interface MinutesEditorProps {
     onSave: () => void;
     onSendEmail?: () => void;
     onDownloadAudio?: () => void;
+    onRegenerate?: (feedback?: string) => void;
     isSaving: boolean;
     isSaved: boolean;
     isSendingEmail?: boolean;
+    isRegenerating?: boolean;
     modelVersion?: string;
 }
 
@@ -26,12 +28,16 @@ export default function MinutesEditor({
     onSave,
     onSendEmail,
     onDownloadAudio,
+    onRegenerate,
     isSaving,
     isSaved,
     isSendingEmail = false,
+    isRegenerating = false,
     modelVersion,
 }: MinutesEditorProps) {
     const [isEditing, setIsEditing] = useState(false);
+    const [showFeedback, setShowFeedback] = useState(false);
+    const [feedback, setFeedback] = useState("");
 
     const copyToClipboard = async () => {
         try {
@@ -39,6 +45,20 @@ export default function MinutesEditor({
             alert("✓ クリップボードにコピーしました");
         } catch (error) {
             console.error("Copy failed:", error);
+        }
+    };
+
+    const handleRegenerate = () => {
+        if (onRegenerate) {
+            onRegenerate();
+        }
+    };
+
+    const handleRegenerateWithFeedback = () => {
+        if (onRegenerate && feedback.trim()) {
+            onRegenerate(feedback.trim());
+            setFeedback("");
+            setShowFeedback(false);
         }
     };
 
@@ -79,11 +99,51 @@ export default function MinutesEditor({
                 )}
             </div>
 
+            {/* 再生成セクション */}
+            {onRegenerate && (
+                <div className={styles.regenerateSection}>
+                    <div className={styles.regenerateButtons}>
+                        <button
+                            className={styles.regenerateButton}
+                            onClick={handleRegenerate}
+                            disabled={isRegenerating || isSaving}
+                        >
+                            {isRegenerating ? "⏳ 再生成中..." : "🔄 再生成"}
+                        </button>
+                        <button
+                            className={styles.feedbackToggle}
+                            onClick={() => setShowFeedback(!showFeedback)}
+                            disabled={isRegenerating || isSaving}
+                        >
+                            {showFeedback ? "▲" : "▼"} 修正指示
+                        </button>
+                    </div>
+                    {showFeedback && (
+                        <div className={styles.feedbackContainer}>
+                            <textarea
+                                className={styles.feedbackInput}
+                                placeholder="例: アクションアイテムを追加してください、参加者の名前を正確に..."
+                                value={feedback}
+                                onChange={(e) => setFeedback(e.target.value)}
+                                rows={2}
+                            />
+                            <button
+                                className={styles.feedbackSubmit}
+                                onClick={handleRegenerateWithFeedback}
+                                disabled={!feedback.trim() || isRegenerating || isSaving}
+                            >
+                                ✨ 修正して再生成
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             <div className={styles.footer}>
                 <button
                     className={`${styles.saveButton} ${isSaved ? styles.saveButtonSaved : ''}`}
                     onClick={onSave}
-                    disabled={isSaving || isSendingEmail || isSaved}
+                    disabled={isSaving || isSendingEmail || isSaved || isRegenerating}
                 >
                     {isSaving ? "保存中..." : isSaved ? "✅ 保存済み" : "🚀 ドライブに保存"}
                 </button>
@@ -93,7 +153,7 @@ export default function MinutesEditor({
                         <button
                             className={styles.emailButton}
                             onClick={onSendEmail}
-                            disabled={isSaving || isSendingEmail}
+                            disabled={isSaving || isSendingEmail || isRegenerating}
                         >
                             {isSendingEmail ? "送信中..." : "✉️ メール送信"}
                         </button>
@@ -102,7 +162,7 @@ export default function MinutesEditor({
                         <button
                             className={styles.downloadButtonFooter}
                             onClick={onDownloadAudio}
-                            disabled={isSaving || isSendingEmail}
+                            disabled={isSaving || isSendingEmail || isRegenerating}
                         >
                             ⬇️ 音声ダウンロード
                         </button>
@@ -112,3 +172,4 @@ export default function MinutesEditor({
         </div>
     );
 }
+

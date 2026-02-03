@@ -42,6 +42,8 @@ interface GenerateStreamParams {
     speakerInfo?: SpeakerInfo;
     // 参加者確認画面で選択された参加者名リスト
     participants?: string[];
+    // 再生成時のフィードバック（修正指示）
+    feedback?: string;
 }
 
 /**
@@ -87,6 +89,7 @@ export async function* generateEverythingStream({
     customPrompts,
     speakerInfo,
     participants,
+    feedback,
 }: GenerateStreamParams): AsyncGenerator<string> {
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
 
@@ -119,12 +122,19 @@ export async function* generateEverythingStream({
         participantsSection = `\n## 👥 会議参加者（事前に確認済み）\n以下の参加者がこの会議に出席しています：\n${participants.map(p => `- ${p}`).join("\n")}\n\n**重要**: 話者識別では上記の参加者名を使用してください。「話者A」「話者B」ではなく、可能な限り実際の参加者名で発言者を記載してください。`;
     }
 
+    // フィードバックセクション（再生成時の修正指示）
+    let feedbackSection = "";
+    if (feedback) {
+        feedbackSection = `\n## 📝 ユーザーからの修正指示（最優先）\n以下のフィードバックを反映して議事録を作成してください：\n"${feedback}"\n\n**重要**: これは再生成リクエストです。上記の修正指示を特に優先して議事録を改善してください。`;
+    }
+
     const mainInstruction = `
 ${basePrompt}
 ${modePrompts[mode]}
 ${terminologySection}
 ${speakerSection}
 ${participantsSection}
+${feedbackSection}
 
 ---
 日付: ${date || new Date().toLocaleDateString("ja-JP")}
