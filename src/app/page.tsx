@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.13.0";
+const APP_VERSION = "v4.14.0";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -218,6 +218,29 @@ export default function Home() {
 
   // Generate minutes from audio, transcript, or uploaded files
   const generateMinutes = async (audioBlob?: Blob) => {
+    // オフラインチェック
+    if (!navigator.onLine) {
+      setError("オフラインです。議事録生成にはインターネット接続が必要です。");
+      // 音声データがある場合はダウンロードを促す
+      if (audioBlob || recorder.audioBlob) {
+        const blobToSave = audioBlob || recorder.audioBlob;
+        const shouldDownload = window.confirm(
+          "📶 オフラインのため議事録を生成できません。\n\n大切な録音データを保護するため、音声ファイルをダウンロードしますか？\n\n※ ネットワーク復旧後、ファイルアップロードから議事録を生成できます。"
+        );
+        if (shouldDownload && blobToSave) {
+          const url = URL.createObjectURL(blobToSave);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `会議録音_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, "")}.m4a`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+      }
+      return;
+    }
+
     setAppState("uploading");
     setUploadProgress("Geminiにファイルをアップロード中...");
     setError(null);
@@ -324,14 +347,24 @@ export default function Home() {
         }
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : "エラーが発生しました";
+      // ネットワークエラーかどうかを判定
+      const isNetworkError = !navigator.onLine ||
+        (err instanceof TypeError && err.message.includes("fetch")) ||
+        (err instanceof Error && (err.message.includes("Load failed") || err.message.includes("network")));
+
+      const errorMessage = isNetworkError
+        ? "ネットワーク接続に失敗しました。インターネット接続を確認してください。"
+        : (err instanceof Error ? err.message : "エラーが発生しました");
       setError(errorMessage);
       setAppState("idle");
 
       // 音声データのバックアップ: 議事録生成が失敗しても録音データを守る
       if (recorder.audioBlob) {
+        const offlineHint = isNetworkError
+          ? "\n\n※ ネットワーク復旧後、ファイルアップロードから議事録を生成できます。"
+          : "";
         const shouldDownload = window.confirm(
-          `❌ 議事録の生成に失敗しました\n\nエラー: ${errorMessage}\n\n❗ 大切な録音データを保護するため、音声ファイルをダウンロードしますか？`
+          `❌ 議事録の生成に失敗しました\n\nエラー: ${errorMessage}\n\n❗ 大切な録音データを保護するため、音声ファイルをダウンロードしますか？${offlineHint}`
         );
         if (shouldDownload) {
           const url = URL.createObjectURL(recorder.audioBlob);
