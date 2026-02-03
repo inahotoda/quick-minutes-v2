@@ -1114,6 +1114,18 @@ export default function Home() {
               setAppState("idle");
               setError(null);
             }}
+            onRetry={() => {
+              // 参加者を保持したまま再生成
+              if (lastGenerationParams) {
+                generateMinutes(
+                  recorder.audioBlob || undefined,
+                  confirmedParticipants.length > 0 ? confirmedParticipants : undefined
+                );
+              } else {
+                setAppState("idle");
+                setError("リトライに必要なデータがありません。もう一度やり直してください。");
+              }
+            }}
           />
         )}
 

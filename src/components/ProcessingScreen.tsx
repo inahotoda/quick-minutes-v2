@@ -88,9 +88,10 @@ const shuffleArray = <T,>(array: T[]): T[] => {
 interface ProcessingScreenProps {
     audioBlob?: Blob | null;
     onCancel?: () => void;  // 中止して戻る
+    onRetry?: () => void;   // リトライ
 }
 
-export default function ProcessingScreen({ audioBlob, onCancel }: ProcessingScreenProps) {
+export default function ProcessingScreen({ audioBlob, onCancel, onRetry }: ProcessingScreenProps) {
     // 初回ロード時にシャッフルされたメッセージ配列を作成
     const shuffledMessages = useMemo(() => shuffleArray(ALL_MESSAGES), []);
 
@@ -184,6 +185,11 @@ export default function ProcessingScreen({ audioBlob, onCancel }: ProcessingScre
                         このまま待つか、中止して再試行してください。
                     </p>
                     <div className={styles.backupButtons}>
+                        {onRetry && (
+                            <button className={styles.retryButton} onClick={onRetry}>
+                                🔄 リトライ
+                            </button>
+                        )}
                         {audioBlob && (
                             <button className={styles.backupButton} onClick={handleDownloadBackup}>
                                 ⬇️ 音声をバックアップ
@@ -191,7 +197,7 @@ export default function ProcessingScreen({ audioBlob, onCancel }: ProcessingScre
                         )}
                         {onCancel && (
                             <button className={styles.cancelButton} onClick={onCancel}>
-                                ✕ 中止してトップに戻る
+                                ✕ トップに戻る
                             </button>
                         )}
                     </div>
