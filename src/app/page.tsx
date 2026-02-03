@@ -262,6 +262,7 @@ export default function Home() {
     setError(null);
 
     try {
+      console.log("🔍 [DEBUG] confirmedParticipants:", confirmedParticipants);
       const requestBody: Record<string, unknown> = {
         mode,
         date: new Date().toLocaleDateString("ja-JP"),
