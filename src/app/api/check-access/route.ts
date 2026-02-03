@@ -3,8 +3,8 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { google } from "googleapis";
 
-// 設定を保存する共有フォルダID
-const CONFIG_FOLDER_ID = "1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY";
+// アクセス権確認用の共有ドライブID
+const CONFIG_FOLDER_ID = "0AEGO8vJJ35GMUk9PVA";
 const FOLDER_NAME = "議事録アプリ設定フォルダ";
 
 export async function GET() {
