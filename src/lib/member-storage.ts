@@ -212,18 +212,26 @@ export async function getAllMembers(forceLocal: boolean = false): Promise<Member
         // 1. まずGoogle Drive APIから取得を試みる（クラウド優先）
         const cloudMembers = await fetchMembersFromAPI();
 
-        if (cloudMembers.length > 0) {
-            // クラウドデータをローカルIndexedDBに同期
-            const db = await openDB();
-            const transaction = db.transaction(MEMBERS_STORE, "readwrite");
-            const store = transaction.objectStore(MEMBERS_STORE);
+        // クラウドにデータがある場合、ローカルを完全にクラウドデータで置換
+        // これにより、他デバイスで削除されたメンバーも正しく反映される
+        const db = await openDB();
+        const transaction = db.transaction(MEMBERS_STORE, "readwrite");
+        const store = transaction.objectStore(MEMBERS_STORE);
 
-            for (const member of cloudMembers) {
-                store.put(member);
-            }
+        // ローカルデータをクリアしてからクラウドデータを同期
+        await new Promise<void>((resolve, reject) => {
+            const clearRequest = store.clear();
+            clearRequest.onerror = () => reject(clearRequest.error);
+            clearRequest.onsuccess = () => {
+                // クラウドデータを追加
+                for (const member of cloudMembers) {
+                    store.put(member);
+                }
+                resolve();
+            };
+        });
 
-            return cloudMembers;
-        }
+        return cloudMembers;
     } catch (error) {
         console.warn("Cloud fetch failed, falling back to local:", error);
     }
@@ -332,9 +340,13 @@ export async function deleteMember(id: string): Promise<void> {
 
         request.onerror = () => reject(request.error);
         request.onsuccess = async () => {
-            // Sync to Google Drive (non-blocking)
-            const allMembers = await getAllMembersLocal();
-            saveMembersToAPI(allMembers).catch(console.error);
+            // Sync to Google Drive (blocking - 同期完了を待つ)
+            try {
+                const allMembers = await getAllMembersLocal();
+                await saveMembersToAPI(allMembers);
+            } catch (error) {
+                console.error("Failed to sync member deletion to cloud:", error);
+            }
             resolve();
         };
     });
@@ -349,18 +361,24 @@ export async function getAllPresets(): Promise<MeetingPreset[]> {
         // 1. まずGoogle Drive APIから取得を試みる（クラウド優先）
         const cloudPresets = await fetchPresetsFromAPI();
 
-        if (cloudPresets.length > 0) {
-            // クラウドデータをローカルIndexedDBに同期
-            const db = await openDB();
-            const transaction = db.transaction(PRESETS_STORE, "readwrite");
-            const store = transaction.objectStore(PRESETS_STORE);
+        // クラウドにデータがある場合、ローカルを完全にクラウドデータで置換
+        const db = await openDB();
+        const transaction = db.transaction(PRESETS_STORE, "readwrite");
+        const store = transaction.objectStore(PRESETS_STORE);
 
-            for (const preset of cloudPresets) {
-                store.put(preset);
-            }
+        // ローカルデータをクリアしてからクラウドデータを同期
+        await new Promise<void>((resolve, reject) => {
+            const clearRequest = store.clear();
+            clearRequest.onerror = () => reject(clearRequest.error);
+            clearRequest.onsuccess = () => {
+                for (const preset of cloudPresets) {
+                    store.put(preset);
+                }
+                resolve();
+            };
+        });
 
-            return cloudPresets;
-        }
+        return cloudPresets;
     } catch (error) {
         console.warn("Cloud fetch failed, falling back to local:", error);
     }
@@ -472,9 +490,13 @@ export async function deletePreset(id: string): Promise<void> {
 
         request.onerror = () => reject(request.error);
         request.onsuccess = async () => {
-            // Sync to Google Drive (non-blocking)
-            const allPresets = await getAllPresetsLocal();
-            savePresetsToAPI(allPresets).catch(console.error);
+            // Sync to Google Drive (blocking - 同期完了を待つ)
+            try {
+                const allPresets = await getAllPresetsLocal();
+                await savePresetsToAPI(allPresets);
+            } catch (error) {
+                console.error("Failed to sync preset deletion to cloud:", error);
+            }
             resolve();
         };
     });
