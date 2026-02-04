@@ -149,7 +149,7 @@ export default function LandingPage() {
 
             {/* Footer */}
             <footer className={styles.footer}>
-                <p>INAHO 議事録 — Powered by AI</p>
+                <p>INAHO 議事録 — Powered by INAHO Manufacturing Ltd.</p>
             </footer>
         </div>
     );
