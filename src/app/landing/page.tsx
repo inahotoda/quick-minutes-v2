@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import styles from "./page.module.css";
 
 export default function LandingPage() {
@@ -55,60 +56,82 @@ export default function LandingPage() {
                 </div>
             </section>
 
-            {/* Features Section */}
-            <section ref={setRef(0)} className={`${styles.section} ${styles.fadeUp}`}>
-                <h2 className={styles.sectionTitle}>シンプルな3ステップ</h2>
-                <div className={styles.features}>
-                    <div className={styles.featureCard}>
-                        <div className={styles.featureIcon}>🎤</div>
-                        <h3>録音する</h3>
-                        <p>会議中にボタンひとつで録音開始。バックグラウンドでも動作します。</p>
+            {/* Device Showcase Section */}
+            <section ref={setRef(0)} className={`${styles.section} ${styles.showcaseSection} ${styles.fadeUp}`}>
+                <div className={styles.showcaseContent}>
+                    <h2 className={styles.showcaseTitle}>どこでも、すぐに。</h2>
+                    <p className={styles.showcaseDescription}>
+                        MacでもiPhoneでも。デバイスを選ばず、
+                        <br />
+                        あなたの会議を最高の議事録に変換します。
+                    </p>
+                </div>
+                <div className={styles.deviceImage}>
+                    <Image
+                        src="/images/hero-devices.png"
+                        alt="INAHO議事録 - MacとiPhoneでの表示"
+                        width={900}
+                        height={600}
+                        priority
+                    />
+                </div>
+            </section>
+
+            {/* How it Works Section */}
+            <section ref={setRef(1)} className={`${styles.section} ${styles.fadeUp}`}>
+                <h2 className={styles.sectionTitle}>録音して、待つだけ。</h2>
+                <p className={styles.sectionSubtitle}>あとはAIがすべてを整理します。</p>
+                <div className={styles.steps}>
+                    <div className={styles.stepItem}>
+                        <div className={styles.stepNumber}>1</div>
+                        <div className={styles.stepContent}>
+                            <h3>録音</h3>
+                            <p>ボタンひとつで録音開始。会議中は他のアプリを使っていても大丈夫。</p>
+                        </div>
                     </div>
-                    <div className={styles.featureArrow}>→</div>
-                    <div className={styles.featureCard}>
-                        <div className={styles.featureIcon}>🤖</div>
-                        <h3>AIが生成</h3>
-                        <p>最新のAIが音声を解析し、発言者を識別しながら議事録を自動生成。</p>
+                    <div className={styles.stepLine}></div>
+                    <div className={styles.stepItem}>
+                        <div className={styles.stepNumber}>2</div>
+                        <div className={styles.stepContent}>
+                            <h3>AI解析</h3>
+                            <p>発言者を自動識別。誰が何を話したか、すべて記録されます。</p>
+                        </div>
                     </div>
-                    <div className={styles.featureArrow}>→</div>
-                    <div className={styles.featureCard}>
-                        <div className={styles.featureIcon}>💾</div>
-                        <h3>保存・共有</h3>
-                        <p>Google Driveにワンクリック保存。チームとすぐに共有できます。</p>
+                    <div className={styles.stepLine}></div>
+                    <div className={styles.stepItem}>
+                        <div className={styles.stepNumber}>3</div>
+                        <div className={styles.stepContent}>
+                            <h3>保存</h3>
+                            <p>Google Driveにワンクリック保存。チームとすぐに共有。</p>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            {/* Highlights Section */}
-            <section ref={setRef(1)} className={`${styles.section} ${styles.fadeUp}`}>
-                <h2 className={styles.sectionTitle}>なぜINAHO議事録なのか</h2>
-                <div className={styles.highlights}>
-                    <div className={styles.highlightItem}>
-                        <div className={styles.highlightNumber}>01</div>
-                        <div className={styles.highlightContent}>
-                            <h3>発言者を自動識別</h3>
-                            <p>「誰が何を言ったか」をAIが自動で判別。名前付きで議事録に反映されます。</p>
-                        </div>
+            {/* Features Section */}
+            <section ref={setRef(2)} className={`${styles.section} ${styles.featuresSection} ${styles.fadeUp}`}>
+                <div className={styles.featureGrid}>
+                    <div className={styles.featureItem}>
+                        <h3>発言者識別</h3>
+                        <p>AIが声を聞き分け、「誰が言ったか」を自動で記録。</p>
                     </div>
-                    <div className={styles.highlightItem}>
-                        <div className={styles.highlightNumber}>02</div>
-                        <div className={styles.highlightContent}>
-                            <h3>複数デバイス対応</h3>
-                            <p>Mac、iPhone、iPad、どこでも使えるPWA対応。いつでも会議を記録。</p>
-                        </div>
+                    <div className={styles.featureItem}>
+                        <h3>PWA対応</h3>
+                        <p>アプリのようにインストール可能。オフラインでも録音できます。</p>
                     </div>
-                    <div className={styles.highlightItem}>
-                        <div className={styles.highlightNumber}>03</div>
-                        <div className={styles.highlightContent}>
-                            <h3>Google連携</h3>
-                            <p>Googleアカウントでログイン。Google Driveに直接保存できます。</p>
-                        </div>
+                    <div className={styles.featureItem}>
+                        <h3>Google連携</h3>
+                        <p>ログインからドライブ保存まで、Googleアカウントひとつで完結。</p>
+                    </div>
+                    <div className={styles.featureItem}>
+                        <h3>会議モード</h3>
+                        <p>社内会議・商談など、シーンに合わせた最適なフォーマットを自動選択。</p>
                     </div>
                 </div>
             </section>
 
             {/* CTA Section */}
-            <section ref={setRef(2)} className={`${styles.section} ${styles.ctaSection} ${styles.fadeUp}`}>
+            <section ref={setRef(3)} className={`${styles.section} ${styles.ctaSection} ${styles.fadeUp}`}>
                 <h2 className={styles.ctaTitle}>
                     会議の価値を
                     <br />
