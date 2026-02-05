@@ -133,13 +133,15 @@ export async function getFileContent(fileId: string): Promise<string> {
     }, { responseType: "stream" });
 
     return new Promise((resolve, reject) => {
-        let content = "";
+        const chunks: Buffer[] = [];
         const stream = response.data as Readable;
-        stream.on("data", (chunk) => {
-            content += chunk;
+        stream.on("data", (chunk: Buffer) => {
+            chunks.push(chunk);
         });
         stream.on("end", () => {
-            resolve(content);
+            // バッファを結合してUTF-8としてデコード
+            const buffer = Buffer.concat(chunks);
+            resolve(buffer.toString("utf-8"));
         });
         stream.on("error", (err) => {
             reject(err);
@@ -154,11 +156,14 @@ export async function updateFile(
 ) {
     const drive = await getGoogleDriveClient();
 
+    // UTF-8としてBufferに変換してからStreamに
+    const buffer = Buffer.from(content, "utf-8");
+
     const response = await drive.files.update({
         fileId,
         media: {
             mimeType,
-            body: Readable.from(content),
+            body: Readable.from(buffer),
         },
         fields: "id, name, webViewLink",
         supportsAllDrives: true,
