@@ -1,5 +1,5 @@
 // Service Worker for offline support
-const CACHE_NAME = 'inaho-minutes-v1';
+const CACHE_NAME = 'inaho-minutes-v2';
 const OFFLINE_URL = '/offline.html';
 
 // Assets to cache
