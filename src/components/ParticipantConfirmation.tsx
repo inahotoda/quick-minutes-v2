@@ -69,13 +69,16 @@ export default function ParticipantConfirmation({
         return null;
     };
 
-    // Load members and initialize participants
+    // Load members and initialize participants (only on initial mount)
     useEffect(() => {
+        let isMounted = true;
         const load = async () => {
             try {
                 const allMembers = await getAllMembers();
+                if (!isMounted) return;
                 setMembers(allMembers);
 
+                // Only initialize participants on first load (when participants is empty)
                 if (isFloating && currentParticipants.length > 0) {
                     setParticipants(currentParticipants);
                 } else if (preset) {
@@ -97,11 +100,13 @@ export default function ParticipantConfirmation({
             } catch (error) {
                 console.error("Failed to load members:", error);
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
         load();
-    }, [preset, isFloating, currentParticipants]);
+        return () => { isMounted = false; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Only run on initial mount
 
     // Remove participant
     const handleRemove = (id: string) => {
