@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
         }
 
-        const { to, subject, content } = await request.json();
+        const { to, subject, content, attachment } = await request.json();
 
         if (!to || !content) {
             return NextResponse.json(
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        await sendEmail(to, subject || "議事録のご送付", content);
+        await sendEmail(to, subject || "議事録のご送付", content, attachment);
 
         return NextResponse.json({ success: true });
     } catch (error) {
