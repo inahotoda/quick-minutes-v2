@@ -539,9 +539,18 @@ export default function Home() {
       const targetFolderId = dateFolder.id;
 
       // 3. ファイル名を生成
-      const modeLabel = mode === "business" ? "商談" : mode === "internal" ? "社内" : "その他";
-      const userName = session.user?.name || "不明";
-      const baseFileName = `${yyyymmdd}_${modeLabel}_${topic || "会議"}(${userName})`;
+      // ルール: YYYYMMDD-会議名(プリセットがある場合) or YYYYMMDD-参加者1_参加者2(プリセットがない場合)
+      let meetingIdentifier: string;
+      if (selectedPreset?.name) {
+        // プリセットがある場合は会議名を使用
+        meetingIdentifier = selectedPreset.name;
+      } else {
+        // プリセットがない場合は参加者名を_で連結
+        meetingIdentifier = confirmedParticipants.length > 0
+          ? confirmedParticipants.map(p => p.name).join("_")
+          : "会議";
+      }
+      const baseFileName = `${yyyymmdd}-${meetingIdentifier}`;
 
       // 4. 議事録をPDFとして保存
       console.log("Client: Generating PDF from minutes...");
@@ -653,19 +662,19 @@ export default function Home() {
         console.log("Client: PDF generated, size:", pdfBlob.size, "bytes");
 
         // Google Driveにアップロード
-        await uploadPdfFile(`${baseFileName}_議事録.pdf`, pdfBlob, targetFolderId, accessToken);
+        await uploadPdfFile(`${baseFileName}.pdf`, pdfBlob, targetFolderId, accessToken);
         console.log("Client: PDF uploaded to Drive");
       } else {
         // プレビュー要素が見つからない場合はテキストとして保存
         console.warn("Client: Preview element not found, falling back to text upload");
-        await uploadMarkdownAsDoc(`${baseFileName}_議事録`, minutes, targetFolderId, accessToken);
+        await uploadMarkdownAsDoc(baseFileName, minutes, targetFolderId, accessToken);
       }
 
       // 5. 録音音声データがある場合は保存
       if (recorder.audioBlob) {
         console.log("Client: Uploading recorded audio...");
         const audioBlob = new Blob([recorder.audioBlob], { type: "audio/mp4" });
-        await uploadAudioFile(`${baseFileName}_音声.m4a`, audioBlob, audioRootFolderId, accessToken);
+        await uploadAudioFile(`${baseFileName}.m4a`, audioBlob, audioRootFolderId, accessToken);
       }
 
       // 6. アップロードされた付随音声ファイルがある場合も保存
@@ -676,7 +685,7 @@ export default function Home() {
           const f = uploadedAudioFiles[i];
           const suffix = uploadedAudioFiles.length > 1 ? `_${i + 1}` : "";
           const fileExt = f.name.split('.').pop();
-          const fileName = `${baseFileName}_音声${suffix}.${fileExt}`;
+          const fileName = `${baseFileName}${suffix}.${fileExt}`;
           await uploadAudioFile(fileName, f.file, audioRootFolderId, accessToken);
         }
       }
