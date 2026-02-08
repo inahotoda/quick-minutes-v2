@@ -15,7 +15,7 @@ interface FileUploadProps {
 export default function FileUpload({
     files,
     onFilesChange,
-    acceptTypes = "audio/*,application/pdf,image/*,.txt",
+    acceptTypes = "audio/*,audio/mpeg,audio/mp4,audio/x-m4a,audio/aac,audio/wav,audio/x-wav,audio/ogg,audio/webm,.mp3,.m4a,.aac,.wav,.ogg,.webm,.mp4,application/pdf,image/*,.txt",
     compact = false,
     compactLabel = "資料を追加",
 }: FileUploadProps) {

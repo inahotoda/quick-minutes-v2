@@ -13,6 +13,8 @@ export function useAudioRecorder() {
     const streamRef = useRef<MediaStream | null>(null);
     const chunksRef = useRef<Blob[]>([]);
     const timerRef = useRef<NodeJS.Timeout | null>(null);
+    const startTimeRef = useRef<number | null>(null);      // 録音（再開）開始時刻
+    const pausedDurationRef = useRef<number>(0);            // 一時停止までの累積秒数
 
     // トラックの監視設定
     const monitorTrack = (stream: MediaStream) => {
@@ -55,6 +57,7 @@ export function useAudioRecorder() {
             if (!isResume) {
                 chunksRef.current = [];
                 setDuration(0);
+                pausedDurationRef.current = 0;
             }
 
             mediaRecorder.ondataavailable = (e) => {
@@ -68,9 +71,14 @@ export function useAudioRecorder() {
             setIsPaused(false);
             setIsInterrupted(false);
 
+            // 壁時計ベースのタイマー（iOSバックグラウンドでのスロットリング対策）
             if (timerRef.current) clearInterval(timerRef.current);
+            startTimeRef.current = Date.now();
             timerRef.current = setInterval(() => {
-                setDuration((d: number) => d + 1);
+                if (startTimeRef.current !== null) {
+                    const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+                    setDuration(pausedDurationRef.current + elapsed);
+                }
             }, 1000);
         } catch (error) {
             console.error("録音の開始に失敗しました:", error);
@@ -129,7 +137,7 @@ export function useAudioRecorder() {
         });
     }, [isRecording]);
 
-    // Visibility change の監視（アプリ復帰時の自動チェック）
+    // Visibility change の監視（アプリ復帰時の自動チェック＋タイマー補正）
     useEffect(() => {
         const handleVisibilityChange = () => {
             if (document.visibilityState === "visible" && isRecording) {
@@ -138,17 +146,29 @@ export function useAudioRecorder() {
                 if (track && (track.readyState === "ended" || track.muted)) {
                     setIsInterrupted(true);
                 }
+                // 復帰時にタイマーを即座に補正
+                if (startTimeRef.current !== null && !isPaused) {
+                    const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+                    setDuration(pausedDurationRef.current + elapsed);
+                }
             }
         };
 
         document.addEventListener("visibilitychange", handleVisibilityChange);
         return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-    }, [isRecording]);
+    }, [isRecording, isPaused]);
 
     const pauseRecording = useCallback(() => {
         if (mediaRecorderRef.current && isRecording && !isPaused) {
             mediaRecorderRef.current.pause();
             setIsPaused(true);
+
+            // 一時停止までの累積秒数を保存
+            if (startTimeRef.current !== null) {
+                const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+                pausedDurationRef.current = pausedDurationRef.current + elapsed;
+            }
+            startTimeRef.current = null;
 
             if (timerRef.current) {
                 clearInterval(timerRef.current);
@@ -162,8 +182,13 @@ export function useAudioRecorder() {
             mediaRecorderRef.current.resume();
             setIsPaused(false);
 
+            // 壁時計ベースで再開
+            startTimeRef.current = Date.now();
             timerRef.current = setInterval(() => {
-                setDuration((d: number) => d + 1);
+                if (startTimeRef.current !== null) {
+                    const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+                    setDuration(pausedDurationRef.current + elapsed);
+                }
             }, 1000);
         }
     }, [isRecording, isPaused]);
@@ -173,11 +198,15 @@ export function useAudioRecorder() {
         setDuration(0);
         chunksRef.current = [];
         setIsInterrupted(false);
+        startTimeRef.current = null;
+        pausedDurationRef.current = 0;
     }, []);
 
     // Reset only duration (for countdown timer extend)
     const resetDuration = useCallback(() => {
         setDuration(0);
+        pausedDurationRef.current = 0;
+        startTimeRef.current = Date.now();
     }, []);
 
     return {
