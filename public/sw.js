@@ -1,10 +1,10 @@
 // Service Worker for offline support
-const CACHE_NAME = 'inaho-minutes-v2';
+// キャッシュバージョン: デプロイ時に自動的に古いキャッシュがクリアされる
+const CACHE_NAME = 'inaho-minutes-v3';
 const OFFLINE_URL = '/offline.html';
 
-// Assets to cache
+// オフライン時に必要な最小限のアセットのみプリキャッシュ
 const PRECACHE_ASSETS = [
-    '/',
     '/offline.html',
     '/manifest.json',
     '/inaho-logo.png',
@@ -27,6 +27,7 @@ self.addEventListener('activate', (event) => {
             return Promise.all(
                 cacheNames.map((cacheName) => {
                     if (cacheName !== CACHE_NAME) {
+                        console.log('Deleting old cache:', cacheName);
                         return caches.delete(cacheName);
                     }
                 })
@@ -36,7 +37,7 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event
 self.addEventListener('fetch', (event) => {
     // Skip non-GET requests
     if (event.request.method !== 'GET') return;
@@ -47,15 +48,18 @@ self.addEventListener('fetch', (event) => {
     // Skip API requests
     if (event.request.url.includes('/api/')) return;
 
-    event.respondWith(
-        caches.match(event.request).then((cachedResponse) => {
-            if (cachedResponse) {
-                return cachedResponse;
-            }
+    // ナビゲーション（HTMLページ）と JS/CSS → Network First
+    // 画像・フォントなどの静的アセット → Cache First
+    const isNavigationOrAsset =
+        event.request.mode === 'navigate' ||
+        event.request.destination === 'script' ||
+        event.request.destination === 'style';
 
-            return fetch(event.request)
+    if (isNavigationOrAsset) {
+        // Network First: 常に最新を取得し、失敗時のみキャッシュ
+        event.respondWith(
+            fetch(event.request)
                 .then((response) => {
-                    // Cache successful responses
                     if (response.status === 200) {
                         const responseClone = response.clone();
                         caches.open(CACHE_NAME).then((cache) => {
@@ -65,11 +69,34 @@ self.addEventListener('fetch', (event) => {
                     return response;
                 })
                 .catch(() => {
-                    // Return offline page for navigation requests
-                    if (event.request.mode === 'navigate') {
-                        return caches.match(OFFLINE_URL);
-                    }
-                });
-        })
-    );
+                    return caches.match(event.request).then((cachedResponse) => {
+                        if (cachedResponse) return cachedResponse;
+                        if (event.request.mode === 'navigate') {
+                            return caches.match(OFFLINE_URL);
+                        }
+                    });
+                })
+        );
+    } else {
+        // Cache First: 画像・フォントなどは効率優先
+        event.respondWith(
+            caches.match(event.request).then((cachedResponse) => {
+                if (cachedResponse) return cachedResponse;
+
+                return fetch(event.request)
+                    .then((response) => {
+                        if (response.status === 200) {
+                            const responseClone = response.clone();
+                            caches.open(CACHE_NAME).then((cache) => {
+                                cache.put(event.request, responseClone);
+                            });
+                        }
+                        return response;
+                    })
+                    .catch(() => {
+                        // オフライン時: 何も返せない場合は無視
+                    });
+            })
+        );
+    }
 });
