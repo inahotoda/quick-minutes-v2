@@ -167,9 +167,9 @@ export default function MinutesEditor({
                 <button
                     className={`${styles.saveButton} ${isSaved ? styles.saveButtonSaved : ''}`}
                     onClick={onSave}
-                    disabled={isSaving || isSendingEmail || isSaved || isRegenerating}
+                    disabled={isSaving || isSendingEmail || isSaved || isRegenerating || isEditing}
                 >
-                    {isSaving ? "保存中..." : isSaved ? "✅ 保存済み" : "🚀 ドライブに保存"}
+                    {isSaving ? "保存中..." : isSaved ? "✅ 保存済み" : isEditing ? "✏️ 編集を完了してください" : "🚀 ドライブに保存"}
                 </button>
 
                 <div className={styles.footerSubActions}>
