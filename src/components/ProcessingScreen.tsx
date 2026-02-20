@@ -89,9 +89,10 @@ interface ProcessingScreenProps {
     audioBlob?: Blob | null;
     onCancel?: () => void;  // 中止して戻る
     onRetry?: () => void;   // リトライ
+    error?: string | null;  // エラーメッセージ
 }
 
-export default function ProcessingScreen({ audioBlob, onCancel, onRetry }: ProcessingScreenProps) {
+export default function ProcessingScreen({ audioBlob, onCancel, onRetry, error }: ProcessingScreenProps) {
     // 初回ロード時にシャッフルされたメッセージ配列を作成
     const shuffledMessages = useMemo(() => shuffleArray(ALL_MESSAGES), []);
 
@@ -127,8 +128,8 @@ export default function ProcessingScreen({ audioBlob, onCancel, onRetry }: Proce
     const minutes = Math.floor(remainingSeconds / 60);
     const seconds = remainingSeconds % 60;
 
-    // 2分経過したらバックアップボタンを表示
-    const showBackupButton = elapsedSeconds >= totalSeconds && audioBlob;
+    // 2分経過 or エラー時にバックアップボタンを表示
+    const showBackupButton = error || (elapsedSeconds >= totalSeconds && audioBlob);
 
     const handleDownloadBackup = () => {
         if (!audioBlob) return;
@@ -152,38 +153,51 @@ export default function ProcessingScreen({ audioBlob, onCancel, onRetry }: Proce
                 <div className={`${styles.particle} ${styles.particle1}`} />
                 <div className={`${styles.particle} ${styles.particle2}`} />
                 <div className={styles.orb}>
-                    <div className={styles.orbCore} />
+                    <div className={error ? styles.orbCoreError : styles.orbCore} />
                 </div>
             </div>
 
-            <h2 className={styles.title}>会議、お疲れ様でした</h2>
-            <p className={styles.subtitle}>価値ある対話を、確かな資産に変えています</p>
+            {error ? (
+                <>
+                    <h2 className={styles.title}>議事録の生成に失敗しました</h2>
+                    <p className={styles.subtitle}>{error}</p>
+                </>
+            ) : (
+                <>
+                    <h2 className={styles.title}>会議、お疲れ様でした</h2>
+                    <p className={styles.subtitle}>価値ある対話を、確かな資産に変えています</p>
+                </>
+            )}
 
-            {/* Timer */}
-            <div className={styles.timerSection}>
-                <div className={styles.countdown}>
-                    {showBackupButton ? (
-                        <span className={styles.overtimeText}>処理中...</span>
-                    ) : (
-                        `${minutes}:${seconds.toString().padStart(2, "0")}`
-                    )}
+            {/* Timer (hide when error) */}
+            {!error && (
+                <div className={styles.timerSection}>
+                    <div className={styles.countdown}>
+                        {showBackupButton ? (
+                            <span className={styles.overtimeText}>処理中...</span>
+                        ) : (
+                            `${minutes}:${seconds.toString().padStart(2, "0")}`
+                        )}
+                    </div>
+                    <div className={styles.progressTrack}>
+                        <div
+                            className={`${styles.progressFill} ${showBackupButton ? styles.progressComplete : ""}`}
+                            style={{ width: `${progressPercent}%` }}
+                        />
+                    </div>
                 </div>
-                <div className={styles.progressTrack}>
-                    <div
-                        className={`${styles.progressFill} ${showBackupButton ? styles.progressComplete : ""}`}
-                        style={{ width: `${progressPercent}%` }}
-                    />
-                </div>
-            </div>
+            )}
 
-            {/* Message or Backup Warning */}
+            {/* Message or Backup/Error Section */}
             {showBackupButton ? (
                 <div className={styles.backupSection}>
-                    <p className={styles.backupWarning}>
-                        生成に時間がかかっています。
-                        <br />
-                        このまま待つか、中止して再試行してください。
-                    </p>
+                    {!error && (
+                        <p className={styles.backupWarning}>
+                            生成に時間がかかっています。
+                            <br />
+                            このまま待つか、中止して再試行してください。
+                        </p>
+                    )}
                     <div className={styles.backupButtons}>
                         {onRetry && (
                             <button className={styles.retryButton} onClick={onRetry}>
@@ -201,9 +215,16 @@ export default function ProcessingScreen({ audioBlob, onCancel, onRetry }: Proce
                             </button>
                         )}
                     </div>
-                    <p className={styles.backupHint}>
-                        待機を続けても問題ありません。完成したら自動的に表示されます。
-                    </p>
+                    {!error && (
+                        <p className={styles.backupHint}>
+                            待機を続けても問題ありません。完成したら自動的に表示されます。
+                        </p>
+                    )}
+                    {error && audioBlob && (
+                        <p className={styles.backupHint}>
+                            音声をバックアップしてから、リトライまたはトップに戻ってください。
+                        </p>
+                    )}
                 </div>
             ) : (
                 <p className={styles.message} key={fadeKey}>

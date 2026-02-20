@@ -36,6 +36,18 @@
     animation: corePulse 2s ease-in-out infinite;
 }
 
+.orbCoreError {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #ef4444, #f97316);
+    box-shadow:
+        0 0 30px rgba(239, 68, 68, 0.6),
+        0 0 60px rgba(249, 115, 22, 0.4),
+        0 0 90px rgba(239, 68, 68, 0.2);
+    animation: corePulse 2s ease-in-out infinite;
+}
+
 @keyframes corePulse {
 
     0%,

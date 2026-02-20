@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.18.3";
+const APP_VERSION = "v4.18.5";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -383,27 +383,9 @@ export default function Home() {
         ? "ネットワーク接続に失敗しました。インターネット接続を確認してください。"
         : (err instanceof Error ? err.message : "エラーが発生しました");
       setError(errorMessage);
-      setAppState("idle");
-
-      // 音声データのバックアップ: 議事録生成が失敗しても録音データを守る
-      if (recorder.audioBlob) {
-        const offlineHint = isNetworkError
-          ? "\n\n※ ネットワーク復旧後、ファイルアップロードから議事録を生成できます。"
-          : "";
-        const shouldDownload = window.confirm(
-          `❌ 議事録の生成に失敗しました\n\nエラー: ${errorMessage}\n\n❗ 大切な録音データを保護するため、音声ファイルをダウンロードしますか？${offlineHint}`
-        );
-        if (shouldDownload) {
-          const url = URL.createObjectURL(recorder.audioBlob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `会議録音_${new Date().toISOString().slice(0, 19).replace(/[:-]/g, "")}.m4a`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-        }
-      }
+      // processing 状態を維持し、ProcessingScreen のエラー表示で
+      // 音声ダウンロード・リトライ・トップに戻るを提供する
+      setAppState("processing");
     }
   };
 
@@ -570,6 +552,10 @@ export default function Home() {
           padding: 20px !important;
           font-size: 12pt !important;
           line-height: 1.6 !important;
+          overflow: visible !important;
+          max-width: 100% !important;
+          width: 100% !important;
+          box-sizing: border-box !important;
         `;
 
         // テーブルや見出しのスタイルも調整
@@ -589,6 +575,9 @@ export default function Home() {
             background: #fafafa !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+            width: 100% !important;
+            max-width: 100% !important;
+            table-layout: auto !important;
           }
           [data-minutes-preview] tr {
             page-break-inside: avoid !important;
@@ -598,10 +587,28 @@ export default function Home() {
             background: #e8e8e8 !important; 
             color: #111 !important;
             font-weight: bold !important;
+            white-space: nowrap !important;
           }
           [data-minutes-preview] td, [data-minutes-preview] th { 
             border: 1px solid #ddd !important; 
-            padding: 8px !important;
+            padding: 6px 8px !important;
+            word-wrap: break-word !important;
+            overflow-wrap: break-word !important;
+            font-size: 9pt !important;
+            vertical-align: top !important;
+          }
+          [data-minutes-preview] td:first-child,
+          [data-minutes-preview] th:first-child {
+            white-space: nowrap !important;
+          }
+          [data-minutes-preview] td:nth-child(2),
+          [data-minutes-preview] th:nth-child(2) {
+            white-space: nowrap !important;
+            text-align: center !important;
+          }
+          [data-minutes-preview] td:last-child,
+          [data-minutes-preview] th:last-child {
+            word-break: break-word !important;
           }
           [data-minutes-preview] strong { color: #111 !important; }
           [data-minutes-preview] p {
@@ -766,7 +773,59 @@ export default function Home() {
         padding: 20px !important;
         font-size: 12pt !important;
         line-height: 1.6 !important;
+        overflow: visible !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
       `;
+
+      // テーブルや見出しのスタイルも調整（Drive保存と同じスタイル）
+      const emailStyleSheet = document.createElement('style');
+      emailStyleSheet.id = 'pdf-email-print-styles';
+      emailStyleSheet.textContent = `
+        [data-minutes-preview] * { color: #333 !important; }
+        [data-minutes-preview] h1, [data-minutes-preview] h2, [data-minutes-preview] h3 { 
+          color: #111 !important; 
+          border-bottom: 1px solid #ccc !important; 
+          padding-bottom: 0.5rem !important;
+        }
+        [data-minutes-preview] table { 
+          border: 1px solid #ddd !important; 
+          background: #fafafa !important;
+          width: 100% !important;
+          max-width: 100% !important;
+          table-layout: auto !important;
+        }
+        [data-minutes-preview] th { 
+          background: #e8e8e8 !important; 
+          color: #111 !important;
+          font-weight: bold !important;
+          white-space: nowrap !important;
+        }
+        [data-minutes-preview] td, [data-minutes-preview] th { 
+          border: 1px solid #ddd !important; 
+          padding: 6px 8px !important;
+          word-wrap: break-word !important;
+          overflow-wrap: break-word !important;
+          font-size: 9pt !important;
+          vertical-align: top !important;
+        }
+        [data-minutes-preview] td:first-child,
+        [data-minutes-preview] th:first-child {
+          white-space: nowrap !important;
+        }
+        [data-minutes-preview] td:nth-child(2),
+        [data-minutes-preview] th:nth-child(2) {
+          white-space: nowrap !important;
+          text-align: center !important;
+        }
+        [data-minutes-preview] td:last-child,
+        [data-minutes-preview] th:last-child {
+          word-break: break-word !important;
+        }
+        [data-minutes-preview] strong { color: #111 !important; }
+      `;
+      document.head.appendChild(emailStyleSheet);
 
       const pdfOptions = {
         margin: [10, 15, 10, 15] as [number, number, number, number],
@@ -792,6 +851,7 @@ export default function Home() {
 
       // スタイルを戻す
       (previewElement as HTMLElement).setAttribute('style', originalStyle);
+      document.getElementById('pdf-email-print-styles')?.remove();
 
       // PDFをBase64に変換
       const pdfBase64 = await new Promise<string>((resolve, reject) => {
@@ -1207,11 +1267,13 @@ export default function Home() {
         {appState === "processing" && (
           <ProcessingScreen
             audioBlob={recorder.audioBlob}
+            error={error}
             onCancel={() => {
               setAppState("idle");
               setError(null);
             }}
             onRetry={() => {
+              setError(null);
               // 参加者を保持したまま再生成
               if (lastGenerationParams) {
                 generateMinutes(
