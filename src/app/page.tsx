@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import { MeetingMode, UploadedFile } from "@/types";
 import { MeetingPreset, MeetingDuration } from "@/lib/member-storage";
 import { useAudioRecorder, blobToBase64 } from "@/hooks/useAudioRecorder";
@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.19.1";
+const APP_VERSION = "v4.19.2";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -161,6 +161,30 @@ export default function Home() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
   }, [appState, isSaved]);
+
+  // セッション復元処理（マウント時）
+  useEffect(() => {
+    const backupStr = sessionStorage.getItem("quickMinutesBackup");
+    if (backupStr && status === "authenticated") {
+      try {
+        const backup = JSON.parse(backupStr);
+        if (backup && backup.minutes) {
+          console.log("🔄 Restoring state from backup...");
+          setMinutes(backup.minutes);
+          setTranscript(backup.transcript || "");
+          if (backup.participants) setConfirmedParticipants(backup.participants);
+          if (backup.mode) setMode(backup.mode);
+          setAppState("editing"); // 編集画面に戻す
+          // 復元後、バックアップをクリア
+          sessionStorage.removeItem("quickMinutesBackup");
+          alert("✓ 再ログインが完了し、議事録データを復元しました。\n再度「ドライブへ保存」をお試しください。");
+        }
+      } catch (err) {
+        console.error("Failed to restore backup:", err);
+        sessionStorage.removeItem("quickMinutesBackup");
+      }
+    }
+  }, [status]);
 
   // Handle recording start - always go to participant confirmation
   const handleStartRecording = useCallback(async () => {
@@ -715,9 +739,47 @@ export default function Home() {
         ? "\n\n※ 通信エラーや容量オーバーの場合は、右下の「⬇️ 音声ダウンロード」ボタンから録音ファイルを保存してください。"
         : "\n\n※ 通信エラーやGoogleドライブの容量不足の可能性があります。";
 
-      alert(`❌ ドライブへの保存に失敗しました\n内容: ${msg}${downloadHint}`);
+      // 認証エラー（セッション切れ・権限不足など）を検知して再ログインを促す
+      const isAuthError = msg.toLowerCase().includes("auth") ||
+        msg.toLowerCase().includes("permission") ||
+        msg.toLowerCase().includes("token") ||
+        msg.toLowerCase().includes("credentials") ||
+        msg.includes("Failed to fetch"); // fetch自体の失敗(cors/401等)も含む
+
+      if (isAuthError) {
+        const shouldReAuth = window.confirm(
+          `❌ ドライブへの保存に失敗しました（認証エラーの可能性があります）\n\nセッションが切れているため、再ログインが必要です。\n\n「OK」を押すと、現在の議事録テキストを一時保存してGoogleログイン画面を開きます。（※録音音声ファイルは失われます）\n\nエラー詳細: ${msg}`
+        );
+        if (shouldReAuth) {
+          handleReAuth();
+          return;
+        }
+      } else {
+        alert(`❌ ドライブへの保存に失敗しました\n内容: ${msg}${downloadHint}`);
+      }
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  // セッション切れ時の再認証フロー（データ退避付き）
+  const handleReAuth = () => {
+    try {
+      // 必要なステートを sessionStorage に退避
+      const backupData = {
+        minutes,
+        transcript,
+        participants: confirmedParticipants,
+        mode,
+        timestamp: Date.now()
+      };
+      sessionStorage.setItem("quickMinutesBackup", JSON.stringify(backupData));
+
+      // Googleログインへ遷移（現在のURLに戻ってくる）
+      signIn("google", { callbackUrl: window.location.href });
+    } catch (err) {
+      console.error("Backup failed:", err);
+      alert("データの退避に失敗しました。お手数ですが、テキストをコピーして手動でバックアップしてください。");
     }
   };
 
