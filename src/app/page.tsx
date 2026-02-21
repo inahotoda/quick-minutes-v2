@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.19.2";
+const APP_VERSION = "v4.19.3";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -748,7 +748,7 @@ export default function Home() {
 
       if (isAuthError) {
         const shouldReAuth = window.confirm(
-          `❌ ドライブへの保存に失敗しました（認証エラーの可能性があります）\n\nセッションが切れているため、再ログインが必要です。\n\n「OK」を押すと、現在の議事録テキストを一時保存してGoogleログイン画面を開きます。（※録音音声ファイルは失われます）\n\nエラー詳細: ${msg}`
+          `❌ ドライブへの保存に失敗しました（認証エラー）\n\nセッションが切れているため、再度Googleログインが必要です。\n\n⚠️ 【重要】録音データについて\n再ログインを実行すると、ページがリロードされ「録音された元の音声ファイル」は失われます。\n\n音声を残しておきたい場合は、ここで「キャンセル」を押し、画面の「⬇️ 音声ダウンロード」ボタンから手元に保存した上で、再度保存ボタンを押してログインに進んでください。\n\n「OK」を押すと、現在の議事録テキストのみを一時保存してログイン画面を開きます。`
         );
         if (shouldReAuth) {
           handleReAuth();
