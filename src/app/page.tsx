@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.19.3";
+const APP_VERSION = "v4.19.4";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -568,6 +568,16 @@ export default function Home() {
       const previewElement = document.querySelector('[data-minutes-preview]');
 
       if (previewElement) {
+        // 親コンテナのスタイルとスクロール位置を一時的にリセット（空白ページ防止）
+        const contentContainer = previewElement.parentElement as HTMLElement;
+        const originalContainerStyle = contentContainer?.getAttribute('style') || '';
+        const originalScrollTop = contentContainer?.scrollTop || 0;
+        if (contentContainer) {
+          contentContainer.scrollTop = 0;
+          contentContainer.style.maxHeight = 'none';
+          contentContainer.style.overflow = 'visible';
+        }
+
         // PDF生成用の一時スタイルを適用（白背景・黒文字）
         const originalStyle = (previewElement as HTMLElement).getAttribute('style') || '';
         (previewElement as HTMLElement).style.cssText = `
@@ -694,6 +704,12 @@ export default function Home() {
         // 一時スタイルを元に戻す
         (previewElement as HTMLElement).setAttribute('style', originalStyle);
         document.getElementById('pdf-print-styles')?.remove();
+
+        // 親コンテナのスタイルとスクロール位置を復元
+        if (contentContainer) {
+          contentContainer.setAttribute('style', originalContainerStyle);
+          contentContainer.scrollTop = originalScrollTop;
+        }
 
         console.log("Client: PDF generated, size:", pdfBlob.size, "bytes");
 
@@ -832,6 +848,16 @@ export default function Home() {
         throw new Error("議事録のプレビュー要素が見つかりません");
       }
 
+      // 親コンテナのスタイルとスクロール位置を一時的にリセット（空白ページ防止）
+      const contentContainer = previewElement.parentElement as HTMLElement;
+      const originalContainerStyle = contentContainer?.getAttribute('style') || '';
+      const originalScrollTop = contentContainer?.scrollTop || 0;
+      if (contentContainer) {
+        contentContainer.scrollTop = 0;
+        contentContainer.style.maxHeight = 'none';
+        contentContainer.style.overflow = 'visible';
+      }
+
       // PDF生成用の一時スタイルを適用
       const originalStyle = (previewElement as HTMLElement).getAttribute('style') || '';
       (previewElement as HTMLElement).style.cssText = `
@@ -924,6 +950,12 @@ export default function Home() {
       // スタイルを戻す
       (previewElement as HTMLElement).setAttribute('style', originalStyle);
       document.getElementById('pdf-email-print-styles')?.remove();
+
+      // 親コンテナのスタイルとスクロール位置を復元
+      if (contentContainer) {
+        contentContainer.setAttribute('style', originalContainerStyle);
+        contentContainer.scrollTop = originalScrollTop;
+      }
 
       // PDFをBase64に変換
       const pdfBase64 = await new Promise<string>((resolve, reject) => {
