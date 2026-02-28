@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --port 3001",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.78.0",
     "@google-cloud/speech": "^7.2.1",
     "@google/generative-ai": "^0.24.1",
     "@vercel/functions": "^3.4.0",
