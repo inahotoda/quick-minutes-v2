@@ -44,6 +44,7 @@ export default function ParticipantConfirmation({
     const [recognizedName, setRecognizedName] = useState<string | null>(null);
     const [isManualInput, setIsManualInput] = useState(false); // 手動入力フラグ
     const [recordingTimeLeft, setRecordingTimeLeft] = useState(10); // 10秒カウントダウン
+    const [memberSearch, setMemberSearch] = useState(""); // メンバー検索
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null);
     const recordingStartRef = useRef<number>(0);
@@ -306,6 +307,8 @@ export default function ParticipantConfirmation({
 
     // Confirm and start
     const handleConfirm = () => {
+        // 使用頻度を記録
+        recordMemberUsage(participants.map(p => p.id));
         if (isFloating && onUpdate) {
             onUpdate(participants);
             onClose?.();
@@ -314,10 +317,40 @@ export default function ParticipantConfirmation({
         }
     };
 
-    // Get unselected members for adding
-    const availableMembers = members.filter(
-        (m) => !participants.some((p) => p.id === m.id)
-    );
+    // 使用頻度の取得・記録
+    const getMemberUsageCount = (memberId: string): number => {
+        try {
+            const usage = JSON.parse(localStorage.getItem("member-usage") || "{}");
+            return usage[memberId] || 0;
+        } catch { return 0; }
+    };
+
+    const recordMemberUsage = (memberIds: string[]) => {
+        try {
+            const usage = JSON.parse(localStorage.getItem("member-usage") || "{}");
+            for (const id of memberIds) {
+                usage[id] = (usage[id] || 0) + 1;
+            }
+            localStorage.setItem("member-usage", JSON.stringify(usage));
+        } catch { /* ignore */ }
+    };
+
+    // Get unselected members, sorted by usage frequency
+    const availableMembers = members
+        .filter((m) => !participants.some((p) => p.id === m.id))
+        .sort((a, b) => getMemberUsageCount(b.id) - getMemberUsageCount(a.id));
+
+    // 検索フィルター適用
+    const filteredMembers = memberSearch.trim()
+        ? availableMembers.filter((m) =>
+            m.name.toLowerCase().includes(memberSearch.trim().toLowerCase())
+        )
+        : availableMembers;
+
+    // よく使うメンバー（上位5人、使用実績ありのみ）と残り
+    const frequentMembers = filteredMembers.filter((m) => getMemberUsageCount(m.id) > 0).slice(0, 5);
+    const frequentIds = new Set(frequentMembers.map((m) => m.id));
+    const otherMembers = filteredMembers.filter((m) => !frequentIds.has(m.id));
 
     if (loading) {
         return (
@@ -450,21 +483,56 @@ export default function ParticipantConfirmation({
                             <span>+</span> 新しい参加者を追加
                         </button>
 
-                        {/* Available members dropdown */}
+                        {/* Available members with search */}
                         {availableMembers.length > 0 && (
                             <div className={styles.memberSuggestions}>
                                 <p className={styles.memberSuggestionsLabel}>登録済みメンバーから追加:</p>
-                                <div className={styles.memberSuggestionsList}>
-                                    {availableMembers.map((member) => (
-                                        <button
-                                            key={member.id}
-                                            className={styles.addButton}
-                                            onClick={() => handleAddExisting(member)}
-                                        >
-                                            <span>👤</span> {member.name}
-                                        </button>
-                                    ))}
-                                </div>
+                                {availableMembers.length > 5 && (
+                                    <input
+                                        type="text"
+                                        className={styles.memberSearchInput}
+                                        value={memberSearch}
+                                        onChange={(e) => setMemberSearch(e.target.value)}
+                                        placeholder="🔍 名前で検索..."
+                                    />
+                                )}
+                                {frequentMembers.length > 0 && !memberSearch.trim() && (
+                                    <>
+                                        <p className={styles.memberGroupLabel}>⭐ よく使うメンバー</p>
+                                        <div className={styles.memberSuggestionsList}>
+                                            {frequentMembers.map((member) => (
+                                                <button
+                                                    key={member.id}
+                                                    className={styles.addButton}
+                                                    onClick={() => handleAddExisting(member)}
+                                                >
+                                                    <span>👤</span> {member.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                                {otherMembers.length > 0 && (
+                                    <>
+                                        {frequentMembers.length > 0 && !memberSearch.trim() && (
+                                            <p className={styles.memberGroupLabel}>その他のメンバー</p>
+                                        )}
+                                        <div className={styles.memberSuggestionsList}>
+                                            {otherMembers.map((member) => (
+                                                <button
+                                                    key={member.id}
+                                                    className={styles.addButton}
+                                                    onClick={() => handleAddExisting(member)}
+                                                >
+                                                    <span>👤</span> {member.name}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </>
+                                )}
+                                {filteredMembers.length === 0 && memberSearch.trim() && (
+                                    <p className={styles.noSearchResults}>「{memberSearch}」に一致するメンバーはいません</p>
+                                )}
                             </div>
                         )}
                     </>
