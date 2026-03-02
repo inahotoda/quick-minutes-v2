@@ -89,6 +89,16 @@ export function useAudioRecorder() {
 
     // 中断からの再開（ワンタップで実行）
     const resumeInterrupted = useCallback(async () => {
+        // 中断前の経過時間を保存してからリスタート
+        if (startTimeRef.current !== null) {
+            const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+            pausedDurationRef.current = pausedDurationRef.current + elapsed;
+        }
+        // タイマーを停止（startRecording内で再設定される）
+        if (timerRef.current) {
+            clearInterval(timerRef.current);
+            timerRef.current = null;
+        }
         await startRecording(true);
     }, [startRecording]);
 
