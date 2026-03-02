@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.21.1";
+const APP_VERSION = "v4.21.2";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -568,19 +568,25 @@ export default function Home() {
       const previewElement = document.querySelector('[data-minutes-preview]');
 
       if (previewElement) {
-        // 親コンテナのスタイルとスクロール位置を一時的にリセット（空白ページ防止）
-        const contentContainer = previewElement.parentElement as HTMLElement;
-        const originalContainerStyle = contentContainer?.getAttribute('style') || '';
-        const originalScrollTop = contentContainer?.scrollTop || 0;
-        if (contentContainer) {
-          contentContainer.scrollTop = 0;
-          contentContainer.style.maxHeight = 'none';
-          contentContainer.style.overflow = 'visible';
-        }
+        // iOS Safari対策: クローンを使ったPDF生成
+        // スクロール位置やoverflow、viewportの影響を完全に排除する
+        const pdfContainer = document.createElement('div');
+        pdfContainer.id = 'pdf-render-container';
+        pdfContainer.style.cssText = `
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 210mm;
+          z-index: -9999;
+          opacity: 0;
+          pointer-events: none;
+          overflow: visible;
+          background: white;
+        `;
 
-        // PDF生成用の一時スタイルを適用（白背景・黒文字）
-        const originalStyle = (previewElement as HTMLElement).getAttribute('style') || '';
-        (previewElement as HTMLElement).style.cssText = `
+        // クローンを作成してコンテナに追加
+        const clone = previewElement.cloneNode(true) as HTMLElement;
+        clone.style.cssText = `
           background: white !important;
           color: #333 !important;
           padding: 20px !important;
@@ -589,25 +595,27 @@ export default function Home() {
           overflow: visible !important;
           max-width: 100% !important;
           width: 100% !important;
+          max-height: none !important;
           box-sizing: border-box !important;
         `;
+        pdfContainer.appendChild(clone);
 
         // テーブルや見出しのスタイルも調整
         const styleSheet = document.createElement('style');
         styleSheet.id = 'pdf-print-styles';
         styleSheet.textContent = `
-          [data-minutes-preview] * { color: #333 !important; }
-          [data-minutes-preview] > *:first-child {
+          #pdf-render-container * { color: #333 !important; }
+          #pdf-render-container > *:first-child > *:first-child {
             margin-top: 0 !important;
           }
-          [data-minutes-preview] h1, [data-minutes-preview] h2, [data-minutes-preview] h3 { 
+          #pdf-render-container h1, #pdf-render-container h2, #pdf-render-container h3 { 
             color: #111 !important; 
             border-bottom: 1px solid #ccc !important; 
             padding-bottom: 0.5rem !important;
             page-break-after: avoid !important;
             break-after: avoid !important;
           }
-          [data-minutes-preview] table { 
+          #pdf-render-container table { 
             border: 1px solid #ddd !important; 
             background: #fafafa !important;
             page-break-inside: avoid !important;
@@ -616,17 +624,17 @@ export default function Home() {
             max-width: 100% !important;
             table-layout: auto !important;
           }
-          [data-minutes-preview] tr {
+          #pdf-render-container tr {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
-          [data-minutes-preview] th { 
+          #pdf-render-container th { 
             background: #e8e8e8 !important; 
             color: #111 !important;
             font-weight: bold !important;
             white-space: nowrap !important;
           }
-          [data-minutes-preview] td, [data-minutes-preview] th { 
+          #pdf-render-container td, #pdf-render-container th { 
             border: 1px solid #ddd !important; 
             padding: 6px 8px !important;
             word-wrap: break-word !important;
@@ -634,40 +642,44 @@ export default function Home() {
             font-size: 9pt !important;
             vertical-align: top !important;
           }
-          [data-minutes-preview] td:first-child,
-          [data-minutes-preview] th:first-child {
+          #pdf-render-container td:first-child,
+          #pdf-render-container th:first-child {
             white-space: nowrap !important;
           }
-          [data-minutes-preview] td:nth-child(2),
-          [data-minutes-preview] th:nth-child(2) {
+          #pdf-render-container td:nth-child(2),
+          #pdf-render-container th:nth-child(2) {
             white-space: nowrap !important;
             text-align: center !important;
           }
-          [data-minutes-preview] td:last-child,
-          [data-minutes-preview] th:last-child {
+          #pdf-render-container td:last-child,
+          #pdf-render-container th:last-child {
             word-break: break-word !important;
           }
-          [data-minutes-preview] strong { color: #111 !important; }
-          [data-minutes-preview] p {
+          #pdf-render-container strong { color: #111 !important; }
+          #pdf-render-container p {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
             orphans: 3 !important;
             widows: 3 !important;
           }
-          [data-minutes-preview] li {
+          #pdf-render-container li {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
-          [data-minutes-preview] ul, [data-minutes-preview] ol {
+          #pdf-render-container ul, #pdf-render-container ol {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
-          [data-minutes-preview] blockquote {
+          #pdf-render-container blockquote {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
         `;
         document.head.appendChild(styleSheet);
+        document.body.appendChild(pdfContainer);
+
+        // レンダリングのため1フレーム待つ
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
 
         // PDF生成オプション
         const pdfOptions = {
@@ -679,8 +691,10 @@ export default function Home() {
             useCORS: true,
             letterRendering: true,
             backgroundColor: '#ffffff',
-            windowWidth: document.documentElement.offsetWidth,
-            scrollY: 0
+            scrollX: 0,
+            scrollY: 0,
+            x: 0,
+            y: 0
           },
           jsPDF: {
             unit: 'mm',
@@ -695,21 +709,15 @@ export default function Home() {
           }
         };
 
-        // PDFを生成してBlobとして取得
+        // PDFを生成してBlobとして取得（クローンからレンダリング）
         const pdfBlob = await html2pdf()
           .set(pdfOptions)
-          .from(previewElement as HTMLElement)
+          .from(clone)
           .outputPdf('blob');
 
-        // 一時スタイルを元に戻す
-        (previewElement as HTMLElement).setAttribute('style', originalStyle);
+        // クリーンアップ: クローンコンテナとスタイルを削除
+        document.body.removeChild(pdfContainer);
         document.getElementById('pdf-print-styles')?.remove();
-
-        // 親コンテナのスタイルとスクロール位置を復元
-        if (contentContainer) {
-          contentContainer.setAttribute('style', originalContainerStyle);
-          contentContainer.scrollTop = originalScrollTop;
-        }
 
         console.log("Client: PDF generated, size:", pdfBlob.size, "bytes");
 
