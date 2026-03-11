@@ -25,6 +25,8 @@
     font-size: 0.875rem;
     cursor: pointer;
     transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .logoutButton:hover {

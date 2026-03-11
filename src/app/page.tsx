@@ -1159,8 +1159,11 @@ export default function Home() {
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
-          <img src="/inaho-logo.png?v=2" alt="INAHO" width={70} height={16} className={styles.headerLogoImage} style={{ objectFit: 'contain' }} />
-          <span className={styles.appName}>議事録</span>
+          <div className={styles.headerLogoWrapper}>
+            <img src="/inaho-logo.png?v=3" alt="INAHO" width={80} height={18} className={styles.headerLogoImage} />
+            <div className={styles.headerDivider}></div>
+            <span className={styles.appName}>議事録</span>
+          </div>
           <span className={styles.headerVersionBadge}>{APP_VERSION}</span>
         </div>
         <div className={styles.headerRight}>

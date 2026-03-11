@@ -85,51 +85,112 @@
     margin-top: -1rem;
 }
 
-/* Header */
+/* Header (Premium Redesign) */
 .header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem;
-    background: rgba(255, 255, 255, 0.02);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding: 0.8rem 1.25rem;
+    background: rgba(10, 10, 26, 0.75);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
 }
 
 .headerLeft {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.6rem;
+    overflow: hidden;
 }
 
-.logoSmall {
-    font-size: 1.5rem;
+.headerLogoWrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
 }
 
 .headerLogoImage {
     object-fit: contain;
-    margin-top: 2px;
+    filter: drop-shadow(0 2px 8px rgba(212, 175, 55, 0.15));
+    flex-shrink: 0;
+}
+
+.headerDivider {
+    width: 1px;
+    height: 16px;
+    background: linear-gradient(to bottom,
+            rgba(255, 255, 255, 0.1),
+            rgba(255, 255, 255, 0.3),
+            rgba(255, 255, 255, 0.1));
+    flex-shrink: 0;
 }
 
 .appName {
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     font-weight: 600;
-    color: white;
+    letter-spacing: 0.05em;
+    background: linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .headerVersionBadge {
-    font-size: 0.65rem;
-    color: var(--color-text-muted);
-    background: rgba(255, 255, 255, 0.08);
+    font-size: 0.7rem;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.6);
+    background: rgba(255, 255, 255, 0.05);
     padding: 0.15rem 0.5rem;
     border-radius: 12px;
     border: 1px solid rgba(255, 255, 255, 0.1);
-    margin-left: 0.25rem;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .headerRight {
     display: flex;
     align-items: center;
     gap: 0.75rem;
+    flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+    .header {
+        padding: 0.6rem 0.8rem;
+    }
+
+    .headerLogoWrapper {
+        gap: 0.5rem;
+    }
+
+    .headerLogoImage {
+        width: 70px;
+        height: 16px;
+    }
+
+    .appName {
+        font-size: 0.95rem;
+    }
+
+    .headerVersionBadge {
+        display: none;
+    }
+
+    .headerRight {
+        gap: 0.5rem;
+    }
+
+    .settingsButton {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
+    }
 }
 
 .settingsButton {
@@ -144,6 +205,8 @@
     display: flex;
     align-items: center;
     gap: 0.4rem;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .settingsButton:hover {
