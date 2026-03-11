@@ -1092,7 +1092,7 @@ export default function Home() {
       <main className={styles.main}>
         <div className={styles.loginContainer}>
           <div className={styles.logo}>
-            <img src="/inaho-logo.png?v=2" alt="INAHO" width={180} height={40} className={styles.logoImage} style={{ objectFit: 'contain' }} />
+            <img src="/inaho-logo.png?v=4" alt="INAHO" width={180} height={40} className={styles.logoImage} style={{ objectFit: 'contain' }} />
             <h1>議事録</h1>
           </div>
           <p className={styles.tagline}>
@@ -1123,7 +1123,7 @@ export default function Home() {
       <main className={styles.main}>
         <div className={styles.loginContainer}>
           <div className={styles.logo}>
-            <img src="/inaho-logo.png?v=2" alt="INAHO" width={180} height={40} className={styles.logoImage} style={{ objectFit: 'contain' }} />
+            <img src="/inaho-logo.png?v=4" alt="INAHO" width={180} height={40} className={styles.logoImage} style={{ objectFit: 'contain' }} />
             <h1>議事録</h1>
           </div>
           <div className={styles.accessDenied}>
@@ -1158,15 +1158,13 @@ export default function Home() {
     <main className={styles.main}>
       {/* Header */}
       <header className={styles.header}>
-        <div className={styles.headerLeft}>
-          <div className={styles.headerLogoWrapper}>
-            <img src="/inaho-logo.png?v=3" alt="INAHO" width={120} height={27} className={styles.headerLogoImage} />
-            <div className={styles.headerDivider}></div>
-            <span className={styles.appName}>議事録</span>
-          </div>
-          <span className={styles.headerVersionBadge}>{APP_VERSION}</span>
+        <div className={styles.headerBrand}>
+          <img src="/inaho-logo.png?v=4" alt="INAHO" className={styles.headerLogo} />
+          <span className={styles.headerDivider} />
+          <span className={styles.headerAppName}>議事録</span>
+          <span className={styles.headerVersion}>{APP_VERSION}</span>
         </div>
-        <div className={styles.headerRight}>
+        <div className={styles.headerActions}>
           <button
             className={styles.settingsButton}
             onClick={() => {
