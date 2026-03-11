@@ -1160,7 +1160,7 @@ export default function Home() {
       <header className={styles.header}>
         <div className={styles.headerLeft}>
           <div className={styles.headerLogoWrapper}>
-            <img src="/inaho-logo.png?v=3" alt="INAHO" width={80} height={18} className={styles.headerLogoImage} />
+            <img src="/inaho-logo.png?v=3" alt="INAHO" width={120} height={27} className={styles.headerLogoImage} />
             <div className={styles.headerDivider}></div>
             <span className={styles.appName}>議事録</span>
           </div>
