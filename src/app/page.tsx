@@ -1092,7 +1092,7 @@ export default function Home() {
       <main className={styles.main}>
         <div className={styles.loginContainer}>
           <div className={styles.logo}>
-            <img src="/inaho-logo.png" alt="INAHO" width={120} height={128} className={styles.logoImage} />
+            <img src="/inaho-logo.png?v=2" alt="INAHO" width={120} height={128} className={styles.logoImage} />
             <h1>議事録</h1>
           </div>
           <p className={styles.tagline}>
@@ -1123,7 +1123,7 @@ export default function Home() {
       <main className={styles.main}>
         <div className={styles.loginContainer}>
           <div className={styles.logo}>
-            <img src="/inaho-logo.png" alt="INAHO" width={120} height={128} className={styles.logoImage} />
+            <img src="/inaho-logo.png?v=2" alt="INAHO" width={120} height={128} className={styles.logoImage} />
             <h1>議事録</h1>
           </div>
           <div className={styles.accessDenied}>
@@ -1159,7 +1159,7 @@ export default function Home() {
       {/* Header */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
-          <img src="/inaho-logo.png" alt="INAHO" width={28} height={30} className={styles.headerLogoImage} />
+          <img src="/inaho-logo.png?v=2" alt="INAHO" width={28} height={30} className={styles.headerLogoImage} />
           <span className={styles.appName}>議事録</span>
           <span className={styles.headerVersionBadge}>{APP_VERSION}</span>
         </div>
