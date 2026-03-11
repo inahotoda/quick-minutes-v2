@@ -130,6 +130,13 @@
     flex-shrink: 0;
 }
 
+.headerTitleGroup {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+}
+
 .headerAppName {
     font-size: 1.15rem;
     font-weight: 700;
@@ -183,8 +190,19 @@
         letter-spacing: 0.04em;
     }
 
+    .headerTitleGroup {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0;
+    }
+
     .headerVersion {
-        display: none;
+        font-size: 0.55rem;
+        padding: 0;
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.35);
+        margin-top: -2px;
     }
 
     .headerActions {

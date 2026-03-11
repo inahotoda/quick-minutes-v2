@@ -1161,8 +1161,10 @@ export default function Home() {
         <div className={styles.headerBrand}>
           <img src="/inaho-logo.png?v=4" alt="INAHO" className={styles.headerLogo} />
           <span className={styles.headerDivider} />
-          <span className={styles.headerAppName}>議事録</span>
-          <span className={styles.headerVersion}>{APP_VERSION}</span>
+          <div className={styles.headerTitleGroup}>
+            <span className={styles.headerAppName}>議事録</span>
+            <span className={styles.headerVersion}>{APP_VERSION}</span>
+          </div>
         </div>
         <div className={styles.headerActions}>
           <button
