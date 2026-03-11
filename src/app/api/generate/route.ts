@@ -8,8 +8,8 @@ import os from "os";
 
 import { findFileByName, getFileContent } from "@/lib/drive";
 
-// Vercel function configuration - 60 seconds max for speech-to-text processing
-export const maxDuration = 60;
+// Vercel Pro: max 300s. Speech-to-Text + Gemini streaming needs sufficient time.
+export const maxDuration = 300;
 
 const PROMPTS_FILENAME = "prompts-config.json";
 const LOCAL_PROMPTS_FILE = path.join(process.cwd(), "prompts-config.json");
