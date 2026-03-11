@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.21.3";
+const APP_VERSION = "v4.21.4";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -622,7 +622,8 @@ export default function Home() {
             break-inside: avoid !important;
             width: 100% !important;
             max-width: 100% !important;
-            table-layout: auto !important;
+            table-layout: fixed !important;
+            overflow: hidden !important;
           }
           #pdf-render-container tr {
             page-break-inside: avoid !important;
@@ -632,28 +633,42 @@ export default function Home() {
             background: #e8e8e8 !important; 
             color: #111 !important;
             font-weight: bold !important;
-            white-space: nowrap !important;
           }
           #pdf-render-container td, #pdf-render-container th { 
             border: 1px solid #ddd !important; 
-            padding: 6px 8px !important;
+            padding: 4px 6px !important;
             word-wrap: break-word !important;
             overflow-wrap: break-word !important;
-            font-size: 9pt !important;
+            word-break: break-word !important;
+            font-size: 8pt !important;
             vertical-align: top !important;
+            overflow: hidden !important;
           }
+          /* ID列: 狭く */
           #pdf-render-container td:first-child,
           #pdf-render-container th:first-child {
+            width: 6% !important;
             white-space: nowrap !important;
           }
+          /* アクション内容列: 広め */
           #pdf-render-container td:nth-child(2),
           #pdf-render-container th:nth-child(2) {
-            white-space: nowrap !important;
-            text-align: center !important;
+            width: 40% !important;
           }
+          /* 担当者列 */
+          #pdf-render-container td:nth-child(3),
+          #pdf-render-container th:nth-child(3) {
+            width: 14% !important;
+          }
+          /* 期限列 */
+          #pdf-render-container td:nth-child(4),
+          #pdf-render-container th:nth-child(4) {
+            width: 16% !important;
+          }
+          /* 備考列 */
           #pdf-render-container td:last-child,
           #pdf-render-container th:last-child {
-            word-break: break-word !important;
+            width: 24% !important;
           }
           #pdf-render-container strong { color: #111 !important; }
           #pdf-render-container p {
