@@ -6,6 +6,10 @@ export const metadata: Metadata = {
   title: "INAHO議事録 - AI議事録自動生成",
   description: "AIを使って会議の議事録を自動生成するWebアプリケーション",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icon-192.png",
+    apple: "/apple-touch-icon.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
