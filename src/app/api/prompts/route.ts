@@ -4,6 +4,8 @@ import path from "path";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { findFileByName, getFileContent, updateFile, uploadFile } from "@/lib/drive";
+import { resolveTenant } from "@/lib/tenant";
+import { getTenantConfig, saveTenantConfig, isTrialMode } from "@/lib/supabase";
 
 const PROMPTS_FILENAME = "prompts-config.json";
 const LOCAL_PROMPTS_FILE = path.join(process.cwd(), "prompts-config.json");
@@ -32,7 +34,6 @@ const DEFAULT_CONFIG: PromptConfig = {
 async function getMergedConfig(): Promise<PromptConfig> {
     try {
         console.log("getMergedConfig: searching for", PROMPTS_FILENAME);
-        // 1. Google Driveから検索
         const file = await findFileByName(PROMPTS_FILENAME, CONFIG_FOLDER_ID);
         if (file && file.id) {
             console.log("getMergedConfig: found file in drive, ID:", file.id);
@@ -42,13 +43,11 @@ async function getMergedConfig(): Promise<PromptConfig> {
                     return JSON.parse(content);
                 } catch (pe) {
                     console.error("getMergedConfig: JSON parse error", pe);
-                    // 壊れている場合はデフォルトに倒す
                 }
             }
         }
 
         console.log("getMergedConfig: falling back to local file");
-        // 2. なければローカル（初期値）から読み込み
         const data = await fs.readFile(LOCAL_PROMPTS_FILE, "utf-8");
         return JSON.parse(data);
     } catch (error) {
@@ -59,6 +58,19 @@ async function getMergedConfig(): Promise<PromptConfig> {
 
 export async function GET() {
     try {
+        // ── Trial mode: Supabase ──
+        if (isTrialMode()) {
+            const { tenant, error } = await resolveTenant();
+            if (error || !tenant || tenant.expired) return NextResponse.json(DEFAULT_CONFIG);
+
+            const config = await getTenantConfig(tenant.tenantId, "prompts");
+            if (config?.data) {
+                return NextResponse.json(config.data);
+            }
+            return NextResponse.json(DEFAULT_CONFIG);
+        }
+
+        // ── Normal mode: Google Drive ──
         const config = await getMergedConfig();
         return NextResponse.json(config);
     } catch (error) {
@@ -74,12 +86,39 @@ export async function POST(request: NextRequest) {
         }
 
         const newConfig = await request.json();
+
+        // ── Trial mode: Supabase ──
+        if (isTrialMode()) {
+            const { tenant, error, statusCode } = await resolveTenant();
+            if (error) return NextResponse.json({ error }, { status: statusCode || 403 });
+            if (!tenant) return NextResponse.json({ error: "テナントが見つかりません" }, { status: 403 });
+            if (tenant.expired) return NextResponse.json({ error: "モニター期間が終了しています" }, { status: 403 });
+
+            const currentConfigData = await getTenantConfig(tenant.tenantId, "prompts");
+            const currentConfig: PromptConfig = (currentConfigData?.data as PromptConfig) || DEFAULT_CONFIG;
+
+            const history = currentConfig.history || [];
+            const { history: _, ...oldStateWithoutHistory } = currentConfig;
+            if (oldStateWithoutHistory.basePrompt || oldStateWithoutHistory.internalPrompt) {
+                history.unshift(oldStateWithoutHistory);
+            }
+
+            const finalConfig: PromptConfig = {
+                ...newConfig,
+                updatedBy: tenant.userName,
+                updatedAt: new Date().toISOString(),
+                history: history.slice(0, 10),
+            };
+
+            await saveTenantConfig(tenant.tenantId, "prompts", finalConfig, tenant.userName);
+            return NextResponse.json({ success: true, config: finalConfig });
+        }
+
+        // ── Normal mode: Google Drive ──
         console.log("POST /api/prompts: received new config");
 
-        // 1. 現在の設定を読み込む
         const currentConfig = await getMergedConfig();
 
-        // 2. 履歴を更新
         const history = currentConfig.history || [];
         const { history: _, ...oldStateWithoutHistory } = currentConfig;
 
@@ -88,7 +127,6 @@ export async function POST(request: NextRequest) {
         }
         const updatedHistory = history.slice(0, 10);
 
-        // 3. 新しい設定を作成
         const finalConfig: PromptConfig = {
             ...newConfig,
             updatedBy: session.user?.name || "不明なユーザー",
@@ -98,7 +136,6 @@ export async function POST(request: NextRequest) {
 
         const configContent = JSON.stringify(finalConfig, null, 2);
 
-        // 4. Google Driveに保存
         console.log("POST /api/prompts: saving to Google Drive...");
         const file = await findFileByName(PROMPTS_FILENAME, CONFIG_FOLDER_ID);
         if (file && file.id) {

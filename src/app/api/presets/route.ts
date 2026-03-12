@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { findFileByName, getFileContent, updateFile, uploadFile } from "@/lib/drive";
+import { resolveTenant } from "@/lib/tenant";
+import { getTenantConfig, saveTenantConfig, isTrialMode } from "@/lib/supabase";
 
 const PRESETS_FILENAME = "presets-config.json";
 const CONFIG_FOLDER_ID = "1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY";
@@ -10,7 +12,7 @@ interface PresetData {
     id: string;
     name: string;
     mode: "internal" | "business" | "other";
-    duration?: 30 | 60 | 0; // 0 = 無制限
+    duration?: 30 | 60 | 0;
     memberIds: string[];
     createdAt: string;
     updatedAt: string;
@@ -24,6 +26,20 @@ interface PresetsConfig {
 // GET: プリセット一覧を取得
 export async function GET() {
     try {
+        // ── Trial mode: Supabase ──
+        if (isTrialMode()) {
+            const { tenant, error } = await resolveTenant();
+            if (error || !tenant || tenant.expired) return NextResponse.json({ presets: [] });
+
+            const config = await getTenantConfig(tenant.tenantId, "presets");
+            if (config?.data) {
+                const presetsData = config.data as PresetsConfig;
+                return NextResponse.json({ presets: presetsData.presets || [] });
+            }
+            return NextResponse.json({ presets: [] });
+        }
+
+        // ── Normal mode: Google Drive ──
         const session = await getServerSession(authOptions);
         if (!session) {
             return NextResponse.json({ presets: [] });
@@ -62,6 +78,23 @@ export async function POST(request: NextRequest) {
         }
 
         const { presets } = await request.json();
+
+        // ── Trial mode: Supabase ──
+        if (isTrialMode()) {
+            const { tenant, error, statusCode } = await resolveTenant();
+            if (error) return NextResponse.json({ error }, { status: statusCode || 403 });
+            if (!tenant) return NextResponse.json({ error: "テナントが見つかりません" }, { status: 403 });
+            if (tenant.expired) return NextResponse.json({ error: "モニター期間が終了しています" }, { status: 403 });
+
+            const config: PresetsConfig = {
+                presets: presets || [],
+                updatedAt: new Date().toISOString(),
+            };
+            await saveTenantConfig(tenant.tenantId, "presets", config, tenant.userName);
+            return NextResponse.json({ success: true });
+        }
+
+        // ── Normal mode: Google Drive ──
         console.log("POST /api/presets: saving", presets.length, "presets");
 
         const config: PresetsConfig = {
@@ -71,7 +104,6 @@ export async function POST(request: NextRequest) {
 
         const configContent = JSON.stringify(config, null, 2);
 
-        // Google Driveに保存
         const file = await findFileByName(PRESETS_FILENAME, CONFIG_FOLDER_ID);
         if (file && file.id) {
             console.log("POST /api/presets: updating existing file", file.id);

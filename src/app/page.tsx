@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.21.5";
+const APP_VERSION = "v4.22.0";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -84,33 +84,68 @@ export default function Home() {
   const [accessCheckState, setAccessCheckState] = useState<"checking" | "granted" | "denied">("checking");
   const [accessError, setAccessError] = useState<{ message: string; requestUrl?: string } | null>(null);
 
+  // Trial mode state
+  const isTrialDeployment = process.env.NEXT_PUBLIC_DEPLOYMENT_MODE === "trial";
+  const [trialInfo, setTrialInfo] = useState<{
+    companyName?: string;
+    daysRemaining?: number;
+    expired?: boolean;
+  } | null>(null);
+
   // Audio recorder
   const recorder = useAudioRecorder();
 
-  // Check folder access after login (only once)
+  // Check folder access or tenant after login (only once)
   useEffect(() => {
-    // ログイン済みで、まだアクセス権が確認されていない場合のみチェック
     if (session && status === "authenticated" && accessCheckState === "checking") {
-      fetch("/api/check-access")
-        .then(res => res.json())
-        .then(data => {
-          if (data.hasAccess) {
-            setAccessCheckState("granted");
-          } else {
+      if (isTrialDeployment) {
+        // Trial mode: check tenant instead of Drive access
+        fetch("/api/check-tenant")
+          .then(res => res.json())
+          .then(data => {
+            if (data.allowed) {
+              setAccessCheckState("granted");
+              setTrialInfo({
+                companyName: data.companyName,
+                daysRemaining: data.daysRemaining,
+              });
+            } else if (data.reason === "trial_expired") {
+              setAccessCheckState("denied");
+              setTrialInfo({ expired: true, companyName: data.companyName });
+              setAccessError({ message: "モニター期間が終了しました" });
+            } else {
+              setAccessCheckState("denied");
+              setAccessError({ message: "このドメインはモニター対象に登録されていません" });
+            }
+          })
+          .catch(err => {
+            console.error("Tenant check failed:", err);
             setAccessCheckState("denied");
-            setAccessError({
-              message: data.error || "共有フォルダへのアクセス権がありません",
-              requestUrl: data.requestAccessUrl
-            });
-          }
-        })
-        .catch(err => {
-          console.error("Access check failed:", err);
-          setAccessCheckState("denied");
-          setAccessError({ message: "アクセス権の確認に失敗しました" });
-        });
+            setAccessError({ message: "テナントの確認に失敗しました" });
+          });
+      } else {
+        // Normal mode: check Google Drive access
+        fetch("/api/check-access")
+          .then(res => res.json())
+          .then(data => {
+            if (data.hasAccess) {
+              setAccessCheckState("granted");
+            } else {
+              setAccessCheckState("denied");
+              setAccessError({
+                message: data.error || "共有フォルダへのアクセス権がありません",
+                requestUrl: data.requestAccessUrl
+              });
+            }
+          })
+          .catch(err => {
+            console.error("Access check failed:", err);
+            setAccessCheckState("denied");
+            setAccessError({ message: "アクセス権の確認に失敗しました" });
+          });
+      }
     }
-  }, [session, status, accessCheckState]);
+  }, [session, status, accessCheckState, isTrialDeployment]);
 
   // Browser detection
   useEffect(() => {

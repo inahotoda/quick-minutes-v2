@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.78.0",
     "@google-cloud/speech": "^7.2.1",
     "@google/generative-ai": "^0.24.1",
+    "@supabase/supabase-js": "^2.99.1",
     "@vercel/functions": "^3.4.0",
     "firebase": "^12.8.0",
     "google-auth-library": "^10.5.0",

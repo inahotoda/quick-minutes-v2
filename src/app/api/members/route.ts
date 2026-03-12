@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { findFileByName, getFileContent, updateFile, uploadFile } from "@/lib/drive";
+import { resolveTenant } from "@/lib/tenant";
+import { getTenantConfig, saveTenantConfig, isTrialMode } from "@/lib/supabase";
 
 const MEMBERS_FILENAME = "members-config.json";
 const CONFIG_FOLDER_ID = "1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY";
@@ -28,6 +30,21 @@ interface MembersConfig {
 // GET: メンバー一覧を取得
 export async function GET() {
     try {
+        // ── Trial mode: Supabase ──
+        if (isTrialMode()) {
+            const { tenant, error, statusCode } = await resolveTenant();
+            if (error) return NextResponse.json({ members: [] });
+            if (!tenant || tenant.expired) return NextResponse.json({ members: [] });
+
+            const config = await getTenantConfig(tenant.tenantId, "members");
+            if (config?.data) {
+                const membersData = config.data as MembersConfig;
+                return NextResponse.json({ members: membersData.members || [] });
+            }
+            return NextResponse.json({ members: [] });
+        }
+
+        // ── Normal mode: Google Drive ──
         const session = await getServerSession(authOptions);
         if (!session) {
             return NextResponse.json({ members: [] });
@@ -66,6 +83,23 @@ export async function POST(request: NextRequest) {
         }
 
         const { members } = await request.json();
+
+        // ── Trial mode: Supabase ──
+        if (isTrialMode()) {
+            const { tenant, error, statusCode } = await resolveTenant();
+            if (error) return NextResponse.json({ error }, { status: statusCode || 403 });
+            if (!tenant) return NextResponse.json({ error: "テナントが見つかりません" }, { status: 403 });
+            if (tenant.expired) return NextResponse.json({ error: "モニター期間が終了しています" }, { status: 403 });
+
+            const config: MembersConfig = {
+                members: members || [],
+                updatedAt: new Date().toISOString(),
+            };
+            await saveTenantConfig(tenant.tenantId, "members", config, tenant.userName);
+            return NextResponse.json({ success: true });
+        }
+
+        // ── Normal mode: Google Drive ──
         console.log("POST /api/members: saving", members.length, "members");
 
         const config: MembersConfig = {
@@ -75,7 +109,6 @@ export async function POST(request: NextRequest) {
 
         const configContent = JSON.stringify(config, null, 2);
 
-        // Google Driveに保存
         const file = await findFileByName(MEMBERS_FILENAME, CONFIG_FOLDER_ID);
         if (file && file.id) {
             console.log("POST /api/members: updating existing file", file.id);
