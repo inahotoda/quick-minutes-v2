@@ -3,7 +3,7 @@ import { authOptions } from "@/lib/auth";
 import {
     isTrialMode,
     extractDomain,
-    getTenantByDomain,
+    getTenantByDomainOrEmail,
     isTenantExpired,
 } from "@/lib/supabase";
 
@@ -42,7 +42,7 @@ export async function resolveTenant(): Promise<{
     const email = session.user.email;
     const domain = extractDomain(email);
 
-    const tenantData = await getTenantByDomain(domain);
+    const tenantData = await getTenantByDomainOrEmail(domain, email);
     if (!tenantData) {
         return {
             tenant: null,

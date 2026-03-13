@@ -43,6 +43,17 @@ export default function SettingsMenuPage() {
                     </div>
                     <span className={styles.menuArrow}>→</span>
                 </div>
+
+                {process.env.NEXT_PUBLIC_DEPLOYMENT_MODE !== "trial" && (
+                    <div className={styles.menuCard} onClick={() => router.push("/settings/tenants")}>
+                        <div className={styles.menuIcon}>🏢</div>
+                        <div className={styles.menuInfo}>
+                            <h2>モニター企業管理</h2>
+                            <p>モニター版を利用する企業・ユーザーを管理</p>
+                        </div>
+                        <span className={styles.menuArrow}>→</span>
+                    </div>
+                )}
             </div>
         </div>
     );

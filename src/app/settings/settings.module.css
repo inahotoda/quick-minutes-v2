@@ -625,6 +625,212 @@
     }
 }
 
+/* ===== テナント管理 ===== */
+.tenantForm {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1.25rem;
+}
+
+.tenantFormRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.tenantFormRow:last-child {
+    margin-bottom: 0;
+}
+
+.tenantFormField {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.tenantLabel {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.tenantInput {
+    padding: 0.7rem 0.85rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: white;
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+.tenantInput:focus {
+    outline: none;
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.tenantInput option {
+    background: #1e1b4b;
+    color: white;
+}
+
+.tenantHint {
+    font-size: 0.75rem;
+    color: #93c5fd;
+}
+
+.tenantHintError {
+    color: #fca5a5;
+}
+
+.tenantList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.tenantCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid #10b981;
+    border-radius: 10px;
+    padding: 0.85rem 1rem;
+    transition: all 0.2s;
+}
+
+.tenantCard:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tenantExpired {
+    border-left-color: #ef4444;
+    opacity: 0.7;
+}
+
+.tenantCardMain {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.tenantCardInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    min-width: 0;
+}
+
+.tenantCompany {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: white;
+}
+
+.tenantDomain {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.45);
+}
+
+.tenantCardRight {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-shrink: 0;
+}
+
+.tenantStatus {
+    font-size: 0.75rem;
+    font-weight: 600;
+    padding: 0.25rem 0.6rem;
+    border-radius: 8px;
+}
+
+.tenantStatusActive {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+}
+
+.tenantStatusExpired {
+    background: rgba(239, 68, 68, 0.15);
+    color: #fca5a5;
+}
+
+.tenantDeleteBtn {
+    padding: 0.35rem 0.7rem;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 6px;
+    color: rgba(239, 68, 68, 0.7);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+.tenantDeleteBtn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.2);
+    color: #fca5a5;
+}
+
+.tenantDeleteBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.tenantUrlBox {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.tenantUrlBox code {
+    flex: 1;
+    font-size: 0.9rem;
+    color: #93c5fd;
+    word-break: break-all;
+}
+
+.tenantCopyBtn {
+    padding: 0.4rem 0.8rem;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 6px;
+    color: #a5b4fc;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.tenantCopyBtn:hover {
+    background: #6366f1;
+    color: white;
+}
+
+@media (max-width: 600px) {
+    .tenantFormRow {
+        grid-template-columns: 1fr;
+    }
+
+    .tenantCardMain {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .tenantCardRight {
+        width: 100%;
+        justify-content: space-between;
+    }
+}
+
 .note {
     font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.4);

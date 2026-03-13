@@ -19,21 +19,53 @@ export function extractDomain(email: string): string {
 }
 
 /**
- * ドメインからテナント情報を取得
+ * ドメインまたは個別メールアドレスからテナント情報を取得
+ * 1. まずドメインでマッチ（match_type='domain'）
+ * 2. なければ個別メールでマッチ（match_type='email'）
  */
-export async function getTenantByDomain(domain: string) {
+export async function getTenantByDomainOrEmail(domain: string, email: string) {
     if (!supabase) return null;
 
-    const { data, error } = await supabase
+    // 1. ドメインマッチ
+    const { data: domainMatch } = await supabase
+        .from("allowed_tenants")
+        .select("*")
+        .eq("domain", domain)
+        .eq("is_active", true)
+        .in("match_type", ["domain"])
+        .single();
+
+    if (domainMatch) return domainMatch;
+
+    // 2. 個別メールマッチ
+    const { data: emailMatch } = await supabase
+        .from("allowed_tenants")
+        .select("*")
+        .eq("email", email.toLowerCase())
+        .eq("is_active", true)
+        .eq("match_type", "email")
+        .single();
+
+    if (emailMatch) return emailMatch;
+
+    // 3. フォールバック: 旧データ（match_type未設定）のドメインマッチ
+    const { data: legacyMatch } = await supabase
         .from("allowed_tenants")
         .select("*")
         .eq("domain", domain)
         .eq("is_active", true)
         .single();
 
-    if (error || !data) return null;
-    return data;
+    return legacyMatch || null;
 }
+
+/**
+ * 旧互換用エクスポート
+ */
+export async function getTenantByDomain(domain: string) {
+    return getTenantByDomainOrEmail(domain, "");
+}
+
 
 /**
  * テナントの有効期限をチェック
