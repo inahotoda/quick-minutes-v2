@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import styles from "../settings.module.css";
 
@@ -14,6 +14,171 @@ interface PromptConfig {
     updatedAt?: string;
     history?: any[];
 }
+
+// --- 用語辞書データ構造 ---
+interface TermEntry {
+    term: string;
+    reading: string; // 読み仮名 or 正式名称
+}
+
+interface TermCategories {
+    companyBrand: TermEntry[];   // 社名・ブランド名
+    abbreviation: TermEntry[];   // 略語・社内用語
+    technical: TermEntry[];      // 専門用語
+}
+
+const EMPTY_CATEGORIES: TermCategories = {
+    companyBrand: [],
+    abbreviation: [],
+    technical: [],
+};
+
+// --- パース: terminology文字列 → 構造化データ ---
+function parseTerminology(raw: string): TermCategories {
+    if (!raw || !raw.trim()) return { ...EMPTY_CATEGORIES };
+
+    const categories: TermCategories = {
+        companyBrand: [],
+        abbreviation: [],
+        technical: [],
+    };
+
+    // 新フォーマット: "## カテゴリ名" で区切られている場合
+    const hasCategories = /^##\s/m.test(raw);
+
+    if (!hasCategories) {
+        // 旧フォーマット: すべて「専門用語」カテゴリにフォールバック
+        const lines = raw.split("\n").filter(l => l.trim());
+        for (const line of lines) {
+            const cleaned = line.replace(/^[-・]\s*/, "").trim();
+            if (!cleaned) continue;
+
+            // "用語（読み仮名）" or "用語(読み仮名)" パターン
+            const readingMatch = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])$/);
+            // "略語 = 正式名称" パターン
+            const eqMatch = cleaned.match(/^(.+?)\s*=\s*(.+)$/);
+            // カンマ区切りの場合
+            if (cleaned.includes(",") || cleaned.includes("、")) {
+                const items = cleaned.split(/[,、]\s*/);
+                for (const item of items) {
+                    const im = item.trim().match(/^(.+?)(?:[（(])(.+?)(?:[）)])$/);
+                    if (im) {
+                        categories.technical.push({ term: im[1].trim(), reading: im[2].trim() });
+                    } else if (item.trim()) {
+                        categories.technical.push({ term: item.trim(), reading: "" });
+                    }
+                }
+            } else if (readingMatch) {
+                categories.technical.push({ term: readingMatch[1].trim(), reading: readingMatch[2].trim() });
+            } else if (eqMatch) {
+                categories.abbreviation.push({ term: eqMatch[1].trim(), reading: eqMatch[2].trim() });
+            } else {
+                categories.technical.push({ term: cleaned, reading: "" });
+            }
+        }
+        return categories;
+    }
+
+    // 新フォーマット: セクション別にパース
+    let currentCategory: keyof TermCategories = "technical";
+    const lines = raw.split("\n");
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        // セクション見出し判定
+        if (/^##\s/.test(trimmed)) {
+            if (/社名|ブランド/i.test(trimmed)) {
+                currentCategory = "companyBrand";
+            } else if (/略語|社内/i.test(trimmed)) {
+                currentCategory = "abbreviation";
+            } else if (/専門/i.test(trimmed)) {
+                currentCategory = "technical";
+            }
+            continue;
+        }
+
+        const cleaned = trimmed.replace(/^[-・]\s*/, "").trim();
+        if (!cleaned) continue;
+
+        // "用語（読み仮名）" パターン
+        const readingMatch = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])$/);
+        // "略語 = 正式名称" パターン
+        const eqMatch = cleaned.match(/^(.+?)\s*=\s*(.+)$/);
+
+        if (currentCategory === "abbreviation" && eqMatch) {
+            categories.abbreviation.push({ term: eqMatch[1].trim(), reading: eqMatch[2].trim() });
+        } else if (readingMatch) {
+            categories[currentCategory].push({ term: readingMatch[1].trim(), reading: readingMatch[2].trim() });
+        } else {
+            categories[currentCategory].push({ term: cleaned, reading: "" });
+        }
+    }
+
+    return categories;
+}
+
+// --- シリアライズ: 構造化データ → terminology文字列 ---
+function serializeTerminology(categories: TermCategories): string {
+    const sections: string[] = [];
+
+    if (categories.companyBrand.length > 0) {
+        const lines = categories.companyBrand.map(e =>
+            e.reading ? `- ${e.term}（${e.reading}）` : `- ${e.term}`
+        );
+        sections.push(`## 社名・ブランド名\n${lines.join("\n")}`);
+    }
+
+    if (categories.abbreviation.length > 0) {
+        const lines = categories.abbreviation.map(e =>
+            e.reading ? `- ${e.term} = ${e.reading}` : `- ${e.term}`
+        );
+        sections.push(`## 略語・社内用語\n${lines.join("\n")}`);
+    }
+
+    if (categories.technical.length > 0) {
+        const lines = categories.technical.map(e =>
+            e.reading ? `- ${e.term}（${e.reading}）` : `- ${e.term}`
+        );
+        sections.push(`## 専門用語\n${lines.join("\n")}`);
+    }
+
+    return sections.join("\n\n");
+}
+
+// --- カテゴリ設定 ---
+const CATEGORY_CONFIG = {
+    companyBrand: {
+        icon: "🏢",
+        title: "社名・ブランド名",
+        subtitle: "取引先やブランド名など、読み間違えやすい固有名詞",
+        col1: "用語",
+        col2: "読み仮名（任意）",
+        placeholder1: "例: YANUK",
+        placeholder2: "例: やぬーく",
+        borderColor: "#6366f1",
+    },
+    abbreviation: {
+        icon: "🔤",
+        title: "略語・社内用語",
+        subtitle: "アルファベット略語とその正式名称",
+        col1: "略語",
+        col2: "正式名称（任意）",
+        placeholder1: "例: AMS",
+        placeholder2: "例: 生産管理システム",
+        borderColor: "#10b981",
+    },
+    technical: {
+        icon: "🔧",
+        title: "専門用語",
+        subtitle: "業界特有の専門用語（一般辞書にないもの）",
+        col1: "用語",
+        col2: "読み仮名（任意）",
+        placeholder1: "例: 反内縫製",
+        placeholder2: "例: たんない",
+        borderColor: "#f59e0b",
+    },
+} as const;
 
 export default function PromptsSettingsPage() {
     const router = useRouter();
@@ -29,6 +194,16 @@ export default function PromptsSettingsPage() {
         terminology: "",
     });
 
+    // 用語辞書の構造化データ
+    const [termCategories, setTermCategories] = useState<TermCategories>({ ...EMPTY_CATEGORIES });
+
+    // 各カテゴリの入力中の値
+    const [inputs, setInputs] = useState<Record<keyof TermCategories, { term: string; reading: string }>>({
+        companyBrand: { term: "", reading: "" },
+        abbreviation: { term: "", reading: "" },
+        technical: { term: "", reading: "" },
+    });
+
     useEffect(() => {
         async function fetchPrompts() {
             try {
@@ -36,6 +211,8 @@ export default function PromptsSettingsPage() {
                 if (res.ok) {
                     const data = await res.json();
                     setSettings(data);
+                    // terminology文字列をパースして構造化
+                    setTermCategories(parseTerminology(data.terminology || ""));
                 }
             } catch (err) {
                 console.error("Failed to fetch prompts:", err);
@@ -46,11 +223,43 @@ export default function PromptsSettingsPage() {
         fetchPrompts();
     }, []);
 
+    // 用語を追加
+    const addTerm = useCallback((category: keyof TermCategories) => {
+        const input = inputs[category];
+        if (!input.term.trim()) return;
+
+        setTermCategories(prev => ({
+            ...prev,
+            [category]: [...prev[category], { term: input.term.trim(), reading: input.reading.trim() }],
+        }));
+        setInputs(prev => ({
+            ...prev,
+            [category]: { term: "", reading: "" },
+        }));
+    }, [inputs]);
+
+    // 用語を削除
+    const removeTerm = useCallback((category: keyof TermCategories, index: number) => {
+        setTermCategories(prev => ({
+            ...prev,
+            [category]: prev[category].filter((_, i) => i !== index),
+        }));
+    }, []);
+
+    // 保存（terminology文字列にシリアライズしてから保存）
     const handleSave = async () => {
         setSaving(true);
         setMessage(null);
         try {
-            const { history: _, updatedBy: __, updatedAt: ___, ...dataToSave } = settings;
+            const terminologyStr = serializeTerminology(termCategories);
+            const dataToSave = {
+                basePrompt: settings.basePrompt,
+                internalPrompt: settings.internalPrompt,
+                businessPrompt: settings.businessPrompt,
+                otherPrompt: settings.otherPrompt,
+                terminology: terminologyStr,
+            };
+
             const res = await fetch("/api/prompts", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -59,6 +268,7 @@ export default function PromptsSettingsPage() {
             if (res.ok) {
                 const newData = await res.json();
                 setSettings(newData.config);
+                setTermCategories(parseTerminology(newData.config.terminology || ""));
                 setMessage({ type: "success", text: "設定を保存しました" });
                 window.scrollTo({ top: 0, behavior: "smooth" });
                 setTimeout(() => setMessage(null), 3000);
@@ -82,8 +292,17 @@ export default function PromptsSettingsPage() {
                 otherPrompt: oldVersion.otherPrompt,
                 terminology: oldVersion.terminology,
             });
+            setTermCategories(parseTerminology(oldVersion.terminology || ""));
             window.scrollTo({ top: 0, behavior: "smooth" });
             setMessage({ type: "success", text: "履歴から復元しました（「保存」するまで確定されません）" });
+        }
+    };
+
+    // Enterキーで追加
+    const handleKeyDown = (e: React.KeyboardEvent, category: keyof TermCategories) => {
+        if (e.key === "Enter") {
+            e.preventDefault();
+            addTerm(category);
         }
     };
 
@@ -95,6 +314,8 @@ export default function PromptsSettingsPage() {
             </div>
         );
     }
+
+    const totalTerms = termCategories.companyBrand.length + termCategories.abbreviation.length + termCategories.technical.length;
 
     return (
         <div className={styles.main}>
@@ -152,19 +373,104 @@ export default function PromptsSettingsPage() {
                     />
                 </section>
 
+                {/* ===== 用語辞書 ===== */}
                 <section className={styles.section}>
-                    <h2>専門用語・固有名詞・参加者名</h2>
+                    <h2>📖 用語辞書</h2>
                     <p className={styles.help}>
-                        誤字変換を防ぎたい会社名や専門用語を登録します。<br />
-                        <strong>💡 ヒント：参加者名を登録すると話者識別の精度が上がります。</strong><br />
-                        会議冒頭で「〇〇です」と自己紹介するルールにすると、より正確に識別できます。
+                        音声で正しく認識されにくい固有名詞や専門用語を登録すると、議事録の精度が向上します。
                     </p>
-                    <textarea
-                        value={settings.terminology}
-                        onChange={(e) => setSettings({ ...settings, terminology: e.target.value })}
-                        placeholder="INAHO, 生成AI, プロンプトエンジニアリング, 田中太郎, 佐藤花子, ..."
-                        rows={5}
-                    />
+
+                    <div className={styles.dictInfo}>
+                        💡 参加者名は「メンバー管理」から自動で反映されるため、ここへの登録は不要です。
+                    </div>
+
+                    {(Object.keys(CATEGORY_CONFIG) as (keyof TermCategories)[]).map((catKey) => {
+                        const config = CATEGORY_CONFIG[catKey];
+                        const entries = termCategories[catKey];
+                        const input = inputs[catKey];
+
+                        return (
+                            <div
+                                key={catKey}
+                                className={styles.dictCategory}
+                                style={{ borderLeftColor: config.borderColor }}
+                            >
+                                <div className={styles.dictCategoryHeader}>
+                                    <div>
+                                        <h3 className={styles.dictCategoryTitle}>
+                                            {config.icon} {config.title}
+                                        </h3>
+                                        <p className={styles.dictCategorySubtitle}>{config.subtitle}</p>
+                                    </div>
+                                    <span className={styles.dictBadge} style={{ background: config.borderColor }}>
+                                        {entries.length}件
+                                    </span>
+                                </div>
+
+                                {entries.length > 0 && (
+                                    <div className={styles.dictList}>
+                                        <div className={styles.dictListHeader}>
+                                            <span>{config.col1}</span>
+                                            <span>{config.col2}</span>
+                                            <span></span>
+                                        </div>
+                                        {entries.map((entry, idx) => (
+                                            <div key={idx} className={styles.dictItem}>
+                                                <span className={styles.dictTerm}>{entry.term}</span>
+                                                <span className={styles.dictReading}>{entry.reading || "—"}</span>
+                                                <button
+                                                    className={styles.dictDeleteBtn}
+                                                    onClick={() => removeTerm(catKey, idx)}
+                                                    title="削除"
+                                                >
+                                                    ×
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                <div className={styles.dictAddRow}>
+                                    <input
+                                        className={styles.dictInput}
+                                        type="text"
+                                        placeholder={config.placeholder1}
+                                        value={input.term}
+                                        onChange={(e) => setInputs(prev => ({
+                                            ...prev,
+                                            [catKey]: { ...prev[catKey], term: e.target.value },
+                                        }))}
+                                        onKeyDown={(e) => handleKeyDown(e, catKey)}
+                                    />
+                                    <input
+                                        className={styles.dictInput}
+                                        type="text"
+                                        placeholder={config.placeholder2}
+                                        value={input.reading}
+                                        onChange={(e) => setInputs(prev => ({
+                                            ...prev,
+                                            [catKey]: { ...prev[catKey], reading: e.target.value },
+                                        }))}
+                                        onKeyDown={(e) => handleKeyDown(e, catKey)}
+                                    />
+                                    <button
+                                        className={styles.dictAddBtn}
+                                        onClick={() => addTerm(catKey)}
+                                        disabled={!input.term.trim()}
+                                        style={{ borderColor: config.borderColor, color: config.borderColor }}
+                                    >
+                                        + 追加
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+
+                    {totalTerms > 0 && (
+                        <p className={styles.help} style={{ marginTop: "0.5rem" }}>
+                            合計 {totalTerms} 件の用語が登録されています
+                        </p>
+                    )}
                 </section>
 
                 <div className={styles.actions}>

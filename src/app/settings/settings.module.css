@@ -439,6 +439,192 @@
     cursor: not-allowed;
 }
 
+/* ===== 用語辞書 ===== */
+.dictInfo {
+    font-size: 0.85rem;
+    color: #93c5fd;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+}
+
+.dictCategory {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 3px solid #6366f1;
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    transition: all 0.2s;
+}
+
+.dictCategory:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.dictCategoryHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.dictCategoryTitle {
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    margin: 0;
+}
+
+.dictCategorySubtitle {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.45);
+    margin: 0.25rem 0 0;
+}
+
+.dictBadge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: white;
+    padding: 0.2rem 0.6rem;
+    border-radius: 10px;
+    flex-shrink: 0;
+}
+
+.dictList {
+    margin-bottom: 0.75rem;
+}
+
+.dictListHeader {
+    display: grid;
+    grid-template-columns: 1fr 1fr 32px;
+    gap: 0.5rem;
+    padding: 0 0.5rem 0.4rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.35);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.dictItem {
+    display: grid;
+    grid-template-columns: 1fr 1fr 32px;
+    gap: 0.5rem;
+    align-items: center;
+    padding: 0.5rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    margin-bottom: 0.25rem;
+    transition: background 0.15s;
+}
+
+.dictItem:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.dictTerm {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: white;
+}
+
+.dictReading {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.dictDeleteBtn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 6px;
+    color: rgba(239, 68, 68, 0.6);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    padding: 0;
+}
+
+.dictDeleteBtn:hover {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.5);
+    color: #fca5a5;
+}
+
+.dictAddRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr auto;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.dictInput {
+    padding: 0.6rem 0.75rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    color: white;
+    font-size: 0.9rem;
+    font-family: inherit;
+    transition: all 0.2s;
+    min-width: 0;
+}
+
+.dictInput:focus {
+    outline: none;
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.dictInput::placeholder {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.dictAddBtn {
+    padding: 0.55rem 1rem;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.dictAddBtn:hover:not(:disabled) {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.dictAddBtn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* レスポンシブ（スマホ） */
+@media (max-width: 600px) {
+    .dictAddRow {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .dictAddBtn {
+        grid-column: 1 / -1;
+    }
+
+    .dictListHeader {
+        display: none;
+    }
+
+    .dictItem {
+        grid-template-columns: 1fr 1fr 28px;
+    }
+}
+
 .note {
     font-size: 0.8rem;
     color: rgba(255, 255, 255, 0.4);
