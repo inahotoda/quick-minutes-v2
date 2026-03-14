@@ -19,6 +19,7 @@ interface MinutesEditorProps {
     isSendingEmail?: boolean;
     isRegenerating?: boolean;
     modelVersion?: string;
+    isTrialMode?: boolean;
 }
 
 export default function MinutesEditor({
@@ -34,6 +35,7 @@ export default function MinutesEditor({
     isSendingEmail = false,
     isRegenerating = false,
     modelVersion,
+    isTrialMode = false,
 }: MinutesEditorProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [showFeedback, setShowFeedback] = useState(false);
@@ -169,17 +171,18 @@ export default function MinutesEditor({
                     onClick={onSave}
                     disabled={isSaving || isSendingEmail || isSaved || isRegenerating || isEditing}
                 >
-                    {isSaving ? "保存中..." : isSaved ? "✅ 保存済み" : isEditing ? "✏️ 編集を完了してください" : "🚀 ドライブに保存"}
+                    {isSaving ? "保存中..." : isSaved ? "✅ 保存済み" : isEditing ? "✏️ 編集を完了してください" : isTrialMode ? "📄 PDFに保存" : "🚀 ドライブに保存"}
                 </button>
 
                 <div className={styles.footerSubActions}>
                     {onSendEmail && (
                         <button
-                            className={styles.emailButton}
-                            onClick={onSendEmail}
-                            disabled={isSaving || isSendingEmail || isRegenerating}
+                            className={`${styles.emailButton} ${isTrialMode ? styles.emailButtonDisabled : ''}`}
+                            onClick={isTrialMode ? undefined : onSendEmail}
+                            disabled={isTrialMode || isSaving || isSendingEmail || isRegenerating}
+                            title={isTrialMode ? "モニター版では現在利用できません" : undefined}
                         >
-                            {isSendingEmail ? "送信中..." : "✉️ メール送信"}
+                            {isSendingEmail ? "送信中..." : isTrialMode ? "✉️ メール送信（準備中）" : "✉️ メール送信"}
                         </button>
                     )}
                     {onDownloadAudio && (

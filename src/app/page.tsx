@@ -547,7 +547,58 @@ export default function Home() {
   }, [transcript, files, mode]);
 
   // Handle save to Google Drive - Direct client upload to bypass Vercel limits
+  // Trial mode: save as local PDF download instead
   const handleSave = async () => {
+    // Trial mode: local PDF download
+    if (isTrialDeployment) {
+      setIsSaving(true);
+      setError(null);
+      try {
+        const topic = extractTopic(minutes);
+        const now = new Date();
+        const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+        const yyyymmdd = jstNow.toISOString().split("T")[0].replace(/-/g, "");
+        const meetingIdentifier = topic || "meeting";
+        const fileName = `${yyyymmdd}-${meetingIdentifier}.pdf`;
+
+        const previewEl = document.querySelector('[data-minutes-preview]') as HTMLElement;
+        if (!previewEl) {
+          throw new Error("プレビュー要素が見つかりません");
+        }
+
+        const html2pdf = (await import('html2pdf.js')).default;
+
+        // Clone for PDF rendering
+        const clone = previewEl.cloneNode(true) as HTMLElement;
+        const pdfContainer = document.createElement('div');
+        pdfContainer.style.cssText = 'position:fixed;left:-9999px;top:0;width:210mm;background:#ffffff;color:#000000;padding:15mm;font-family:sans-serif;font-size:11pt;line-height:1.6;';
+        pdfContainer.appendChild(clone);
+        document.body.appendChild(pdfContainer);
+
+        const pdfOptions = {
+          margin: [10, 15, 10, 15] as [number, number, number, number],
+          filename: fileName,
+          image: { type: 'jpeg' as const, quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+        };
+
+        await html2pdf().set(pdfOptions).from(clone).save();
+
+        document.body.removeChild(pdfContainer);
+        setIsSaved(true);
+        alert(`✓ PDFをダウンロードしました\nファイル名: ${fileName}`);
+      } catch (err: any) {
+        console.error("PDF save error:", err);
+        setError(err instanceof Error ? err.message : "PDFの保存に失敗しました");
+        alert(`❌ PDFの保存に失敗しました\n${err instanceof Error ? err.message : ""}`);
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
+
+    // Normal mode: Google Drive upload
     if (!session?.accessToken) {
       alert("⚠️ 保存には再ログインが必要です。一度ログアウトして再度サインインしてください。");
       return;
@@ -1467,15 +1518,17 @@ export default function Home() {
               isRegenerating={isRegenerating}
               isSendingEmail={isSendingEmail}
               modelVersion={modelVersion}
+              isTrialMode={isTrialDeployment}
             />
 
             <div className={styles.secondaryActions}>
               <button
-                className={styles.emailButton}
-                onClick={handleSendEmail}
-                disabled={!minutes || isSaving || isSendingEmail}
+                className={`${styles.emailButton} ${isTrialDeployment ? styles.emailButtonDisabled : ''}`}
+                onClick={isTrialDeployment ? undefined : handleSendEmail}
+                disabled={isTrialDeployment || !minutes || isSaving || isSendingEmail}
+                title={isTrialDeployment ? "モニター版では現在利用できません" : undefined}
               >
-                {isSendingEmail ? "送信中..." : "📧 メールで送信"}
+                {isSendingEmail ? "送信中..." : isTrialDeployment ? "📧 メールで送信（準備中）" : "📧 メールで送信"}
               </button>
             </div>
 
@@ -1483,7 +1536,10 @@ export default function Home() {
               className={styles.newButton}
               onClick={() => {
                 if (!isSaved) {
-                  const confirmed = window.confirm("議事録がGoogle Driveに保存されていません。\n\nトップに戻ってもよろしいですか？");
+                  const msg = isTrialDeployment
+                    ? "議事録がPDFに保存されていません。\n\nトップに戻ってもよろしいですか？"
+                    : "議事録がGoogle Driveに保存されていません。\n\nトップに戻ってもよろしいですか？";
+                  const confirmed = window.confirm(msg);
                   if (!confirmed) return;
                 }
                 handleReset();

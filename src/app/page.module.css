@@ -552,6 +552,14 @@
     cursor: not-allowed;
 }
 
+.emailButtonDisabled {
+    opacity: 0.4;
+    background: rgba(100, 100, 120, 0.1) !important;
+    color: #6b7280 !important;
+    border-color: rgba(100, 100, 120, 0.2) !important;
+    cursor: not-allowed;
+}
+
 /* Responsive */
 @media (max-width: 640px) {
     .homeScreen {
