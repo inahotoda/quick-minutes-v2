@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import {
     isTrialMode,
     extractDomain,
-    getTenantByDomain,
+    getTenantByDomainOrEmail,
     isTenantExpired,
 } from "@/lib/supabase";
 
@@ -31,8 +31,9 @@ export async function GET() {
             });
         }
 
-        const domain = extractDomain(session.user.email);
-        const tenant = await getTenantByDomain(domain);
+        const email = session.user.email;
+        const domain = extractDomain(email);
+        const tenant = await getTenantByDomainOrEmail(domain, email);
 
         if (!tenant) {
             return NextResponse.json({
