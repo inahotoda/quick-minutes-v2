@@ -39,6 +39,12 @@ async function refreshAccessToken(token: any) {
     }
 }
 
+// モニター版は最小限のスコープ（Drive/Docs/Gmail不要）
+const isTrialMode = process.env.DEPLOYMENT_MODE === "trial";
+const oauthScope = isTrialMode
+    ? "openid email profile"
+    : "openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/gmail.send";
+
 export const authOptions: NextAuthOptions = {
     providers: [
         GoogleProvider({
@@ -46,8 +52,7 @@ export const authOptions: NextAuthOptions = {
             clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
             authorization: {
                 params: {
-                    scope:
-                        "openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/gmail.send",
+                    scope: oauthScope,
                     access_type: "offline",
                     prompt: "consent",
                 },
