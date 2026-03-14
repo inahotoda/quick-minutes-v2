@@ -583,11 +583,32 @@ export default function Home() {
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
         };
 
-        await html2pdf().set(pdfOptions).from(clone).save();
+        // PDFをBlobとして生成
+        const pdfBlob: Blob = await html2pdf().set(pdfOptions).from(clone).outputPdf('blob');
 
         document.body.removeChild(pdfContainer);
+
+        // iOS (Web Share API対応) → 共有シートでプレビュー＆ファイルに保存
+        const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+          await navigator.share({
+            files: [pdfFile],
+            title: fileName,
+          });
+        } else {
+          // PC/Android → Blobダウンロード
+          const url = URL.createObjectURL(pdfBlob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = fileName;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        }
+
         setIsSaved(true);
-        alert(`✓ PDFをダウンロードしました\nファイル名: ${fileName}`);
+        alert(`✓ PDFを保存しました\nファイル名: ${fileName}`);
       } catch (err: any) {
         console.error("PDF save error:", err);
         setError(err instanceof Error ? err.message : "PDFの保存に失敗しました");
