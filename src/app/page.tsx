@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.23.3";
+const APP_VERSION = "v4.23.4";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -646,17 +646,25 @@ export default function Home() {
         const fileName = pdfFileNameRef.current;
         const pdfBlob = pdfBlobRef.current;
 
-        // iOS (Web Share API対応) → 共有シートでプレビュー＆ファイルに保存
-        // 事前生成済みなのでユーザージェスチャーコンテキスト内で即座に実行可能
-        const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-          await navigator.share({
-            files: [pdfFile],
-            title: fileName.replace('.pdf', ''),
-          });
+        // PDFをBlobURLで新しいタブに開く
+        // Safariの標準共有ボタンからLINE・ファイル保存等が可能
+        // navigator.shareのtitleが「ファイル」アプリで余計なテキストファイルを作る問題を回避
+        const url = URL.createObjectURL(pdfBlob);
+
+        // iOS判定
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+
+        if (isIOS) {
+          // iOS: 新しいタブでPDFを開く（Safariの共有ボタンから保存/共有可能）
+          const newWindow = window.open('', '_blank');
+          if (newWindow) {
+            newWindow.location.href = url;
+          } else {
+            // ポップアップブロック時のフォールバック
+            window.location.href = url;
+          }
         } else {
           // PC/Android → Blobダウンロード
-          const url = URL.createObjectURL(pdfBlob);
           const a = document.createElement('a');
           a.href = url;
           a.download = fileName;
@@ -667,13 +675,7 @@ export default function Home() {
         }
 
         setIsSaved(true);
-        alert(`✓ 処理が完了しました`);
       } catch (err: any) {
-        // ユーザーが共有シートをキャンセルした場合はエラーにしない
-        if (err?.name === 'AbortError') {
-          console.log("PDF共有がキャンセルされました");
-          return;
-        }
         console.error("PDF save error:", err);
         setError(err instanceof Error ? err.message : "PDFの保存に失敗しました");
         alert(`❌ PDFの保存に失敗しました\n${err instanceof Error ? err.message : ""}`);

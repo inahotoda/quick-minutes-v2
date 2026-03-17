@@ -108,15 +108,20 @@ export default function MinutesEditor({
                                 // 編集完了時: textareaをblurしてiOSのズームをリセット
                                 const textarea = document.querySelector('textarea');
                                 if (textarea) textarea.blur();
-                                // iOS Safariのズームを強制リセット
-                                const viewportMeta = document.querySelector('meta[name="viewport"]');
-                                if (viewportMeta) {
-                                    const original = viewportMeta.getAttribute('content') || '';
-                                    viewportMeta.setAttribute('content', original + ', maximum-scale=1');
+                                // iOS Safariのズーム強制リセット:
+                                // 16pxフォントの隠しinputをfocus→blurすると、iOSが
+                                // 「ズーム不要」と判断してビューポートを元に戻す
+                                setTimeout(() => {
+                                    const tempInput = document.createElement('input');
+                                    tempInput.setAttribute('readonly', 'true');
+                                    tempInput.style.cssText = 'position:fixed;top:-9999px;left:-9999px;font-size:16px;opacity:0;';
+                                    document.body.appendChild(tempInput);
+                                    tempInput.focus();
                                     setTimeout(() => {
-                                        viewportMeta.setAttribute('content', original);
-                                    }, 100);
-                                }
+                                        tempInput.blur();
+                                        document.body.removeChild(tempInput);
+                                    }, 50);
+                                }, 50);
                             }
                             setIsEditing(newIsEditing);
                             onEditingChange?.(newIsEditing);
