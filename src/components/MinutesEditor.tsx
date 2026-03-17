@@ -106,20 +106,22 @@ export default function MinutesEditor({
                             const newIsEditing = !isEditing;
                             if (!newIsEditing) {
                                 // iOS Safari ズームリセット:
-                                // 1. textareaのfont-sizeを16pxに変更（iOSが「ズーム不要」と判断）
-                                // 2. 1フレーム待ってblur（iOSがズームをリセット）
-                                // 3. ステートを更新してプレビューに切り替え
+                                // textareaをblurした後、viewport meta tagで強制リセット
                                 const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
                                 if (textarea) {
                                     textarea.style.fontSize = '16px';
-                                    requestAnimationFrame(() => {
-                                        textarea.blur();
-                                        setTimeout(() => {
-                                            setIsEditing(false);
-                                            onEditingChange?.(false);
-                                        }, 100);
-                                    });
-                                    return; // ステート更新は遅延実行するのでここで終了
+                                    textarea.blur();
+                                }
+                                const viewportMeta = document.querySelector('meta[name="viewport"]');
+                                if (viewportMeta) {
+                                    const original = viewportMeta.getAttribute('content') || '';
+                                    viewportMeta.setAttribute('content', 'width=device-width, initial-scale=1, maximum-scale=1');
+                                    setTimeout(() => {
+                                        viewportMeta.setAttribute('content', original);
+                                        setIsEditing(false);
+                                        onEditingChange?.(false);
+                                    }, 200);
+                                    return;
                                 }
                             }
                             setIsEditing(newIsEditing);

@@ -647,12 +647,12 @@ export default function Home() {
         const pdfBlob = pdfBlobRef.current;
 
         // navigator.share でPDFを共有
-        // titleを指定するとiOS「ファイル」アプリで余計なテキストファイルが作られるため
-        // filesのみで共有する（LINEは共有シートで「その他」から利用可能）
+        // textを指定しないとiOSの共有シートでLINEが候補に出ないため、
+        // ファイル名をtextとして渡す（「ファイルに保存」時にテキストファイルも生成されるが許容）
         const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
           try {
-            await navigator.share({ files: [pdfFile] });
+            await navigator.share({ files: [pdfFile], text: fileName });
           } catch (shareErr: any) {
             // ユーザーが共有シートをキャンセルした場合はエラーにしない
             if (shareErr?.name === 'AbortError') {
