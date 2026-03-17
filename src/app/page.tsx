@@ -652,7 +652,6 @@ export default function Home() {
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
           await navigator.share({
             files: [pdfFile],
-            title: fileName,
           });
         } else {
           // PC/Android → Blobダウンロード
@@ -1241,8 +1240,12 @@ export default function Home() {
 
   // Extract topic from minutes
   const extractTopic = (text: string): string => {
-    const match = text.match(/^#\s*(.+)$/m);
-    return match ? match[1].replace("議事録", "").trim() : "会議";
+    const match = text.match(/^#{1,3}\s*(.+)$/m);
+    if (!match) return "会議";
+    return match[1]
+      .replace("議事録", "")
+      .replace(/^[\d]+\.\s*/, "")  // 先頭番号 ("1. ") を除去
+      .trim();
   };
 
   // Loading state
