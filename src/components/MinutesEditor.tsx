@@ -14,6 +14,7 @@ interface MinutesEditorProps {
     onSendEmail?: () => void;
     onDownloadAudio?: () => void;
     onRegenerate?: (feedback?: string) => void;
+    onEditingChange?: (isEditing: boolean) => void;
     isSaving: boolean;
     isSaved: boolean;
     isSendingEmail?: boolean;
@@ -31,6 +32,7 @@ export default function MinutesEditor({
     onSendEmail,
     onDownloadAudio,
     onRegenerate,
+    onEditingChange,
     isSaving,
     isSaved,
     isSendingEmail = false,
@@ -100,7 +102,11 @@ export default function MinutesEditor({
                 <div className={styles.actions}>
                     <button
                         className={styles.actionButton}
-                        onClick={() => setIsEditing(!isEditing)}
+                        onClick={() => {
+                            const newIsEditing = !isEditing;
+                            setIsEditing(newIsEditing);
+                            onEditingChange?.(newIsEditing);
+                        }}
                     >
                         {isEditing ? "✓ 完了" : "✏️ 編集"}
                     </button>
@@ -169,11 +175,11 @@ export default function MinutesEditor({
 
             <div className={styles.footer}>
                 <button
-                    className={`${styles.saveButton} ${isSaved ? styles.saveButtonSaved : ''}`}
+                    className={`${styles.saveButton} ${(isSaved && !isTrialMode) ? styles.saveButtonSaved : ''}`}
                     onClick={onSave}
-                    disabled={isSaving || isSendingEmail || isSaved || isRegenerating || isEditing || (isTrialMode && !isPdfReady)}
+                    disabled={isSaving || isSendingEmail || (!isTrialMode && isSaved) || isRegenerating || isEditing || (isTrialMode && !isPdfReady)}
                 >
-                    {isSaving ? "保存中..." : isSaved ? "✅ 保存済み" : isEditing ? "✏️ 編集を完了してください" : (isTrialMode && !isPdfReady) ? "⏳ PDF準備中..." : isTrialMode ? "📄 PDFに保存" : "🚀 ドライブに保存"}
+                    {isSaving ? "保存中..." : (!isTrialMode && isSaved) ? "✅ 保存済み" : isEditing ? "✏️ 編集を完了してください" : (isTrialMode && !isPdfReady) ? "⏳ PDF準備中..." : isTrialMode ? "📄 PDFに保存" : "🚀 ドライブに保存"}
                 </button>
 
                 <div className={styles.footerSubActions}>

@@ -85,6 +85,7 @@ export default function Home() {
   const pdfFileNameRef = useRef<string>("");
   const [isPdfReady, setIsPdfReady] = useState(false);
   const pdfGenerationIdRef = useRef(0); // 世代管理用
+  const [isMinutesEditing, setIsMinutesEditing] = useState(false); // MinutesEditorの編集状態
 
   // Access check state
   const [accessCheckState, setAccessCheckState] = useState<"checking" | "granted" | "denied">("checking");
@@ -611,20 +612,24 @@ export default function Home() {
     }
   }, [isTrialDeployment]);
 
-  // 議事録が表示/変更されたらPDFを事前生成
+  // 議事録が表示/変更されたら、または編集完了時にPDFを事前生成
   useEffect(() => {
-    if (appState === "editing" && isTrialDeployment && minutes) {
-      // debounce: 編集完了後1秒待ってから生成
+    if (appState === "editing" && isTrialDeployment && minutes && !isMinutesEditing) {
+      // debounce: 1秒待ってから生成
       const timer = setTimeout(() => {
         generatePdfInBackground(minutes);
       }, 1000);
       return () => clearTimeout(timer);
-    } else {
+    } else if (isMinutesEditing) {
+      // 編集中はPDFを無効化（プレビュー要素がDOMにないため）
+      pdfBlobRef.current = null;
+      setIsPdfReady(false);
+    } else if (appState !== "editing") {
       // editing以外の状態ではリセット
       pdfBlobRef.current = null;
       setIsPdfReady(false);
     }
-  }, [appState, minutes, isTrialDeployment, generatePdfInBackground]);
+  }, [appState, minutes, isTrialDeployment, isMinutesEditing, generatePdfInBackground]);
 
   // Handle save to Google Drive - Direct client upload to bypass Vercel limits
   // Trial mode: 事前生成したPDFを navigator.share で保存
@@ -662,7 +667,7 @@ export default function Home() {
         }
 
         setIsSaved(true);
-        alert(`✓ PDFを保存しました\nファイル名: ${fileName}`);
+        alert(`✓ 処理が完了しました`);
       } catch (err: any) {
         // ユーザーが共有シートをキャンセルした場合はエラーにしない
         if (err?.name === 'AbortError') {
@@ -1593,6 +1598,7 @@ export default function Home() {
               onSave={handleSave}
               onRegenerate={lastGenerationParams ? handleRegenerate : undefined}
               onDownloadAudio={recorder.audioBlob ? handleDownloadAudio : undefined}
+              onEditingChange={setIsMinutesEditing}
               isSaving={isSaving}
               isSaved={isSaved}
               isRegenerating={isRegenerating}
