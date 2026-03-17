@@ -653,6 +653,7 @@ export default function Home() {
           await navigator.share({
             files: [pdfFile],
             title: '',
+            text: '',
           });
         } else {
           // PC/Android → Blobダウンロード

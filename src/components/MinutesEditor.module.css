@@ -78,6 +78,20 @@
     border-color: #9ca3af;
 }
 
+.actionButtonDone {
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: #ffffff;
+    border-color: #059669;
+    font-weight: 600;
+    box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.actionButtonDone:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    color: #ffffff;
+    border-color: #047857;
+}
+
 .content {
     padding: 1.25rem;
     max-height: 50vh;
@@ -102,7 +116,7 @@
     background: #f9fafb;
     color: #1f2937;
     font-family: inherit;
-    font-size: 0.9rem;
+    font-size: 16px; /* iOSの自動ズームを防止 (16px未満だとズームされる) */
     line-height: 1.6;
     resize: vertical;
 }

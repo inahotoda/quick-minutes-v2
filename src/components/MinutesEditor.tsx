@@ -101,14 +101,28 @@ export default function MinutesEditor({
                 </div>
                 <div className={styles.actions}>
                     <button
-                        className={styles.actionButton}
+                        className={`${styles.actionButton} ${isEditing ? styles.actionButtonDone : ''}`}
                         onClick={() => {
                             const newIsEditing = !isEditing;
+                            if (!newIsEditing) {
+                                // 編集完了時: textareaをblurしてiOSのズームをリセット
+                                const textarea = document.querySelector('textarea');
+                                if (textarea) textarea.blur();
+                                // iOS Safariのズームを強制リセット
+                                const viewportMeta = document.querySelector('meta[name="viewport"]');
+                                if (viewportMeta) {
+                                    const original = viewportMeta.getAttribute('content') || '';
+                                    viewportMeta.setAttribute('content', original + ', maximum-scale=1');
+                                    setTimeout(() => {
+                                        viewportMeta.setAttribute('content', original);
+                                    }, 100);
+                                }
+                            }
                             setIsEditing(newIsEditing);
                             onEditingChange?.(newIsEditing);
                         }}
                     >
-                        {isEditing ? "✓ 完了" : "✏️ 編集"}
+                        {isEditing ? "✅ 完了" : "✏️ 編集"}
                     </button>
                     <button className={styles.actionButton} onClick={copyToClipboard}>
                         📋 コピー
@@ -123,6 +137,7 @@ export default function MinutesEditor({
                         value={content}
                         onChange={(e) => onChange(e.target.value)}
                         rows={20}
+                        autoFocus
                     />
                 ) : (
                     <div className={styles.preview} data-minutes-preview>
