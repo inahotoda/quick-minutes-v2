@@ -105,23 +105,22 @@ export default function MinutesEditor({
                         onClick={() => {
                             const newIsEditing = !isEditing;
                             if (!newIsEditing) {
-                                // 編集完了時: textareaをblurしてiOSのズームをリセット
-                                const textarea = document.querySelector('textarea');
-                                if (textarea) textarea.blur();
-                                // iOS Safariのズーム強制リセット:
-                                // 16pxフォントの隠しinputをfocus→blurすると、iOSが
-                                // 「ズーム不要」と判断してビューポートを元に戻す
-                                setTimeout(() => {
-                                    const tempInput = document.createElement('input');
-                                    tempInput.setAttribute('readonly', 'true');
-                                    tempInput.style.cssText = 'position:fixed;top:-9999px;left:-9999px;font-size:16px;opacity:0;';
-                                    document.body.appendChild(tempInput);
-                                    tempInput.focus();
-                                    setTimeout(() => {
-                                        tempInput.blur();
-                                        document.body.removeChild(tempInput);
-                                    }, 50);
-                                }, 50);
+                                // iOS Safari ズームリセット:
+                                // 1. textareaのfont-sizeを16pxに変更（iOSが「ズーム不要」と判断）
+                                // 2. 1フレーム待ってblur（iOSがズームをリセット）
+                                // 3. ステートを更新してプレビューに切り替え
+                                const textarea = document.querySelector('textarea') as HTMLTextAreaElement;
+                                if (textarea) {
+                                    textarea.style.fontSize = '16px';
+                                    requestAnimationFrame(() => {
+                                        textarea.blur();
+                                        setTimeout(() => {
+                                            setIsEditing(false);
+                                            onEditingChange?.(false);
+                                        }, 100);
+                                    });
+                                    return; // ステート更新は遅延実行するのでここで終了
+                                }
                             }
                             setIsEditing(newIsEditing);
                             onEditingChange?.(newIsEditing);

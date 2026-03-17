@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.23.4";
+const APP_VERSION = "v4.23.5";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -646,25 +646,24 @@ export default function Home() {
         const fileName = pdfFileNameRef.current;
         const pdfBlob = pdfBlobRef.current;
 
-        // PDFをBlobURLで新しいタブに開く
-        // Safariの標準共有ボタンからLINE・ファイル保存等が可能
-        // navigator.shareのtitleが「ファイル」アプリで余計なテキストファイルを作る問題を回避
-        const url = URL.createObjectURL(pdfBlob);
-
-        // iOS判定
-        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
-
-        if (isIOS) {
-          // iOS: 新しいタブでPDFを開く（Safariの共有ボタンから保存/共有可能）
-          const newWindow = window.open('', '_blank');
-          if (newWindow) {
-            newWindow.location.href = url;
-          } else {
-            // ポップアップブロック時のフォールバック
-            window.location.href = url;
+        // navigator.share でPDFを共有
+        // titleを指定するとiOS「ファイル」アプリで余計なテキストファイルが作られるため
+        // filesのみで共有する（LINEは共有シートで「その他」から利用可能）
+        const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+          try {
+            await navigator.share({ files: [pdfFile] });
+          } catch (shareErr: any) {
+            // ユーザーが共有シートをキャンセルした場合はエラーにしない
+            if (shareErr?.name === 'AbortError') {
+              console.log("PDF共有がキャンセルされました");
+              return;
+            }
+            throw shareErr;
           }
         } else {
           // PC/Android → Blobダウンロード
+          const url = URL.createObjectURL(pdfBlob);
           const a = document.createElement('a');
           a.href = url;
           a.download = fileName;
