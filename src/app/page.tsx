@@ -652,6 +652,7 @@ export default function Home() {
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
           await navigator.share({
             files: [pdfFile],
+            title: '',
           });
         } else {
           // PC/Android → Blobダウンロード
