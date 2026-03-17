@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.23.2";
+const APP_VERSION = "v4.23.3";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -652,8 +652,7 @@ export default function Home() {
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
           await navigator.share({
             files: [pdfFile],
-            title: '',
-            text: '',
+            title: fileName.replace('.pdf', ''),
           });
         } else {
           // PC/Android → Blobダウンロード

@@ -116,7 +116,7 @@
     background: #f9fafb;
     color: #1f2937;
     font-family: inherit;
-    font-size: 16px; /* iOSの自動ズームを防止 (16px未満だとズームされる) */
+    font-size: 0.9rem;
     line-height: 1.6;
     resize: vertical;
 }
@@ -211,14 +211,12 @@
     color: #4b5563;
 }
 
-/* モバイル用テーブル - 横スクロール */
+/* モバイル用テーブル - テーブルのみ横スクロール */
 @media (max-width: 640px) {
-    .content {
+    .preview table {
+        display: block;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
-    }
-
-    .preview table {
         min-width: 100%;
         font-size: 0.8rem;
         margin: 1rem 0;
@@ -228,11 +226,6 @@
     .preview td {
         padding: 0.5rem 0.75rem;
         white-space: nowrap;
-    }
-
-    /* テーブルを横スクロール可能なコンテナで囲む */
-    .preview {
-        overflow-x: auto;
     }
 }
 
