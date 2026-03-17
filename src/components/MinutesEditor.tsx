@@ -20,6 +20,7 @@ interface MinutesEditorProps {
     isRegenerating?: boolean;
     modelVersion?: string;
     isTrialMode?: boolean;
+    isPdfReady?: boolean;
 }
 
 export default function MinutesEditor({
@@ -36,6 +37,7 @@ export default function MinutesEditor({
     isRegenerating = false,
     modelVersion,
     isTrialMode = false,
+    isPdfReady = true,
 }: MinutesEditorProps) {
     const [isEditing, setIsEditing] = useState(false);
     const [showFeedback, setShowFeedback] = useState(false);
@@ -169,9 +171,9 @@ export default function MinutesEditor({
                 <button
                     className={`${styles.saveButton} ${isSaved ? styles.saveButtonSaved : ''}`}
                     onClick={onSave}
-                    disabled={isSaving || isSendingEmail || isSaved || isRegenerating || isEditing}
+                    disabled={isSaving || isSendingEmail || isSaved || isRegenerating || isEditing || (isTrialMode && !isPdfReady)}
                 >
-                    {isSaving ? "保存中..." : isSaved ? "✅ 保存済み" : isEditing ? "✏️ 編集を完了してください" : isTrialMode ? "📄 PDFに保存" : "🚀 ドライブに保存"}
+                    {isSaving ? "保存中..." : isSaved ? "✅ 保存済み" : isEditing ? "✏️ 編集を完了してください" : (isTrialMode && !isPdfReady) ? "⏳ PDF準備中..." : isTrialMode ? "📄 PDFに保存" : "🚀 ドライブに保存"}
                 </button>
 
                 <div className={styles.footerSubActions}>

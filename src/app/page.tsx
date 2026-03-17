@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { MeetingMode, UploadedFile } from "@/types";
 import { MeetingPreset, MeetingDuration } from "@/lib/member-storage";
@@ -79,6 +79,12 @@ export default function Home() {
     uploadedFiles?: any[];
     participants?: string[];
   } | null>(null);
+
+  // Trial mode: PDF事前生成用
+  const pdfBlobRef = useRef<Blob | null>(null);
+  const pdfFileNameRef = useRef<string>("");
+  const [isPdfReady, setIsPdfReady] = useState(false);
+  const pdfGenerationIdRef = useRef(0); // 世代管理用
 
   // Access check state
   const [accessCheckState, setAccessCheckState] = useState<"checking" | "granted" | "denied">("checking");
@@ -546,49 +552,97 @@ export default function Home() {
     generateMinutes(undefined, participants);  // 参加者を直接渡す
   }, [transcript, files, mode]);
 
+  // Trial mode: PDFをバックグラウンドで事前生成
+  // 議事録が表示/変更されたタイミングでPDFを生成しておき、
+  // ボタンタップ時に navigator.share を即座に呼べるようにする
+  const generatePdfInBackground = useCallback(async (currentMinutes: string) => {
+    if (!isTrialDeployment || !currentMinutes) return;
+
+    const generationId = ++pdfGenerationIdRef.current;
+    setIsPdfReady(false);
+    pdfBlobRef.current = null;
+
+    try {
+      // DOMの描画完了を待つ
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+
+      const previewEl = document.querySelector('[data-minutes-preview]') as HTMLElement;
+      if (!previewEl) return;
+
+      // 世代チェック（古い生成を無視）
+      if (generationId !== pdfGenerationIdRef.current) return;
+
+      const html2pdf = (await import('html2pdf.js')).default;
+
+      const clone = previewEl.cloneNode(true) as HTMLElement;
+      const pdfContainer = document.createElement('div');
+      pdfContainer.style.cssText = 'position:fixed;left:-9999px;top:0;width:210mm;background:#ffffff;color:#000000;padding:15mm;font-family:sans-serif;font-size:11pt;line-height:1.6;';
+      pdfContainer.appendChild(clone);
+      document.body.appendChild(pdfContainer);
+
+      const topic = extractTopic(currentMinutes);
+      const now = new Date();
+      const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
+      const yyyymmdd = jstNow.toISOString().split("T")[0].replace(/-/g, "");
+      const meetingIdentifier = topic || "meeting";
+      const fileName = `${yyyymmdd}-${meetingIdentifier}.pdf`;
+
+      const pdfOptions = {
+        margin: [10, 15, 10, 15] as [number, number, number, number],
+        filename: fileName,
+        image: { type: 'jpeg' as const, quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
+      };
+
+      const pdfBlob: Blob = await html2pdf().set(pdfOptions).from(clone).outputPdf('blob');
+      document.body.removeChild(pdfContainer);
+
+      // 世代チェック（生成中に新しい生成が始まっていたら破棄）
+      if (generationId !== pdfGenerationIdRef.current) return;
+
+      pdfBlobRef.current = pdfBlob;
+      pdfFileNameRef.current = fileName;
+      setIsPdfReady(true);
+      console.log("✅ PDF事前生成完了:", fileName, pdfBlob.size, "bytes");
+    } catch (err) {
+      console.error("PDF事前生成エラー:", err);
+      // 事前生成の失敗はサイレントに処理（ボタンタップ時にフォールバック）
+    }
+  }, [isTrialDeployment]);
+
+  // 議事録が表示/変更されたらPDFを事前生成
+  useEffect(() => {
+    if (appState === "editing" && isTrialDeployment && minutes) {
+      // debounce: 編集完了後1秒待ってから生成
+      const timer = setTimeout(() => {
+        generatePdfInBackground(minutes);
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else {
+      // editing以外の状態ではリセット
+      pdfBlobRef.current = null;
+      setIsPdfReady(false);
+    }
+  }, [appState, minutes, isTrialDeployment, generatePdfInBackground]);
+
   // Handle save to Google Drive - Direct client upload to bypass Vercel limits
-  // Trial mode: save as local PDF download instead
+  // Trial mode: 事前生成したPDFを navigator.share で保存
   const handleSave = async () => {
-    // Trial mode: local PDF download
+    // Trial mode: 事前生成済みPDFを共有シートで保存
     if (isTrialDeployment) {
       setIsSaving(true);
       setError(null);
       try {
-        const topic = extractTopic(minutes);
-        const now = new Date();
-        const jstNow = new Date(now.getTime() + (9 * 60 * 60 * 1000));
-        const yyyymmdd = jstNow.toISOString().split("T")[0].replace(/-/g, "");
-        const meetingIdentifier = topic || "meeting";
-        const fileName = `${yyyymmdd}-${meetingIdentifier}.pdf`;
-
-        const previewEl = document.querySelector('[data-minutes-preview]') as HTMLElement;
-        if (!previewEl) {
-          throw new Error("プレビュー要素が見つかりません");
+        if (!pdfBlobRef.current || !pdfFileNameRef.current) {
+          throw new Error("PDFが準備されていません。少々お待ちください。");
         }
 
-        const html2pdf = (await import('html2pdf.js')).default;
-
-        // Clone for PDF rendering
-        const clone = previewEl.cloneNode(true) as HTMLElement;
-        const pdfContainer = document.createElement('div');
-        pdfContainer.style.cssText = 'position:fixed;left:-9999px;top:0;width:210mm;background:#ffffff;color:#000000;padding:15mm;font-family:sans-serif;font-size:11pt;line-height:1.6;';
-        pdfContainer.appendChild(clone);
-        document.body.appendChild(pdfContainer);
-
-        const pdfOptions = {
-          margin: [10, 15, 10, 15] as [number, number, number, number],
-          filename: fileName,
-          image: { type: 'jpeg' as const, quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, letterRendering: true, backgroundColor: '#ffffff' },
-          jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const }
-        };
-
-        // PDFをBlobとして生成
-        const pdfBlob: Blob = await html2pdf().set(pdfOptions).from(clone).outputPdf('blob');
-
-        document.body.removeChild(pdfContainer);
+        const fileName = pdfFileNameRef.current;
+        const pdfBlob = pdfBlobRef.current;
 
         // iOS (Web Share API対応) → 共有シートでプレビュー＆ファイルに保存
+        // 事前生成済みなのでユーザージェスチャーコンテキスト内で即座に実行可能
         const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
         if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
           await navigator.share({
@@ -610,6 +664,11 @@ export default function Home() {
         setIsSaved(true);
         alert(`✓ PDFを保存しました\nファイル名: ${fileName}`);
       } catch (err: any) {
+        // ユーザーが共有シートをキャンセルした場合はエラーにしない
+        if (err?.name === 'AbortError') {
+          console.log("PDF共有がキャンセルされました");
+          return;
+        }
         console.error("PDF save error:", err);
         setError(err instanceof Error ? err.message : "PDFの保存に失敗しました");
         alert(`❌ PDFの保存に失敗しました\n${err instanceof Error ? err.message : ""}`);
@@ -1540,6 +1599,7 @@ export default function Home() {
               isSendingEmail={isSendingEmail}
               modelVersion={modelVersion}
               isTrialMode={isTrialDeployment}
+              isPdfReady={isPdfReady}
             />
 
             <div className={styles.secondaryActions}>
