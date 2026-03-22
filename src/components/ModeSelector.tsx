@@ -10,8 +10,10 @@ interface ModeSelectorProps {
     onModeChange: (mode: MeetingMode) => void;
     selectedPreset?: MeetingPreset | null;
     onPresetChange?: (preset: MeetingPreset | null) => void;
-    readOnly?: boolean;
+    hidePresets?: boolean;
     compact?: boolean;
+    additionalPrompt?: string;
+    onAdditionalPromptChange?: (value: string) => void;
 }
 
 const modes: { value: MeetingMode; label: string; icon: string }[] = [
@@ -25,11 +27,14 @@ export default function ModeSelector({
     onModeChange,
     selectedPreset,
     onPresetChange,
-    readOnly = false,
+    hidePresets = false,
     compact = false,
+    additionalPrompt = "",
+    onAdditionalPromptChange,
 }: ModeSelectorProps) {
     const [presets, setPresets] = useState<MeetingPreset[]>([]);
     const [isPresetOpen, setIsPresetOpen] = useState(false);
+    const [isPromptOpen, setIsPromptOpen] = useState(false);
 
     // Load presets
     useEffect(() => {
@@ -47,7 +52,7 @@ export default function ModeSelector({
     // Handle mode click
     const handleModeClick = (mode: MeetingMode) => {
         onModeChange(mode);
-        onPresetChange?.(null); // Clear preset when mode is manually selected
+        onPresetChange?.(null);
     };
 
     // Handle preset selection
@@ -69,9 +74,9 @@ export default function ModeSelector({
                 {modes.map((mode) => (
                     <button
                         key={mode.value}
-                        className={`${styles.button} ${selectedMode === mode.value ? styles.active : ""} ${(selectedPreset || readOnly) ? styles.locked : ""}`}
+                        className={`${styles.button} ${selectedMode === mode.value ? styles.active : ""} ${selectedPreset ? styles.locked : ""}`}
                         onClick={() => handleModeClick(mode.value)}
-                        disabled={!!selectedPreset || readOnly}
+                        disabled={!!selectedPreset}
                     >
                         <span className={styles.icon}>{mode.icon}</span>
                         {mode.label}
@@ -79,8 +84,30 @@ export default function ModeSelector({
                 ))}
             </div>
 
-            {/* Preset Section - readOnly時は非表示 */}
-            {!readOnly && presets.length > 0 && onPresetChange && (
+            {/* 追加の指示（プロンプト） — compact時のみ表示 */}
+            {onAdditionalPromptChange && (
+                <div className={styles.promptSection}>
+                    <button
+                        className={`${styles.promptToggle} ${isPromptOpen ? styles.promptToggleOpen : ''} ${additionalPrompt ? styles.promptToggleActive : ''}`}
+                        onClick={() => setIsPromptOpen(!isPromptOpen)}
+                    >
+                        <span>📝 追加の指示（プロンプト）</span>
+                        <span className={styles.toggleArrow}>{isPromptOpen ? "▲" : "▼"}</span>
+                    </button>
+                    {isPromptOpen && (
+                        <textarea
+                            className={styles.promptInput}
+                            value={additionalPrompt}
+                            onChange={(e) => onAdditionalPromptChange(e.target.value)}
+                            placeholder="例: 日本語と英語の併記にして / タスクを全て拾って"
+                            rows={3}
+                        />
+                    )}
+                </div>
+            )}
+
+            {/* Preset Section — hidePresets時は非表示 */}
+            {!hidePresets && presets.length > 0 && onPresetChange && (
                 <div className={styles.presetSection}>
                     {selectedPreset ? (
                         <div className={styles.selectedPreset}>

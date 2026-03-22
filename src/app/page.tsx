@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.24.1";
+const APP_VERSION = "v4.24.2";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -1506,36 +1506,16 @@ export default function Home() {
 
               {/* 録音中のオプション群 — 統一幅 */}
               <div className={styles.recordingOptions}>
-                {/* 追加指示 */}
-                <div className={styles.recordingOptionItem}>
-                  <button
-                    className={`${styles.optionToggle} ${additionalPrompt ? styles.optionToggleActive : ''}`}
-                    onClick={() => {
-                      const el = document.getElementById('additional-prompt-area');
-                      if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
-                      else return;
-                    }}
-                  >
-                    <span>📝 追加の指示</span>
-                    <span className={styles.optionToggleArrow}>▼</span>
-                  </button>
-                  <textarea
-                    id="additional-prompt-area"
-                    className={styles.optionTextarea}
-                    style={{ display: 'none' }}
-                    value={additionalPrompt}
-                    onChange={(e) => setAdditionalPrompt(e.target.value)}
-                    placeholder="例: 日本語と英語の併記にして / タスクを全て拾って"
-                    rows={3}
-                  />
-                </div>
-
+                {/* モードセレクタ + 追加指示（プロンプト） */}
                 <ModeSelector
                   selectedMode={mode}
                   onModeChange={setMode}
                   selectedPreset={selectedPreset}
                   onPresetChange={setSelectedPreset}
+                  hidePresets
                   compact
+                  additionalPrompt={additionalPrompt}
+                  onAdditionalPromptChange={setAdditionalPrompt}
                 />
 
                 {/* 資料追加 */}
@@ -1547,7 +1527,7 @@ export default function Home() {
                   compactLabel="資料を追加"
                 />
 
-                {/* メモ入力 */}
+                {/* メモ */}
                 <div className={styles.recordingOptionItem}>
                   <button
                     className={`${styles.optionToggle} ${meetingNotes ? styles.optionToggleActive : ''}`}
@@ -1557,7 +1537,7 @@ export default function Home() {
                       else return;
                     }}
                   >
-                    <span>📌 メモを追加</span>
+                    <span>📌 メモ</span>
                     <span className={styles.optionToggleArrow}>▼</span>
                   </button>
                   <textarea
