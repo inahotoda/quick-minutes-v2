@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.23.5";
+const APP_VERSION = "v4.24.0";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -73,6 +73,9 @@ export default function Home() {
   const [selectedDuration, setSelectedDuration] = useState<MeetingDuration>(30);
   const [showTimerEndModal, setShowTimerEndModal] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
+  const [additionalPrompt, setAdditionalPrompt] = useState("");
+  const [meetingNotes, setMeetingNotes] = useState("");
+  const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [lastGenerationParams, setLastGenerationParams] = useState<{
     audioData?: { fileUri?: string; fileId?: string; base64?: string };
@@ -335,8 +338,18 @@ export default function Home() {
       const requestBody: Record<string, unknown> = {
         mode,
         date: new Date().toLocaleDateString("ja-JP"),
-        participants: participantsToUse.map(p => p.name), // 参加者名をGeminiに送信
+        participants: participantsToUse.map(p => p.name),
       };
+
+      // 追加プロンプト（初回生成時の追加指示）
+      if (additionalPrompt.trim()) {
+        requestBody.feedback = additionalPrompt.trim();
+      }
+
+      // メモ（背景情報）
+      if (meetingNotes.trim()) {
+        requestBody.notes = meetingNotes.trim();
+      }
 
       // 1. Gemini File API へ直接アップロード (ブラウザから)
 
@@ -1491,6 +1504,8 @@ export default function Home() {
                 onResumeInterrupted={recorder.resumeInterrupted}
                 onCancel={handleCancelRecording}
                 onTimeUp={handleTimeUp}
+                additionalPrompt={additionalPrompt}
+                onAdditionalPromptChange={setAdditionalPrompt}
               />
 
               <ModeSelector
@@ -1498,6 +1513,8 @@ export default function Home() {
                 onModeChange={setMode}
                 selectedPreset={selectedPreset}
                 onPresetChange={setSelectedPreset}
+                readOnly
+                compact
               />
 
               {/* 録音中の資料アップロード（音声ファイル以外） */}
@@ -1508,6 +1525,26 @@ export default function Home() {
                 compact={true}
                 compactLabel="資料を追加"
               />
+
+              {/* メモ入力 */}
+              <div className={styles.meetingNotesSection}>
+                <button
+                  className={`${styles.notesToggle} ${isNotesOpen ? styles.notesToggleOpen : ''}`}
+                  onClick={() => setIsNotesOpen(!isNotesOpen)}
+                >
+                  <span>📌 メモを追加</span>
+                  <span className={styles.notesToggleArrow}>{isNotesOpen ? '▲' : '▼'}</span>
+                </button>
+                {isNotesOpen && (
+                  <textarea
+                    className={styles.notesInput}
+                    value={meetingNotes}
+                    onChange={(e) => setMeetingNotes(e.target.value)}
+                    placeholder="例: ○○株式会社は○○業の会社 / ○○は最近開発した新アプリのこと"
+                    rows={3}
+                  />
+                )}
+              </div>
             </div>
 
             {/* Floating participant edit button */}

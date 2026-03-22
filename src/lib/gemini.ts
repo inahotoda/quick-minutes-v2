@@ -44,6 +44,8 @@ interface GenerateStreamParams {
     participants?: string[];
     // 再生成時のフィードバック（修正指示）
     feedback?: string;
+    // ユーザーが追加した背景情報メモ
+    notes?: string;
 }
 
 /**
@@ -90,6 +92,7 @@ export async function* generateEverythingStream({
     speakerInfo,
     participants,
     feedback,
+    notes,
 }: GenerateStreamParams): AsyncGenerator<string> {
     console.log("🎯 [Gemini] generateEverythingStream called with participants:", participants);
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
@@ -130,6 +133,12 @@ export async function* generateEverythingStream({
         feedbackSection = `\n## 📝 ユーザーからの修正指示（最優先）\n以下のフィードバックを反映して議事録を作成してください：\n"${feedback}"\n\n**重要**: これは再生成リクエストです。上記の修正指示を特に優先して議事録を改善してください。`;
     }
 
+    // ユーザーメモセクション（背景情報）
+    let notesSection = "";
+    if (notes) {
+        notesSection = `\n## 📌 ユーザーからの補足メモ（背景情報）\n以下はユーザーが会議中に追加したメモです。固有名詞や背景情報として議事録に反映してください：\n"${notes}"\n\n**重要**: このメモの情報を踏まえて、音声内の言及を正確に解釈してください。例えば会社名や製品名の正式名称、専門用語の意味などが含まれている場合があります。`;
+    }
+
     const mainInstruction = `
 ${basePrompt}
 ${modePrompts[mode]}
@@ -137,6 +146,7 @@ ${terminologySection}
 ${speakerSection}
 ${participantsSection}
 ${feedbackSection}
+${notesSection}
 
 ---
 日付: ${date || new Date().toLocaleDateString("ja-JP")}

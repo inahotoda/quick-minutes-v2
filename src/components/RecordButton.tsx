@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import styles from "./RecordButton.module.css";
 
 interface RecordButtonProps {
@@ -16,6 +16,8 @@ interface RecordButtonProps {
     onResumeInterrupted: () => void;
     onCancel?: () => void;
     onTimeUp?: () => void;
+    additionalPrompt?: string;
+    onAdditionalPromptChange?: (value: string) => void;
 }
 
 export default function RecordButton({
@@ -31,7 +33,10 @@ export default function RecordButton({
     onResumeInterrupted,
     onCancel,
     onTimeUp,
+    additionalPrompt = "",
+    onAdditionalPromptChange,
 }: RecordButtonProps) {
+    const [isPromptOpen, setIsPromptOpen] = useState(false);
     const audioContextRef = useRef<AudioContext | null>(null);
     const lastBeepTimeRef = useRef<number | null>(null);
     const alarmPlayedRef = useRef<boolean>(false);
@@ -171,6 +176,26 @@ export default function RecordButton({
                 <button className={styles.stopButton} onClick={onStop}>
                     ⏹️ 停止して生成
                 </button>
+            </div>
+
+            {/* 追加指示入力 */}
+            <div className={styles.additionalPromptSection}>
+                <button
+                    className={`${styles.promptToggle} ${isPromptOpen ? styles.promptToggleOpen : ''}`}
+                    onClick={() => setIsPromptOpen(!isPromptOpen)}
+                >
+                    <span>📝 追加の指示</span>
+                    <span className={styles.promptToggleArrow}>{isPromptOpen ? '▲' : '▼'}</span>
+                </button>
+                {isPromptOpen && (
+                    <textarea
+                        className={styles.promptInput}
+                        value={additionalPrompt}
+                        onChange={(e) => onAdditionalPromptChange?.(e.target.value)}
+                        placeholder="例: 日本語と英語の併記にして / タスクを全て拾って"
+                        rows={3}
+                    />
+                )}
             </div>
 
             {onCancel && (

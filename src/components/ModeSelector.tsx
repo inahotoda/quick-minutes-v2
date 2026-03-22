@@ -10,6 +10,8 @@ interface ModeSelectorProps {
     onModeChange: (mode: MeetingMode) => void;
     selectedPreset?: MeetingPreset | null;
     onPresetChange?: (preset: MeetingPreset | null) => void;
+    readOnly?: boolean;
+    compact?: boolean;
 }
 
 const modes: { value: MeetingMode; label: string; icon: string }[] = [
@@ -23,6 +25,8 @@ export default function ModeSelector({
     onModeChange,
     selectedPreset,
     onPresetChange,
+    readOnly = false,
+    compact = false,
 }: ModeSelectorProps) {
     const [presets, setPresets] = useState<MeetingPreset[]>([]);
     const [isPresetOpen, setIsPresetOpen] = useState(false);
@@ -59,15 +63,15 @@ export default function ModeSelector({
     };
 
     return (
-        <div className={styles.container}>
+        <div className={`${styles.container} ${compact ? styles.compact : ''}`}>
             {/* Mode Buttons */}
             <div className={styles.buttons}>
                 {modes.map((mode) => (
                     <button
                         key={mode.value}
-                        className={`${styles.button} ${selectedMode === mode.value ? styles.active : ""} ${selectedPreset ? styles.locked : ""}`}
+                        className={`${styles.button} ${selectedMode === mode.value ? styles.active : ""} ${(selectedPreset || readOnly) ? styles.locked : ""}`}
                         onClick={() => handleModeClick(mode.value)}
-                        disabled={!!selectedPreset}
+                        disabled={!!selectedPreset || readOnly}
                     >
                         <span className={styles.icon}>{mode.icon}</span>
                         {mode.label}
@@ -75,8 +79,8 @@ export default function ModeSelector({
                 ))}
             </div>
 
-            {/* Preset Section */}
-            {presets.length > 0 && onPresetChange && (
+            {/* Preset Section - readOnly時は非表示 */}
+            {!readOnly && presets.length > 0 && onPresetChange && (
                 <div className={styles.presetSection}>
                     {selectedPreset ? (
                         <div className={styles.selectedPreset}>

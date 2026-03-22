@@ -9,6 +9,22 @@
     backdrop-filter: blur(10px);
 }
 
+/* コンパクトモード（録音中） */
+.compact {
+    gap: 0.25rem;
+    padding: 0.35rem;
+}
+
+.compact .button {
+    gap: 0.2rem;
+    padding: 0.5rem 0.4rem;
+}
+
+.compact .icon {
+    font-size: 1.1rem;
+    margin-bottom: 0.1rem;
+}
+
 .buttons {
     display: flex;
     gap: 0.5rem;

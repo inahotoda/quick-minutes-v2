@@ -256,3 +256,65 @@
     border-color: rgba(239, 68, 68, 0.5);
     color: #f87171;
 }
+
+/* 追加指示入力 */
+.additionalPromptSection {
+    width: 100%;
+    max-width: 320px;
+}
+
+.promptToggle {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-radius: 10px;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.promptToggle:hover {
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.promptToggleOpen {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-bottom: none;
+    background: rgba(99, 102, 241, 0.1);
+    color: rgba(255, 255, 255, 0.8);
+}
+
+.promptToggleArrow {
+    font-size: 0.6rem;
+}
+
+.promptInput {
+    width: 100%;
+    padding: 0.75rem;
+    background: rgba(15, 15, 25, 0.8);
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border-top: none;
+    border-bottom-left-radius: 10px;
+    border-bottom-right-radius: 10px;
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.85rem;
+    line-height: 1.5;
+    resize: none;
+    font-family: inherit;
+}
+
+.promptInput::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.promptInput:focus {
+    outline: none;
+    border-color: rgba(99, 102, 241, 0.4);
+}

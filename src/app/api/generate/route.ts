@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     try {
         const body = await request.json();
-        const { mode, transcript, audioData, uploadedFiles, date, useSpeakerDiarization = true, participants = [], feedback } = body;
+        const { mode, transcript, audioData, uploadedFiles, date, useSpeakerDiarization = true, participants = [], feedback, notes } = body;
         console.log("🚀 [API] Start processing generation request", {
             mode,
             hasAudio: !!audioData,
@@ -105,6 +105,7 @@ export async function POST(request: NextRequest) {
                         speakerInfo,
                         participants,
                         feedback,
+                        notes,
                     });
 
                     let chunkCount = 0;
