@@ -232,6 +232,21 @@
     border-color: rgba(255, 255, 255, 0.2);
 }
 
+.unresolvedBadge {
+    background: #ef4444;
+    color: white;
+    font-size: 0.65rem;
+    font-weight: 700;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5px;
+    line-height: 1;
+}
+
 /* Error Message */
 .error {
     display: flex;

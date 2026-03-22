@@ -76,6 +76,7 @@ export default function Home() {
   const [additionalPrompt, setAdditionalPrompt] = useState("");
   const [meetingNotes, setMeetingNotes] = useState("");
   const [isRegenerating, setIsRegenerating] = useState(false);
+  const [unresolvedTermCount, setUnresolvedTermCount] = useState(0);
   const [lastGenerationParams, setLastGenerationParams] = useState<{
     audioData?: { fileUri?: string; fileId?: string; base64?: string };
     uploadedFiles?: any[];
@@ -177,6 +178,14 @@ export default function Home() {
           console.error('Service Worker registration failed:', error);
         });
     }
+  }, []);
+
+  // 未解決用語カウントを取得（バッジ表示用）
+  useEffect(() => {
+    fetch("/api/terminology/unresolved?count_only=true")
+      .then(res => res.json())
+      .then(data => { if (data.count > 0) setUnresolvedTermCount(data.count); })
+      .catch(() => {});
   }, []);
 
   // 録音中または未保存の議事録がある場合はページを閉じる・リロード時に警告を表示
@@ -451,6 +460,16 @@ export default function Home() {
           }
         }
       }
+
+      // 非同期で用語抽出パイプラインを起動（fire-and-forget）
+      const extractedMinutes = fullText.match(/\[MINUTES_START\]([\s\S]*?)\[MINUTES_END\]/);
+      if (extractedMinutes?.[1]?.trim()) {
+        fetch("/api/terminology/extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ minutesText: extractedMinutes[1].trim() }),
+        }).catch(() => {/* 失敗しても無視 */});
+      }
     } catch (err) {
       // ネットワークエラーかどうかを判定
       const isNetworkError = !navigator.onLine ||
@@ -540,6 +559,16 @@ export default function Home() {
             setMinutes(currentMinutes);
           }
         }
+      }
+
+      // 非同期で用語抽出パイプラインを起動（fire-and-forget）
+      const extractedMinutes = fullText.match(/\[MINUTES_START\]([\s\S]*?)\[MINUTES_END\]/);
+      if (extractedMinutes?.[1]?.trim()) {
+        fetch("/api/terminology/extract", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ minutesText: extractedMinutes[1].trim() }),
+        }).catch(() => {/* 失敗しても無視 */});
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "再生成エラー";
@@ -1371,6 +1400,9 @@ export default function Home() {
             title="プロンプト設定"
           >
             ⚙️ 設定
+            {unresolvedTermCount > 0 && (
+              <span className={styles.unresolvedBadge}>{unresolvedTermCount}</span>
+            )}
           </button>
           <LoginButton
             isRecording={appState === "recording" || appState === "confirming" || appState === "introduction" || appState === "uploading" || appState === "processing"}

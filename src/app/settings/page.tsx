@@ -1,10 +1,19 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import styles from "./settings.module.css";
 
 export default function SettingsMenuPage() {
     const router = useRouter();
+    const [unresolvedCount, setUnresolvedCount] = useState(0);
+
+    useEffect(() => {
+        fetch("/api/terminology/unresolved?count_only=true")
+            .then(res => res.json())
+            .then(data => { if (data.count > 0) setUnresolvedCount(data.count); })
+            .catch(() => {});
+    }, []);
 
     return (
         <div className={styles.main}>
@@ -23,7 +32,12 @@ export default function SettingsMenuPage() {
                         <h2>カスタムプロンプト設定</h2>
                         <p>議事録の生成ルール、モード別の指示、専門用語を設定</p>
                     </div>
-                    <span className={styles.menuArrow}>→</span>
+                    <div className={styles.menuRight}>
+                        {unresolvedCount > 0 && (
+                            <span className={styles.unresolvedMenuBadge}>{unresolvedCount}</span>
+                        )}
+                        <span className={styles.menuArrow}>→</span>
+                    </div>
                 </div>
 
                 <div className={styles.menuCard} onClick={() => router.push("/settings/members")}>

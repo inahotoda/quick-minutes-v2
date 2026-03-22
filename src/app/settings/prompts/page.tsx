@@ -180,6 +180,33 @@ const CATEGORY_CONFIG = {
     },
 } as const;
 
+// 未解決用語の型
+interface UnresolvedTerm {
+    id: string;
+    term: string;
+    supplementary: string | null;
+    context: string;
+    category_guess: string;
+    occurrence_count: number;
+    first_seen_at: string;
+    last_seen_at: string;
+    status: string;
+}
+
+// カテゴリ名 → キーのマッピング
+const CATEGORY_GUESS_TO_KEY: Record<string, keyof TermCategories> = {
+    "略語・社内用語": "abbreviation",
+    "専門用語": "technical",
+    "社名・ブランド名": "companyBrand",
+};
+
+// カテゴリごとのフィールドラベル
+const CATEGORY_FIELD_LABELS: Record<string, { col1: string; col2: string; placeholder2: string }> = {
+    "略語・社内用語": { col1: "略語", col2: "正式名称", placeholder2: "例: 生産管理システム" },
+    "専門用語": { col1: "用語", col2: "意味・説明", placeholder2: "例: 縫い目の種類のひとつ" },
+    "社名・ブランド名": { col1: "社名", col2: "読み", placeholder2: "例: せいたひふく" },
+};
+
 export default function PromptsSettingsPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
@@ -204,6 +231,19 @@ export default function PromptsSettingsPage() {
         technical: { term: "", reading: "" },
     });
 
+    // 未解決用語
+    const [unresolvedTerms, setUnresolvedTerms] = useState<UnresolvedTerm[]>([]);
+    const [hiddenTermIds, setHiddenTermIds] = useState<Set<string>>(new Set());
+    const [resolvingId, setResolvingId] = useState<string | null>(null);
+
+    // 登録モーダル
+    const [registerModal, setRegisterModal] = useState<{
+        item: UnresolvedTerm;
+        category: string;
+        term: string;
+        reading: string;
+    } | null>(null);
+
     useEffect(() => {
         async function fetchPrompts() {
             try {
@@ -211,7 +251,6 @@ export default function PromptsSettingsPage() {
                 if (res.ok) {
                     const data = await res.json();
                     setSettings(data);
-                    // terminology文字列をパースして構造化
                     setTermCategories(parseTerminology(data.terminology || ""));
                 }
             } catch (err) {
@@ -221,6 +260,14 @@ export default function PromptsSettingsPage() {
             }
         }
         fetchPrompts();
+    }, []);
+
+    // 未解決用語を取得
+    useEffect(() => {
+        fetch("/api/terminology/unresolved")
+            .then(res => res.json())
+            .then(data => { if (data.items) setUnresolvedTerms(data.items); })
+            .catch(() => {});
     }, []);
 
     // 用語を追加
@@ -245,6 +292,69 @@ export default function PromptsSettingsPage() {
             [category]: prev[category].filter((_, i) => i !== index),
         }));
     }, []);
+
+    // 未解決用語: 無視する
+    const handleIgnore = async (id: string) => {
+        setResolvingId(id);
+        try {
+            const res = await fetch("/api/terminology/resolve", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id, action: "ignore" }),
+            });
+            if (res.ok) {
+                setUnresolvedTerms(prev => prev.filter(t => t.id !== id));
+            }
+        } catch {}
+        setResolvingId(null);
+    };
+
+    // 未解決用語: あとで（一時非表示）
+    const handleLater = (id: string) => {
+        setHiddenTermIds(prev => new Set(prev).add(id));
+    };
+
+    // 未解決用語: 登録モーダルを開く
+    const openRegisterModal = (item: UnresolvedTerm) => {
+        setRegisterModal({
+            item,
+            category: item.category_guess,
+            term: item.term,
+            reading: item.supplementary || "",
+        });
+    };
+
+    // 未解決用語: 登録実行
+    const handleRegister = async () => {
+        if (!registerModal) return;
+        setResolvingId(registerModal.item.id);
+        try {
+            const res = await fetch("/api/terminology/resolve", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    id: registerModal.item.id,
+                    action: "register",
+                    category: registerModal.category,
+                    term: registerModal.term,
+                    reading: registerModal.reading,
+                }),
+            });
+            if (res.ok) {
+                setUnresolvedTerms(prev => prev.filter(t => t.id !== registerModal.item.id));
+                // ローカルの辞書データも更新
+                const catKey = CATEGORY_GUESS_TO_KEY[registerModal.category];
+                if (catKey) {
+                    setTermCategories(prev => ({
+                        ...prev,
+                        [catKey]: [...prev[catKey], { term: registerModal.term, reading: registerModal.reading }],
+                    }));
+                }
+                setRegisterModal(null);
+            }
+        } catch {}
+        setResolvingId(null);
+    };
 
     // 保存（terminology文字列にシリアライズしてから保存）
     const handleSave = async () => {
@@ -372,6 +482,138 @@ export default function PromptsSettingsPage() {
                         rows={5}
                     />
                 </section>
+
+                {/* ===== 未解決の用語 ===== */}
+                {unresolvedTerms.filter(t => !hiddenTermIds.has(t.id)).length > 0 && (
+                    <section className={styles.section}>
+                        <div className={styles.unresolvedHeader}>
+                            <h2>🔍 未解決の用語</h2>
+                            <span className={styles.unresolvedCount}>
+                                {unresolvedTerms.filter(t => !hiddenTermIds.has(t.id)).length}件
+                            </span>
+                        </div>
+                        <p className={styles.help}>
+                            AIが議事録から検出した未登録の専門用語です。辞書に登録すると次回以降の精度が向上します。
+                        </p>
+
+                        <div className={styles.unresolvedList}>
+                            {unresolvedTerms
+                                .filter(t => !hiddenTermIds.has(t.id))
+                                .map(item => (
+                                    <div key={item.id} className={styles.unresolvedItem}>
+                                        <div className={styles.unresolvedItemMain}>
+                                            <div className={styles.unresolvedTermRow}>
+                                                <span className={styles.unresolvedTerm}>{item.term}</span>
+                                                <span className={styles.unresolvedCategory}>{item.category_guess}</span>
+                                                {item.occurrence_count > 1 && (
+                                                    <span className={styles.unresolvedOccurrence}>
+                                                        {item.occurrence_count}回出現
+                                                    </span>
+                                                )}
+                                            </div>
+                                            {item.supplementary && (
+                                                <p className={styles.unresolvedSupplementary}>
+                                                    AI推定: {item.supplementary}
+                                                </p>
+                                            )}
+                                            <p className={styles.unresolvedContext}>
+                                                {item.context}
+                                            </p>
+                                        </div>
+                                        <div className={styles.unresolvedActions}>
+                                            <button
+                                                className={styles.unresolvedRegisterBtn}
+                                                onClick={() => openRegisterModal(item)}
+                                                disabled={resolvingId === item.id}
+                                            >
+                                                登録する
+                                            </button>
+                                            <button
+                                                className={styles.unresolvedIgnoreBtn}
+                                                onClick={() => handleIgnore(item.id)}
+                                                disabled={resolvingId === item.id}
+                                            >
+                                                無視
+                                            </button>
+                                            <button
+                                                className={styles.unresolvedLaterBtn}
+                                                onClick={() => handleLater(item.id)}
+                                            >
+                                                あとで
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))}
+                        </div>
+                    </section>
+                )}
+
+                {/* ===== 登録モーダル ===== */}
+                {registerModal && (
+                    <div className={styles.modalOverlay} onClick={() => setRegisterModal(null)}>
+                        <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
+                            <h3 className={styles.modalTitle}>用語を登録</h3>
+
+                            <div className={styles.modalField}>
+                                <label className={styles.modalLabel}>カテゴリ</label>
+                                <div className={styles.modalRadioGroup}>
+                                    {["専門用語", "略語・社内用語", "社名・ブランド名"].map(cat => (
+                                        <label key={cat} className={styles.modalRadio}>
+                                            <input
+                                                type="radio"
+                                                name="category"
+                                                checked={registerModal.category === cat}
+                                                onChange={() => setRegisterModal({ ...registerModal, category: cat })}
+                                            />
+                                            <span>{cat}</span>
+                                        </label>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className={styles.modalField}>
+                                <label className={styles.modalLabel}>
+                                    {CATEGORY_FIELD_LABELS[registerModal.category]?.col1 || "用語"}
+                                </label>
+                                <input
+                                    className={styles.modalInput}
+                                    type="text"
+                                    value={registerModal.term}
+                                    onChange={e => setRegisterModal({ ...registerModal, term: e.target.value })}
+                                />
+                            </div>
+
+                            <div className={styles.modalField}>
+                                <label className={styles.modalLabel}>
+                                    {CATEGORY_FIELD_LABELS[registerModal.category]?.col2 || "補足"}
+                                </label>
+                                <input
+                                    className={styles.modalInput}
+                                    type="text"
+                                    value={registerModal.reading}
+                                    onChange={e => setRegisterModal({ ...registerModal, reading: e.target.value })}
+                                    placeholder={CATEGORY_FIELD_LABELS[registerModal.category]?.placeholder2}
+                                />
+                            </div>
+
+                            <div className={styles.modalActions}>
+                                <button
+                                    className={styles.modalCancelBtn}
+                                    onClick={() => setRegisterModal(null)}
+                                >
+                                    キャンセル
+                                </button>
+                                <button
+                                    className={styles.modalRegisterBtn}
+                                    onClick={handleRegister}
+                                    disabled={!registerModal.term.trim() || resolvingId === registerModal.item.id}
+                                >
+                                    {resolvingId === registerModal.item.id ? "登録中..." : "登録する"}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* ===== 用語辞書 ===== */}
                 <section className={styles.section}>
