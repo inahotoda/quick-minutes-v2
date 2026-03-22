@@ -350,55 +350,69 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 3rem;
+    gap: 1.5rem;
+    padding-bottom: 1rem;
 }
 
-/* メモ入力セクション */
-.meetingNotesSection {
+/* 録音中オプション群 — 統一幅 */
+.recordingOptions {
     width: 100%;
-    max-width: 320px;
+    max-width: 440px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    padding: 0 0.5rem;
 }
 
-.notesToggle {
+@media (max-width: 480px) {
+    .recordingOptions {
+        max-width: 100%;
+        padding: 0 0.25rem;
+    }
+}
+
+/* 折りたたみ式入力アイテム */
+.recordingOptionItem {
+    width: 100%;
+}
+
+.optionToggle {
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 0.5rem 1rem;
+    padding: 0.5rem 0.85rem;
     background: rgba(255, 255, 255, 0.03);
-    border: 1px dashed rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 10px;
-    color: rgba(255, 255, 255, 0.6);
+    color: rgba(255, 255, 255, 0.5);
     font-size: 0.8rem;
     cursor: pointer;
     transition: all 0.2s;
 }
 
-.notesToggle:hover {
+.optionToggle:hover {
     background: rgba(255, 255, 255, 0.06);
-    color: rgba(255, 255, 255, 0.8);
+    color: rgba(255, 255, 255, 0.7);
 }
 
-.notesToggleOpen {
-    border-bottom-left-radius: 0;
-    border-bottom-right-radius: 0;
-    border-bottom: none;
-    background: rgba(245, 158, 11, 0.1);
-    color: rgba(255, 255, 255, 0.8);
+.optionToggleActive {
+    color: rgba(165, 180, 252, 0.8);
+    border-color: rgba(165, 180, 252, 0.2);
 }
 
-.notesToggleArrow {
-    font-size: 0.6rem;
+.optionToggleArrow {
+    font-size: 0.55rem;
+    opacity: 0.5;
 }
 
-.notesInput {
+.optionTextarea {
     width: 100%;
-    padding: 0.75rem;
-    background: rgba(15, 15, 25, 0.8);
-    border: 1px dashed rgba(255, 255, 255, 0.15);
-    border-top: none;
-    border-bottom-left-radius: 10px;
-    border-bottom-right-radius: 10px;
+    padding: 0.65rem 0.85rem;
+    margin-top: 0.25rem;
+    background: rgba(10, 10, 20, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
     color: rgba(255, 255, 255, 0.9);
     font-size: 0.85rem;
     line-height: 1.5;
@@ -406,16 +420,34 @@
     font-family: inherit;
 }
 
-.notesInput::placeholder {
-    color: rgba(255, 255, 255, 0.3);
+.optionTextarea::placeholder {
+    color: rgba(255, 255, 255, 0.25);
 }
 
-.notesInput:focus {
+.optionTextarea:focus {
     outline: none;
-    border-color: rgba(245, 158, 11, 0.4);
+    border-color: rgba(165, 180, 252, 0.3);
 }
 
-/* Processing Screen (Futuristic) */
+/* キャンセルボタン */
+.cancelRecordingButton {
+    width: 100%;
+    margin-top: 0.5rem;
+    padding: 0.6rem 1rem;
+    border-radius: 10px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    background: transparent;
+    color: rgba(252, 165, 165, 0.6);
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cancelRecordingButton:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #fca5a5;
+}
 .processingScreen {
     flex: 1;
     display: flex;

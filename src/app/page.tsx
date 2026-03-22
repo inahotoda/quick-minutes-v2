@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.24.0";
+const APP_VERSION = "v4.24.1";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -75,7 +75,6 @@ export default function Home() {
   const [isSaved, setIsSaved] = useState(false);
   const [additionalPrompt, setAdditionalPrompt] = useState("");
   const [meetingNotes, setMeetingNotes] = useState("");
-  const [isNotesOpen, setIsNotesOpen] = useState(false);
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [lastGenerationParams, setLastGenerationParams] = useState<{
     audioData?: { fileUri?: string; fileId?: string; base64?: string };
@@ -1502,48 +1501,80 @@ export default function Home() {
                 onPause={recorder.pauseRecording}
                 onResume={recorder.resumeRecording}
                 onResumeInterrupted={recorder.resumeInterrupted}
-                onCancel={handleCancelRecording}
                 onTimeUp={handleTimeUp}
-                additionalPrompt={additionalPrompt}
-                onAdditionalPromptChange={setAdditionalPrompt}
               />
 
-              <ModeSelector
-                selectedMode={mode}
-                onModeChange={setMode}
-                selectedPreset={selectedPreset}
-                onPresetChange={setSelectedPreset}
-                readOnly
-                compact
-              />
-
-              {/* 録音中の資料アップロード（音声ファイル以外） */}
-              <FileUpload
-                files={files}
-                onFilesChange={setFiles}
-                acceptTypes="application/pdf,image/*,.txt"
-                compact={true}
-                compactLabel="資料を追加"
-              />
-
-              {/* メモ入力 */}
-              <div className={styles.meetingNotesSection}>
-                <button
-                  className={`${styles.notesToggle} ${isNotesOpen ? styles.notesToggleOpen : ''}`}
-                  onClick={() => setIsNotesOpen(!isNotesOpen)}
-                >
-                  <span>📌 メモを追加</span>
-                  <span className={styles.notesToggleArrow}>{isNotesOpen ? '▲' : '▼'}</span>
-                </button>
-                {isNotesOpen && (
+              {/* 録音中のオプション群 — 統一幅 */}
+              <div className={styles.recordingOptions}>
+                {/* 追加指示 */}
+                <div className={styles.recordingOptionItem}>
+                  <button
+                    className={`${styles.optionToggle} ${additionalPrompt ? styles.optionToggleActive : ''}`}
+                    onClick={() => {
+                      const el = document.getElementById('additional-prompt-area');
+                      if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+                      else return;
+                    }}
+                  >
+                    <span>📝 追加の指示</span>
+                    <span className={styles.optionToggleArrow}>▼</span>
+                  </button>
                   <textarea
-                    className={styles.notesInput}
+                    id="additional-prompt-area"
+                    className={styles.optionTextarea}
+                    style={{ display: 'none' }}
+                    value={additionalPrompt}
+                    onChange={(e) => setAdditionalPrompt(e.target.value)}
+                    placeholder="例: 日本語と英語の併記にして / タスクを全て拾って"
+                    rows={3}
+                  />
+                </div>
+
+                <ModeSelector
+                  selectedMode={mode}
+                  onModeChange={setMode}
+                  selectedPreset={selectedPreset}
+                  onPresetChange={setSelectedPreset}
+                  compact
+                />
+
+                {/* 資料追加 */}
+                <FileUpload
+                  files={files}
+                  onFilesChange={setFiles}
+                  acceptTypes="application/pdf,image/*,.txt"
+                  compact={true}
+                  compactLabel="資料を追加"
+                />
+
+                {/* メモ入力 */}
+                <div className={styles.recordingOptionItem}>
+                  <button
+                    className={`${styles.optionToggle} ${meetingNotes ? styles.optionToggleActive : ''}`}
+                    onClick={() => {
+                      const el = document.getElementById('meeting-notes-area');
+                      if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+                      else return;
+                    }}
+                  >
+                    <span>📌 メモを追加</span>
+                    <span className={styles.optionToggleArrow}>▼</span>
+                  </button>
+                  <textarea
+                    id="meeting-notes-area"
+                    className={styles.optionTextarea}
+                    style={{ display: 'none' }}
                     value={meetingNotes}
                     onChange={(e) => setMeetingNotes(e.target.value)}
                     placeholder="例: ○○株式会社は○○業の会社 / ○○は最近開発した新アプリのこと"
                     rows={3}
                   />
-                )}
+                </div>
+
+                {/* キャンセルボタン（最下部） */}
+                <button className={styles.cancelRecordingButton} onClick={handleCancelRecording}>
+                  ✕ キャンセルしてトップへ戻る
+                </button>
               </div>
             </div>
 
