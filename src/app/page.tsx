@@ -461,14 +461,22 @@ export default function Home() {
         }
       }
 
-      // 非同期で用語抽出パイプラインを起動（fire-and-forget）
+      // 非同期で後処理パイプラインを起動（fire-and-forget）
       const extractedMinutes = fullText.match(/\[MINUTES_START\]([\s\S]*?)\[MINUTES_END\]/);
       if (extractedMinutes?.[1]?.trim()) {
+        const minutesBody = extractedMinutes[1].trim();
+        // パイプライン1: 用語抽出
         fetch("/api/terminology/extract", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ minutesText: extractedMinutes[1].trim() }),
-        }).catch(() => {/* 失敗しても無視 */});
+          body: JSON.stringify({ minutesText: minutesBody }),
+        }).catch(() => {});
+        // パイプライン2: 人物分析
+        fetch("/api/profile/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ minutesText: minutesBody }),
+        }).catch(() => {});
       }
     } catch (err) {
       // ネットワークエラーかどうかを判定
@@ -561,14 +569,20 @@ export default function Home() {
         }
       }
 
-      // 非同期で用語抽出パイプラインを起動（fire-and-forget）
+      // 非同期で後処理パイプラインを起動（fire-and-forget）
       const extractedMinutes = fullText.match(/\[MINUTES_START\]([\s\S]*?)\[MINUTES_END\]/);
       if (extractedMinutes?.[1]?.trim()) {
+        const minutesBody = extractedMinutes[1].trim();
         fetch("/api/terminology/extract", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ minutesText: extractedMinutes[1].trim() }),
-        }).catch(() => {/* 失敗しても無視 */});
+          body: JSON.stringify({ minutesText: minutesBody }),
+        }).catch(() => {});
+        fetch("/api/profile/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ minutesText: minutesBody }),
+        }).catch(() => {});
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "再生成エラー";

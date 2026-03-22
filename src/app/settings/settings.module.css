@@ -1123,3 +1123,312 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
+
+/* ===== 人物プロファイル ===== */
+.profileDisclaimer {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 0.8rem;
+    color: #fbbf24;
+    margin-bottom: 1rem;
+}
+
+.profileControls {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.profilePeriod {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.profileDateInput {
+    padding: 0.4rem 0.6rem;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    color: white;
+    font-size: 0.85rem;
+    font-family: inherit;
+}
+
+.profileDateInput:focus {
+    outline: none;
+    border-color: #6366f1;
+}
+
+.profileGenerateBtn {
+    padding: 0.5rem 1.2rem;
+    background: #6366f1;
+    border: none;
+    border-radius: 8px;
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.profileGenerateBtn:hover:not(:disabled) {
+    background: #4f46e5;
+}
+
+.profileGenerateBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.profileList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.profileCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.profileCard:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: #6366f1;
+}
+
+.profileCardHeader {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.profileName {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: white;
+}
+
+.profileLowFlag {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    background: rgba(245, 158, 11, 0.2);
+    color: #fbbf24;
+}
+
+.profileScores {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.profileScoreItem {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.profileScoreLabel {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.5);
+    width: 24px;
+    flex-shrink: 0;
+}
+
+.profileScoreBar {
+    flex: 1;
+    height: 6px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.profileScoreFill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.3s;
+}
+
+.profileScoreValue {
+    font-size: 0.8rem;
+    font-weight: 600;
+    width: 28px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.profileDataInsufficient {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.4);
+    margin: 0;
+}
+
+.profileCardMeta {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.profileDetailMeta {
+    font-size: 0.85rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin-bottom: 1rem;
+}
+
+/* MVV */
+.mvvSection {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.mvvItem {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    padding: 1rem;
+}
+
+.mvvItemHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.mvvLabel {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: white;
+}
+
+.mvvScore {
+    font-size: 0.9rem;
+    font-weight: 700;
+}
+
+.mvvSignals {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-top: 0.5rem;
+}
+
+.mvvSignalPositive {
+    font-size: 0.8rem;
+    color: #6ee7b7;
+    padding-left: 0.5rem;
+}
+
+.mvvSignalNegative {
+    font-size: 0.8rem;
+    color: #fca5a5;
+    padding-left: 0.5rem;
+}
+
+.mvvSummary {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0.5rem 0 0;
+    font-style: italic;
+}
+
+/* Affinity */
+.affinitySection {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.affinityGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.affinityPositiveTitle {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #6ee7b7;
+    margin: 0;
+}
+
+.affinityNegativeTitle {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #fca5a5;
+    margin: 0;
+}
+
+.affinityItem {
+    padding-left: 0.75rem;
+}
+
+.affinityTheme {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: white;
+}
+
+.affinityFreq {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.affinitySample {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+    margin: 0.15rem 0 0;
+}
+
+/* Utterance stats */
+.utteranceStats {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.7);
+    flex-wrap: wrap;
+}
+
+.profileText {
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.75);
+    line-height: 1.7;
+    margin: 0;
+}
+
+.lowParticipationWarning {
+    background: rgba(245, 158, 11, 0.1);
+    border: 1px solid rgba(245, 158, 11, 0.2);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 0.75rem;
+    font-size: 0.85rem;
+    color: #fbbf24;
+}
+
+.lowParticipationActions {
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.lowParticipationActions p {
+    margin: 0.25rem 0;
+}

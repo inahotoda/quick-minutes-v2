@@ -2,11 +2,17 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import styles from "./settings.module.css";
+
+const ADMIN_EMAIL = process.env.NEXT_PUBLIC_ADMIN_USER_EMAIL || "";
 
 export default function SettingsMenuPage() {
     const router = useRouter();
+    const { data: session } = useSession();
     const [unresolvedCount, setUnresolvedCount] = useState(0);
+
+    const isAdmin = session?.user?.email === ADMIN_EMAIL;
 
     useEffect(() => {
         fetch("/api/terminology/unresolved?count_only=true")
@@ -57,6 +63,17 @@ export default function SettingsMenuPage() {
                     </div>
                     <span className={styles.menuArrow}>→</span>
                 </div>
+
+                {isAdmin && (
+                    <div className={styles.menuCard} onClick={() => router.push("/settings/profiles")}>
+                        <div className={styles.menuIcon}>👤</div>
+                        <div className={styles.menuInfo}>
+                            <h2>人物プロファイル</h2>
+                            <p>会議発言からMVV適合度・傾向を分析</p>
+                        </div>
+                        <span className={styles.menuArrow}>→</span>
+                    </div>
+                )}
 
                 {process.env.NEXT_PUBLIC_DEPLOYMENT_MODE !== "trial" && (
                     <div className={styles.menuCard} onClick={() => router.push("/settings/tenants")}>
