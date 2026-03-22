@@ -36,7 +36,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.24.2";
+const APP_VERSION = "v4.24.3";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -1537,8 +1537,8 @@ export default function Home() {
                       else return;
                     }}
                   >
-                    <span>📌 メモ</span>
                     <span className={styles.optionToggleArrow}>▼</span>
+                    <span>📌 メモ</span>
                   </button>
                   <textarea
                     id="meeting-notes-area"
@@ -1546,7 +1546,7 @@ export default function Home() {
                     style={{ display: 'none' }}
                     value={meetingNotes}
                     onChange={(e) => setMeetingNotes(e.target.value)}
-                    placeholder="例: ○○株式会社は○○業の会社 / ○○は最近開発した新アプリのこと"
+                    placeholder="例: 株式会社○○っていう会社はこんな会社です / ○○というのは最近開発した新しいアプリのこと"
                     rows={3}
                   />
                 </div>

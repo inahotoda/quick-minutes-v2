@@ -360,7 +360,7 @@
     max-width: 440px;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    gap: 1rem;
     padding: 0 0.5rem;
 }
 
@@ -380,7 +380,8 @@
     width: 100%;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
+    gap: 0.4rem;
     padding: 0.5rem 0.85rem;
     background: rgba(255, 255, 255, 0.03);
     border: 1px solid rgba(255, 255, 255, 0.08);

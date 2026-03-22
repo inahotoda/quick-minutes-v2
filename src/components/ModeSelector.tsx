@@ -91,8 +91,8 @@ export default function ModeSelector({
                         className={`${styles.promptToggle} ${isPromptOpen ? styles.promptToggleOpen : ''} ${additionalPrompt ? styles.promptToggleActive : ''}`}
                         onClick={() => setIsPromptOpen(!isPromptOpen)}
                     >
-                        <span>📝 追加の指示（プロンプト）</span>
                         <span className={styles.toggleArrow}>{isPromptOpen ? "▲" : "▼"}</span>
+                        <span>📝 追加の指示（プロンプト）</span>
                     </button>
                     {isPromptOpen && (
                         <textarea
