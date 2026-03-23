@@ -478,9 +478,9 @@ export default function PromptsSettingsPage() {
         }
     };
 
-    // Enterキーで追加
+    // Enterキーで追加（IME変換中は無視）
     const handleKeyDown = (e: React.KeyboardEvent, category: keyof TermCategories) => {
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && !e.nativeEvent.isComposing) {
             e.preventDefault();
             addTerm(category);
         }
