@@ -212,6 +212,7 @@ export default function PromptsSettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+    const [toast, setToast] = useState<string | null>(null);
 
     const [settings, setSettings] = useState<PromptConfig>({
         basePrompt: "",
@@ -220,6 +221,16 @@ export default function PromptsSettingsPage() {
         otherPrompt: "",
         terminology: "",
     });
+
+    // 変更検知用: 初期値を保持
+    const [savedSettings, setSavedSettings] = useState<PromptConfig>({
+        basePrompt: "",
+        internalPrompt: "",
+        businessPrompt: "",
+        otherPrompt: "",
+        terminology: "",
+    });
+    const [savedTermCategories, setSavedTermCategories] = useState<TermCategories>({ ...EMPTY_CATEGORIES });
 
     // 用語辞書の構造化データ
     const [termCategories, setTermCategories] = useState<TermCategories>({ ...EMPTY_CATEGORIES });
@@ -244,6 +255,27 @@ export default function PromptsSettingsPage() {
         reading: string;
     } | null>(null);
 
+    // 変更検知
+    const hasUnsavedChanges = useCallback(() => {
+        if (settings.basePrompt !== savedSettings.basePrompt) return true;
+        if (settings.internalPrompt !== savedSettings.internalPrompt) return true;
+        if (settings.businessPrompt !== savedSettings.businessPrompt) return true;
+        if (settings.otherPrompt !== savedSettings.otherPrompt) return true;
+        if (JSON.stringify(termCategories) !== JSON.stringify(savedTermCategories)) return true;
+        return false;
+    }, [settings, savedSettings, termCategories, savedTermCategories]);
+
+    // 未保存の変更がある場合にページ離脱を警告
+    useEffect(() => {
+        const handler = (e: BeforeUnloadEvent) => {
+            if (hasUnsavedChanges()) {
+                e.preventDefault();
+            }
+        };
+        window.addEventListener("beforeunload", handler);
+        return () => window.removeEventListener("beforeunload", handler);
+    }, [hasUnsavedChanges]);
+
     useEffect(() => {
         async function fetchPrompts() {
             try {
@@ -251,7 +283,10 @@ export default function PromptsSettingsPage() {
                 if (res.ok) {
                     const data = await res.json();
                     setSettings(data);
-                    setTermCategories(parseTerminology(data.terminology || ""));
+                    setSavedSettings(data);
+                    const parsed = parseTerminology(data.terminology || "");
+                    setTermCategories(parsed);
+                    setSavedTermCategories(parsed);
                 }
             } catch (err) {
                 console.error("Failed to fetch prompts:", err);
@@ -284,6 +319,16 @@ export default function PromptsSettingsPage() {
             [category]: { term: "", reading: "" },
         }));
     }, [inputs]);
+
+    // 用語を編集
+    const updateTerm = useCallback((category: keyof TermCategories, index: number, field: "term" | "reading", value: string) => {
+        setTermCategories(prev => ({
+            ...prev,
+            [category]: prev[category].map((entry, i) =>
+                i === index ? { ...entry, [field]: value } : entry
+            ),
+        }));
+    }, []);
 
     // 用語を削除
     const removeTerm = useCallback((category: keyof TermCategories, index: number) => {
@@ -329,6 +374,8 @@ export default function PromptsSettingsPage() {
                 });
             }
             setUnresolvedTerms([]);
+            setToast(`${items.length}件の用語を辞書に登録しました`);
+            setTimeout(() => setToast(null), 3000);
         } catch {}
         setResolvingId(null);
     };
@@ -370,6 +417,8 @@ export default function PromptsSettingsPage() {
                     }));
                 }
                 setRegisterModal(null);
+                setToast("辞書に登録しました");
+                setTimeout(() => setToast(null), 3000);
             }
         } catch {}
         setResolvingId(null);
@@ -397,9 +446,11 @@ export default function PromptsSettingsPage() {
             if (res.ok) {
                 const newData = await res.json();
                 setSettings(newData.config);
-                setTermCategories(parseTerminology(newData.config.terminology || ""));
+                setSavedSettings(newData.config);
+                const parsed = parseTerminology(newData.config.terminology || "");
+                setTermCategories(parsed);
+                setSavedTermCategories(parsed);
                 setMessage({ type: "success", text: "設定を保存しました" });
-                window.scrollTo({ top: 0, behavior: "smooth" });
                 setTimeout(() => setMessage(null), 3000);
             } else {
                 throw new Error("Save failed");
@@ -679,8 +730,19 @@ export default function PromptsSettingsPage() {
                                         </div>
                                         {entries.map((entry, idx) => (
                                             <div key={idx} className={styles.dictItem}>
-                                                <span className={styles.dictTerm}>{entry.term}</span>
-                                                <span className={styles.dictReading}>{entry.reading || "—"}</span>
+                                                <input
+                                                    className={styles.dictEditInput}
+                                                    type="text"
+                                                    value={entry.term}
+                                                    onChange={(e) => updateTerm(catKey, idx, "term", e.target.value)}
+                                                />
+                                                <input
+                                                    className={styles.dictEditInput}
+                                                    type="text"
+                                                    value={entry.reading}
+                                                    onChange={(e) => updateTerm(catKey, idx, "reading", e.target.value)}
+                                                    placeholder="—"
+                                                />
                                                 <button
                                                     className={styles.dictDeleteBtn}
                                                     onClick={() => removeTerm(catKey, idx)}
@@ -736,6 +798,7 @@ export default function PromptsSettingsPage() {
                     )}
                 </section>
 
+                {/* 保存ボタン（常時表示） */}
                 <div className={styles.actions}>
                     <button
                         className={styles.saveButton}
@@ -771,6 +834,27 @@ export default function PromptsSettingsPage() {
                     </section>
                 )}
             </div>
+
+            {/* フローティング保存バー */}
+            {hasUnsavedChanges() && (
+                <div className={styles.floatingSaveBar}>
+                    <span>未保存の変更があります</span>
+                    <button
+                        className={styles.floatingSaveBtn}
+                        onClick={handleSave}
+                        disabled={saving}
+                    >
+                        {saving ? "保存中..." : "保存する"}
+                    </button>
+                </div>
+            )}
+
+            {/* トースト通知 */}
+            {toast && (
+                <div className={styles.toast}>
+                    ✅ {toast}
+                </div>
+            )}
         </div>
     );
 }

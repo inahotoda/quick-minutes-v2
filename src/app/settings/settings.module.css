@@ -1440,3 +1440,93 @@
 .lowParticipationActions p {
     margin: 0.25rem 0;
 }
+
+/* ===== フローティング保存バー ===== */
+.floatingSaveBar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 0.75rem 1.5rem;
+    background: rgba(99, 102, 241, 0.95);
+    backdrop-filter: blur(8px);
+    color: white;
+    font-size: 0.9rem;
+    font-weight: 500;
+    z-index: 100;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(100%); }
+    to { transform: translateY(0); }
+}
+
+.floatingSaveBtn {
+    padding: 0.5rem 1.5rem;
+    background: white;
+    color: #4f46e5;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.floatingSaveBtn:hover:not(:disabled) {
+    background: #eef2ff;
+}
+
+.floatingSaveBtn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* ===== トースト通知 ===== */
+.toast {
+    position: fixed;
+    bottom: 1.5rem;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.75rem 1.5rem;
+    background: rgba(16, 185, 129, 0.95);
+    color: white;
+    border-radius: 8px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    z-index: 101;
+    animation: toastIn 0.3s ease;
+}
+
+@keyframes toastIn {
+    from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+    to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ===== 辞書インライン編集 ===== */
+.dictEditInput {
+    padding: 0.4rem 0.6rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+    border-radius: 6px;
+    color: white;
+    font-size: 0.85rem;
+    font-family: inherit;
+    transition: all 0.2s;
+    min-width: 0;
+}
+
+.dictEditInput:hover {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dictEditInput:focus {
+    outline: none;
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.05);
+}
