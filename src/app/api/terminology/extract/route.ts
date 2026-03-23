@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { supabase } from "@/lib/supabase";
+import { supabase, extractDomain } from "@/lib/supabase";
 import { findFileByName, getFileContent } from "@/lib/drive";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -77,6 +79,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
         }
 
+        // セッションからテナントドメインを取得
+        const session = await getServerSession(authOptions);
+        const tenantDomain = session?.user?.email
+            ? extractDomain(session.user.email)
+            : null;
+
         const { minutesText } = await request.json();
         if (!minutesText || minutesText.trim().length < 50) {
             return NextResponse.json({ error: "議事録テキストが短すぎます" }, { status: 400 });
@@ -108,11 +116,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ extracted: [], message: "新しい用語は検出されませんでした" });
         }
 
-        // 4. 既存の未解決用語を取得（重複チェック用）
-        const { data: existingUnresolved } = await supabase
+        // 4. 既存の未解決用語を取得（重複チェック用 — テナント単位）
+        let query = supabase
             .from("terminology_unresolved")
             .select("id, term, status, occurrence_count")
             .in("term", extracted.map(e => e.term));
+        if (tenantDomain) {
+            query = query.eq("tenant_domain", tenantDomain);
+        } else {
+            query = query.is("tenant_domain", null);
+        }
+        const { data: existingUnresolved } = await query;
 
         const existingMap = new Map(
             (existingUnresolved || []).map(r => [r.term, r])
@@ -149,6 +163,7 @@ export async function POST(request: NextRequest) {
                         context: item.context,
                         category_guess: item.category_guess,
                         status: "pending",
+                        tenant_domain: tenantDomain,
                     });
                 insertedCount++;
             }
