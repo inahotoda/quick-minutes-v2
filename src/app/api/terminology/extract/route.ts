@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { supabase, extractDomain } from "@/lib/supabase";
-import { findFileByName, getFileContent } from "@/lib/drive";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
-import { promises as fs } from "fs";
-import path from "path";
+import { supabase, getTenantConfig } from "@/lib/supabase";
+import { resolveTenantPlan } from "@/lib/plan";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
-
-const PROMPTS_FILENAME = "prompts-config.json";
-const LOCAL_PROMPTS_FILE = path.join(process.cwd(), "prompts-config.json");
-const CONFIG_FOLDER_ID = "1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY";
 
 interface ExtractedTerm {
     term: string;
@@ -21,16 +13,14 @@ interface ExtractedTerm {
     reason: string;
 }
 
-async function loadExistingTerminology(): Promise<string> {
+async function loadExistingTerminology(tenantId: string): Promise<string> {
     try {
-        const file = await findFileByName(PROMPTS_FILENAME, CONFIG_FOLDER_ID);
-        if (file && file.id) {
-            const content = await getFileContent(file.id) as any;
-            const config = typeof content === "string" ? JSON.parse(content) : content;
-            return config.terminology || "";
+        const config = await getTenantConfig(tenantId, "prompts");
+        if (config?.data) {
+            const data = config.data as any;
+            return data.terminology || "";
         }
-        const data = await fs.readFile(LOCAL_PROMPTS_FILE, "utf-8");
-        return JSON.parse(data).terminology || "";
+        return "";
     } catch {
         return "";
     }
@@ -79,11 +69,15 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
         }
 
-        // セッションからテナントドメインを取得
-        const session = await getServerSession(authOptions);
-        const tenantDomain = session?.user?.email
-            ? extractDomain(session.user.email)
-            : null;
+        // テナント解決
+        const { tenant } = await resolveTenantPlan();
+        const tenantDomain = tenant?.domain || null;
+        const tenantId = tenant?.tenantId || null;
+
+        // features チェック
+        if (tenant && !tenant.features.terminology_pipeline) {
+            return NextResponse.json({ extracted: [], message: "この機能はご利用のプランでは無効です" });
+        }
 
         const { minutesText } = await request.json();
         if (!minutesText || minutesText.trim().length < 50) {
@@ -91,7 +85,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 1. 既存辞書を取得
-        const existingTerms = await loadExistingTerminology();
+        const existingTerms = await loadExistingTerminology(tenantId || "");
 
         // 2. Geminiで用語抽出
         const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });

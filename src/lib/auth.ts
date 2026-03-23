@@ -39,11 +39,9 @@ async function refreshAccessToken(token: any) {
     }
 }
 
-// モニター版は最小限のスコープ（Drive/Docs/Gmail不要）
-const isTrialMode = process.env.DEPLOYMENT_MODE === "trial";
-const oauthScope = isTrialMode
-    ? "openid email profile"
-    : "openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/gmail.send";
+// 全ユーザーに同一スコープを要求（機能のON/OFFはプランで制御）
+// 段階的スコープ要求は将来的にGoogle Incremental Authで対応予定
+const oauthScope = "openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/gmail.send";
 
 export const authOptions: NextAuthOptions = {
     providers: [

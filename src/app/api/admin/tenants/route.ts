@@ -3,9 +3,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { supabase } from "@/lib/supabase";
 
-// 管理者ガード: 自社版（非trial）でのみ動作
-function isAdminMode(): boolean {
-    return process.env.DEPLOYMENT_MODE !== "trial";
+const ADMIN_EMAIL = process.env.ADMIN_USER_EMAIL || "";
+
+function isAdminUser(email: string): boolean {
+    return email === ADMIN_EMAIL;
 }
 
 /**
@@ -18,7 +19,7 @@ export async function GET() {
             return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
         }
 
-        if (!isAdminMode()) {
+        if (!isAdminUser(session.user.email || "")) {
             return NextResponse.json({ error: "管理者権限がありません" }, { status: 403 });
         }
 
@@ -51,7 +52,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
         }
 
-        if (!isAdminMode()) {
+        if (!isAdminUser(session.user.email || "")) {
             return NextResponse.json({ error: "管理者権限がありません" }, { status: 403 });
         }
 
@@ -128,7 +129,7 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
         }
 
-        if (!isAdminMode()) {
+        if (!isAdminUser(session.user.email || "")) {
             return NextResponse.json({ error: "管理者権限がありません" }, { status: 403 });
         }
 

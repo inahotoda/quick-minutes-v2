@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
-import { findFileByName, getFileContent, updateFile, uploadFile } from "@/lib/drive";
-import { promises as fs } from "fs";
-import path from "path";
-
-const PROMPTS_FILENAME = "prompts-config.json";
-const LOCAL_PROMPTS_FILE = path.join(process.cwd(), "prompts-config.json");
-const CONFIG_FOLDER_ID = "1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY";
+import { supabase, getTenantConfig, saveTenantConfig } from "@/lib/supabase";
+import { resolveTenantPlan } from "@/lib/plan";
 
 interface TermEntry {
     term: string;
@@ -19,7 +13,6 @@ interface TermCategories {
     technical: TermEntry[];
 }
 
-// カテゴリ名→キーのマッピング
 const CATEGORY_KEY_MAP: Record<string, keyof TermCategories> = {
     "略語・社内用語": "abbreviation",
     "専門用語": "technical",
@@ -91,24 +84,15 @@ function serializeTerminology(categories: TermCategories): string {
     return sections.join("\n\n");
 }
 
-async function loadPromptConfig() {
-    try {
-        const file = await findFileByName(PROMPTS_FILENAME, CONFIG_FOLDER_ID);
-        if (file && file.id) {
-            const content = await getFileContent(file.id) as any;
-            return typeof content === "string" ? JSON.parse(content) : content;
-        }
-        const data = await fs.readFile(LOCAL_PROMPTS_FILE, "utf-8");
-        return JSON.parse(data);
-    } catch {
-        return { basePrompt: "", internalPrompt: "", businessPrompt: "", otherPrompt: "", terminology: "" };
-    }
-}
-
 export async function POST(request: NextRequest) {
     try {
         if (!supabase) {
             return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+        }
+
+        const { tenant } = await resolveTenantPlan();
+        if (!tenant) {
+            return NextResponse.json({ error: "テナントが見つかりません" }, { status: 403 });
         }
 
         const { id, action, category, term, reading } = await request.json();
@@ -136,25 +120,18 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: "無効なカテゴリです" }, { status: 400 });
             }
 
-            // 1. 既存辞書を読み込み
-            const config = await loadPromptConfig();
+            // 1. Supabaseから既存辞書を読み込み
+            const configData = await getTenantConfig(tenant.tenantId, "prompts");
+            const config = (configData?.data as any) || { basePrompt: "", internalPrompt: "", businessPrompt: "", otherPrompt: "", terminology: "" };
             const categories = parseTerminology(config.terminology || "");
 
             // 2. 新しい用語を追加
             categories[categoryKey].push({ term, reading: reading || "" });
 
-            // 3. シリアライズして保存
+            // 3. シリアライズしてSupabaseに保存
             const newTerminology = serializeTerminology(categories);
             const updatedConfig = { ...config, terminology: newTerminology, updatedAt: new Date().toISOString() };
-            const configContent = JSON.stringify(updatedConfig, null, 2);
-
-            const file = await findFileByName(PROMPTS_FILENAME, CONFIG_FOLDER_ID);
-            if (file && file.id) {
-                await updateFile(file.id, configContent, "application/json");
-            } else {
-                const base64 = Buffer.from(configContent).toString("base64");
-                await uploadFile(PROMPTS_FILENAME, base64, "application/json", CONFIG_FOLDER_ID);
-            }
+            await saveTenantConfig(tenant.tenantId, "prompts", updatedConfig, tenant.userName);
 
             // 4. 未解決ステータスを resolved に更新
             const { error } = await supabase

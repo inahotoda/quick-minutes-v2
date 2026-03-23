@@ -11,15 +11,32 @@ export default function SettingsMenuPage() {
     const router = useRouter();
     const { data: session } = useSession();
     const [unresolvedCount, setUnresolvedCount] = useState(0);
+    const [features, setFeatures] = useState<{
+        drive_save: boolean;
+        email_send: boolean;
+        terminology_pipeline: boolean;
+        profile_analysis: boolean;
+    } | null>(null);
 
     const isAdmin = session?.user?.email === ADMIN_EMAIL;
 
     useEffect(() => {
-        fetch("/api/terminology/unresolved?count_only=true")
+        fetch("/api/check-tenant")
             .then(res => res.json())
-            .then(data => { if (data.count > 0) setUnresolvedCount(data.count); })
+            .then(data => {
+                if (data.features) setFeatures(data.features);
+            })
             .catch(() => {});
     }, []);
+
+    useEffect(() => {
+        if (features?.terminology_pipeline) {
+            fetch("/api/terminology/unresolved?count_only=true")
+                .then(res => res.json())
+                .then(data => { if (data.count > 0) setUnresolvedCount(data.count); })
+                .catch(() => {});
+        }
+    }, [features]);
 
     return (
         <div className={styles.main}>
@@ -64,7 +81,7 @@ export default function SettingsMenuPage() {
                     <span className={styles.menuArrow}>→</span>
                 </div>
 
-                {isAdmin && (
+                {isAdmin && features?.profile_analysis && (
                     <div className={styles.menuCard} onClick={() => router.push("/settings/profiles")}>
                         <div className={styles.menuIcon}>👤</div>
                         <div className={styles.menuInfo}>
@@ -75,7 +92,7 @@ export default function SettingsMenuPage() {
                     </div>
                 )}
 
-                {process.env.NEXT_PUBLIC_DEPLOYMENT_MODE !== "trial" && (
+                {isAdmin && (
                     <div className={styles.menuCard} onClick={() => router.push("/settings/tenants")}>
                         <div className={styles.menuIcon}>🏢</div>
                         <div className={styles.menuInfo}>

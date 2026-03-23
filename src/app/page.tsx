@@ -94,68 +94,55 @@ export default function Home() {
   const [accessCheckState, setAccessCheckState] = useState<"checking" | "granted" | "denied">("checking");
   const [accessError, setAccessError] = useState<{ message: string; requestUrl?: string } | null>(null);
 
-  // Trial mode state
-  const isTrialDeployment = process.env.NEXT_PUBLIC_DEPLOYMENT_MODE === "trial";
-  const [trialInfo, setTrialInfo] = useState<{
+  // Plan-based feature flags
+  const [tenantFeatures, setTenantFeatures] = useState<{
+    drive_save: boolean;
+    email_send: boolean;
+    terminology_pipeline: boolean;
+    profile_analysis: boolean;
+  } | null>(null);
+  const [tenantInfo, setTenantInfo] = useState<{
+    plan?: string;
     companyName?: string;
     daysRemaining?: number;
     expired?: boolean;
   } | null>(null);
+  // 後方互換: 旧 isTrialDeployment の代わりに features で判定
+  const isTrialDeployment = tenantFeatures ? !tenantFeatures.drive_save : false;
 
   // Audio recorder
   const recorder = useAudioRecorder();
 
-  // Check folder access or tenant after login (only once)
+  // Check tenant and features after login (only once)
   useEffect(() => {
     if (session && status === "authenticated" && accessCheckState === "checking") {
-      if (isTrialDeployment) {
-        // Trial mode: check tenant instead of Drive access
-        fetch("/api/check-tenant")
-          .then(res => res.json())
-          .then(data => {
-            if (data.allowed) {
-              setAccessCheckState("granted");
-              setTrialInfo({
-                companyName: data.companyName,
-                daysRemaining: data.daysRemaining,
-              });
-            } else if (data.reason === "trial_expired") {
-              setAccessCheckState("denied");
-              setTrialInfo({ expired: true, companyName: data.companyName });
-              setAccessError({ message: "モニター期間が終了しました" });
-            } else {
-              setAccessCheckState("denied");
-              setAccessError({ message: "このドメインはモニター対象に登録されていません" });
-            }
-          })
-          .catch(err => {
-            console.error("Tenant check failed:", err);
+      fetch("/api/check-tenant")
+        .then(res => res.json())
+        .then(data => {
+          if (data.allowed) {
+            setAccessCheckState("granted");
+            setTenantFeatures(data.features);
+            setTenantInfo({
+              plan: data.plan,
+              companyName: data.companyName,
+              daysRemaining: data.daysRemaining,
+            });
+          } else if (data.reason === "expired") {
             setAccessCheckState("denied");
-            setAccessError({ message: "テナントの確認に失敗しました" });
-          });
-      } else {
-        // Normal mode: check Google Drive access
-        fetch("/api/check-access")
-          .then(res => res.json())
-          .then(data => {
-            if (data.hasAccess) {
-              setAccessCheckState("granted");
-            } else {
-              setAccessCheckState("denied");
-              setAccessError({
-                message: data.error || "共有フォルダへのアクセス権がありません",
-                requestUrl: data.requestAccessUrl
-              });
-            }
-          })
-          .catch(err => {
-            console.error("Access check failed:", err);
+            setTenantInfo({ expired: true, companyName: data.companyName });
+            setAccessError({ message: "利用期間が終了しました" });
+          } else {
             setAccessCheckState("denied");
-            setAccessError({ message: "アクセス権の確認に失敗しました" });
-          });
-      }
+            setAccessError({ message: "このドメインは登録されていません" });
+          }
+        })
+        .catch(err => {
+          console.error("Tenant check failed:", err);
+          setAccessCheckState("denied");
+          setAccessError({ message: "テナントの確認に失敗しました" });
+        });
     }
-  }, [session, status, accessCheckState, isTrialDeployment]);
+  }, [session, status, accessCheckState]);
 
   // Browser detection
   useEffect(() => {
@@ -461,22 +448,26 @@ export default function Home() {
         }
       }
 
-      // 非同期で後処理パイプラインを起動（fire-and-forget）
+      // 非同期で後処理パイプラインを起動（fire-and-forget、features に応じて）
       const extractedMinutes = fullText.match(/\[MINUTES_START\]([\s\S]*?)\[MINUTES_END\]/);
       if (extractedMinutes?.[1]?.trim()) {
         const minutesBody = extractedMinutes[1].trim();
-        // パイプライン1: 用語抽出
-        fetch("/api/terminology/extract", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ minutesText: minutesBody }),
-        }).catch(() => {});
-        // パイプライン2: 人物分析
-        fetch("/api/profile/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ minutesText: minutesBody }),
-        }).catch(() => {});
+        // パイプライン1: 用語抽出（terminology_pipeline が有効な場合のみ）
+        if (tenantFeatures?.terminology_pipeline) {
+          fetch("/api/terminology/extract", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ minutesText: minutesBody }),
+          }).catch(() => {});
+        }
+        // パイプライン2: 人物分析（profile_analysis が有効な場合のみ）
+        if (tenantFeatures?.profile_analysis) {
+          fetch("/api/profile/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ minutesText: minutesBody }),
+          }).catch(() => {});
+        }
       }
     } catch (err) {
       // ネットワークエラーかどうかを判定
@@ -569,20 +560,24 @@ export default function Home() {
         }
       }
 
-      // 非同期で後処理パイプラインを起動（fire-and-forget）
+      // 非同期で後処理パイプラインを起動（fire-and-forget、features に応じて）
       const extractedMinutes = fullText.match(/\[MINUTES_START\]([\s\S]*?)\[MINUTES_END\]/);
       if (extractedMinutes?.[1]?.trim()) {
         const minutesBody = extractedMinutes[1].trim();
-        fetch("/api/terminology/extract", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ minutesText: minutesBody }),
-        }).catch(() => {});
-        fetch("/api/profile/analyze", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ minutesText: minutesBody }),
-        }).catch(() => {});
+        if (tenantFeatures?.terminology_pipeline) {
+          fetch("/api/terminology/extract", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ minutesText: minutesBody }),
+          }).catch(() => {});
+        }
+        if (tenantFeatures?.profile_analysis) {
+          fetch("/api/profile/analyze", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ minutesText: minutesBody }),
+          }).catch(() => {});
+        }
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "再生成エラー";

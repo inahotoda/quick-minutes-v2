@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { sendEmail } from "@/lib/gmail";
+import { resolveTenantPlan } from "@/lib/plan";
 
 export async function POST(request: NextRequest) {
     try {
@@ -9,6 +10,12 @@ export async function POST(request: NextRequest) {
 
         if (!session) {
             return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+        }
+
+        // features チェック
+        const { tenant } = await resolveTenantPlan();
+        if (tenant && !tenant.features.email_send) {
+            return NextResponse.json({ error: "メール送信はご利用のプランでは無効です" }, { status: 403 });
         }
 
         const { to, subject, content, attachment } = await request.json();

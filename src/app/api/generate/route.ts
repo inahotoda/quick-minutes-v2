@@ -6,27 +6,20 @@ import { promises as fs } from "fs";
 import path from "path";
 import os from "os";
 
-import { findFileByName, getFileContent } from "@/lib/drive";
+import { resolveTenantPlan } from "@/lib/plan";
+import { getTenantConfig } from "@/lib/supabase";
 
 // Vercel Pro: max 300s. Speech-to-Text + Gemini streaming needs sufficient time.
 export const maxDuration = 300;
 
-const PROMPTS_FILENAME = "prompts-config.json";
-const LOCAL_PROMPTS_FILE = path.join(process.cwd(), "prompts-config.json");
-const CONFIG_FOLDER_ID = "1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY";
-
 async function loadCustomPrompts() {
     try {
-        // 1. Google Driveから検索
-        const file = await findFileByName(PROMPTS_FILENAME, CONFIG_FOLDER_ID);
-        if (file && file.id) {
-            const content = await getFileContent(file.id) as any;
-            return typeof content === "string" ? JSON.parse(content) : content;
+        const { tenant } = await resolveTenantPlan();
+        if (tenant?.tenantId) {
+            const config = await getTenantConfig(tenant.tenantId, "prompts");
+            if (config?.data) return config.data;
         }
-
-        // 2. なければローカル（初期値）から読み込み
-        const data = await fs.readFile(LOCAL_PROMPTS_FILE, "utf-8");
-        return JSON.parse(data);
+        return {};
     } catch {
         return {};
     }

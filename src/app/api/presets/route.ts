@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { findFileByName, getFileContent, updateFile, uploadFile } from "@/lib/drive";
-import { resolveTenant } from "@/lib/tenant";
-import { getTenantConfig, saveTenantConfig, isTrialMode } from "@/lib/supabase";
-
-const PRESETS_FILENAME = "presets-config.json";
-const CONFIG_FOLDER_ID = "1gl7woInG6oJ5UuaRI54h_TTRbGatzWMY";
+import { resolveTenantPlan } from "@/lib/plan";
+import { getTenantConfig, saveTenantConfig } from "@/lib/supabase";
 
 interface PresetData {
     id: string;
@@ -23,45 +19,16 @@ interface PresetsConfig {
     updatedAt: string;
 }
 
-// GET: プリセット一覧を取得
 export async function GET() {
     try {
-        // ── Trial mode: Supabase ──
-        if (isTrialMode()) {
-            const { tenant, error } = await resolveTenant();
-            if (error || !tenant || tenant.expired) return NextResponse.json({ presets: [] });
+        const { tenant, error } = await resolveTenantPlan();
+        if (error || !tenant || tenant.expired) return NextResponse.json({ presets: [] });
 
-            const config = await getTenantConfig(tenant.tenantId, "presets");
-            if (config?.data) {
-                const presetsData = config.data as PresetsConfig;
-                return NextResponse.json({ presets: presetsData.presets || [] });
-            }
-            return NextResponse.json({ presets: [] });
+        const config = await getTenantConfig(tenant.tenantId, "presets");
+        if (config?.data) {
+            const presetsData = config.data as PresetsConfig;
+            return NextResponse.json({ presets: presetsData.presets || [] });
         }
-
-        // ── Normal mode: Google Drive ──
-        const session = await getServerSession(authOptions);
-        if (!session) {
-            return NextResponse.json({ presets: [] });
-        }
-
-        console.log("GET /api/presets: searching for", PRESETS_FILENAME);
-        const file = await findFileByName(PRESETS_FILENAME, CONFIG_FOLDER_ID);
-
-        if (file && file.id) {
-            console.log("GET /api/presets: found file, ID:", file.id);
-            const content = await getFileContent(file.id);
-            if (content && content.trim()) {
-                try {
-                    const config: PresetsConfig = JSON.parse(content);
-                    return NextResponse.json({ presets: config.presets || [] });
-                } catch (pe) {
-                    console.error("GET /api/presets: JSON parse error", pe);
-                }
-            }
-        }
-
-        console.log("GET /api/presets: no file found, returning empty");
         return NextResponse.json({ presets: [] });
     } catch (error) {
         console.error("GET /api/presets error:", error);
@@ -69,7 +36,6 @@ export async function GET() {
     }
 }
 
-// POST: プリセット一覧を保存
 export async function POST(request: NextRequest) {
     try {
         const session = await getServerSession(authOptions);
@@ -77,44 +43,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
         }
 
+        const { tenant, error, statusCode } = await resolveTenantPlan();
+        if (error) return NextResponse.json({ error }, { status: statusCode || 403 });
+        if (!tenant) return NextResponse.json({ error: "テナントが見つかりません" }, { status: 403 });
+        if (tenant.expired) return NextResponse.json({ error: "利用期間が終了しています" }, { status: 403 });
+
         const { presets } = await request.json();
-
-        // ── Trial mode: Supabase ──
-        if (isTrialMode()) {
-            const { tenant, error, statusCode } = await resolveTenant();
-            if (error) return NextResponse.json({ error }, { status: statusCode || 403 });
-            if (!tenant) return NextResponse.json({ error: "テナントが見つかりません" }, { status: 403 });
-            if (tenant.expired) return NextResponse.json({ error: "モニター期間が終了しています" }, { status: 403 });
-
-            const config: PresetsConfig = {
-                presets: presets || [],
-                updatedAt: new Date().toISOString(),
-            };
-            await saveTenantConfig(tenant.tenantId, "presets", config, tenant.userName);
-            return NextResponse.json({ success: true });
-        }
-
-        // ── Normal mode: Google Drive ──
-        console.log("POST /api/presets: saving", presets.length, "presets");
 
         const config: PresetsConfig = {
             presets: presets || [],
             updatedAt: new Date().toISOString(),
         };
-
-        const configContent = JSON.stringify(config, null, 2);
-
-        const file = await findFileByName(PRESETS_FILENAME, CONFIG_FOLDER_ID);
-        if (file && file.id) {
-            console.log("POST /api/presets: updating existing file", file.id);
-            await updateFile(file.id, configContent, "application/json");
-        } else {
-            console.log("POST /api/presets: creating new file in folder", CONFIG_FOLDER_ID);
-            const base64 = Buffer.from(configContent).toString("base64");
-            await uploadFile(PRESETS_FILENAME, base64, "application/json", CONFIG_FOLDER_ID);
-        }
-
-        console.log("POST /api/presets: save successful");
+        await saveTenantConfig(tenant.tenantId, "presets", config, tenant.userName);
         return NextResponse.json({ success: true });
     } catch (error: any) {
         console.error("POST /api/presets error:", error);

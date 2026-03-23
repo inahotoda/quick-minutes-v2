@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "@/lib/supabase";
+import { resolveTenantPlan } from "@/lib/plan";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -93,6 +94,12 @@ export async function POST(request: NextRequest) {
     try {
         if (!supabase) {
             return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+        }
+
+        // features チェック
+        const { tenant } = await resolveTenantPlan();
+        if (tenant && !tenant.features.profile_analysis) {
+            return NextResponse.json({ analyzed: [], message: "この機能はご利用のプランでは無効です" });
         }
 
         const { minutesText, meetingDate } = await request.json();
