@@ -975,18 +975,26 @@
     color: white;
 }
 
-.unresolvedLaterBtn {
-    padding: 0.4rem 0.8rem;
-    background: none;
+.unresolvedRegisterAllBtn {
+    padding: 0.5rem 1.2rem;
+    background: #6366f1;
     border: none;
-    color: rgba(255, 255, 255, 0.4);
-    font-size: 0.8rem;
+    border-radius: 6px;
+    color: white;
+    font-size: 0.85rem;
+    font-weight: 600;
     cursor: pointer;
     transition: all 0.2s;
+    margin-bottom: 0.75rem;
 }
 
-.unresolvedLaterBtn:hover {
-    color: rgba(255, 255, 255, 0.7);
+.unresolvedRegisterAllBtn:hover:not(:disabled) {
+    background: #4f46e5;
+}
+
+.unresolvedRegisterAllBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .unresolvedRegisterBtn:disabled,

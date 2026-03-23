@@ -40,6 +40,9 @@ function buildExtractionPrompt(minutesText: string, existingTerms: string): stri
 【除外対象】
 - 一般的な日本語の単語
 - 広く知られたビジネス用語（KPI、ROI、MTG等）
+- 広く知られたIT企業・サービス名（Google、Apple、Microsoft、Amazon、Meta、Slack、Zoom、Notion、GitHub、Vercel、AWS、Claude、ChatGPT、Gemini等）
+- 広く知られた一般企業・ブランド名（トヨタ、ソニー、マイナビ、リクナビ等、誰でも知っている企業名）
+- 一般的なIT用語（DNS、API、URL、SSL、HTML、CSS、PDF等）
 - 以下の「登録済み用語リスト」に含まれる用語
 
 【登録済み用語リスト（これらは抽出しないこと）】

@@ -309,9 +309,28 @@ export default function PromptsSettingsPage() {
         setResolvingId(null);
     };
 
-    // 未解決用語: あとで（一時非表示）
-    const handleLater = (id: string) => {
-        setHiddenTermIds(prev => new Set(prev).add(id));
+    // 未解決用語: 全て登録（AIの推定カテゴリ・読みでまとめて登録）
+    const handleRegisterAll = async () => {
+        const items = unresolvedTerms.filter(t => !hiddenTermIds.has(t.id));
+        if (items.length === 0) return;
+        setResolvingId("all");
+        try {
+            for (const item of items) {
+                await fetch("/api/terminology/resolve", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        id: item.id,
+                        action: "register",
+                        category: item.category_guess,
+                        term: item.term,
+                        reading: item.supplementary || "",
+                    }),
+                });
+            }
+            setUnresolvedTerms([]);
+        } catch {}
+        setResolvingId(null);
     };
 
     // 未解決用語: 登録モーダルを開く
@@ -496,6 +515,14 @@ export default function PromptsSettingsPage() {
                             AIが議事録から検出した未登録の専門用語です。辞書に登録すると次回以降の精度が向上します。
                         </p>
 
+                        <button
+                            className={styles.unresolvedRegisterAllBtn}
+                            onClick={handleRegisterAll}
+                            disabled={resolvingId === "all"}
+                        >
+                            {resolvingId === "all" ? "登録中..." : "全て登録"}
+                        </button>
+
                         <div className={styles.unresolvedList}>
                             {unresolvedTerms
                                 .filter(t => !hiddenTermIds.has(t.id))
@@ -533,13 +560,7 @@ export default function PromptsSettingsPage() {
                                                 onClick={() => handleIgnore(item.id)}
                                                 disabled={resolvingId === item.id}
                                             >
-                                                無視
-                                            </button>
-                                            <button
-                                                className={styles.unresolvedLaterBtn}
-                                                onClick={() => handleLater(item.id)}
-                                            >
-                                                あとで
+                                                不要
                                             </button>
                                         </div>
                                     </div>
