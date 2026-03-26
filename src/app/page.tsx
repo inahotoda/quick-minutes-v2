@@ -64,6 +64,7 @@ export default function Home() {
   const [mode, setMode] = useState<MeetingMode>("internal");
   const [selectedPreset, setSelectedPreset] = useState<MeetingPreset | null>(null);
   const [allPresets, setAllPresets] = useState<MeetingPreset[]>([]);
+  const cachedMembersRef = useRef<any[]>([]);
   const [activeTab, setActiveTab] = useState<"record" | "upload">("record");
   const [uploadSource, setUploadSource] = useState<"audio" | "text">("audio");
   const [isStartingRecording, setIsStartingRecording] = useState(false);
@@ -167,9 +168,10 @@ export default function Home() {
         const active = data.filter(p => !p.isArchived).sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
         setAllPresets(active);
 
-        // Step 2: メンバーを非同期でロードしてフィルタ適用（重い処理を後回し）
+        // Step 2: メンバーを非同期でロード → キャッシュ + フィルタ適用
         import("@/lib/member-storage").then(({ getAllMembers }) => {
           getAllMembers().then(allMembers => {
+            cachedMembersRef.current = allMembers; // キャッシュ
             const userEmail = session?.user?.email?.toLowerCase();
             const userName = session?.user?.name;
             const myMember = allMembers.find(m =>
@@ -277,11 +279,16 @@ export default function Home() {
     // プリセット選択済みの場合: 参加者確認をスキップして即録音開始
     if (selectedPreset && selectedPreset.memberIds.length > 0) {
       try {
-        const { getAllMembers, updatePreset } = await import("@/lib/member-storage");
-        const allMembers = await getAllMembers();
+        // キャッシュ済みメンバーを使用（なければフォールバック取得）
+        let allMembers = cachedMembersRef.current;
+        if (allMembers.length === 0) {
+          const { getAllMembers } = await import("@/lib/member-storage");
+          allMembers = await getAllMembers();
+          cachedMembersRef.current = allMembers;
+        }
         const presetParticipants = selectedPreset.memberIds
           .map(id => {
-            const m = allMembers.find(mem => mem.id === id);
+            const m = allMembers.find((mem: any) => mem.id === id);
             if (!m) return null;
             return {
               id: m.id, name: m.name, hasVoice: !!m.voiceSample,
@@ -295,11 +302,13 @@ export default function Home() {
         recorder.resetDuration();
         setAppState("recording");
         setIsStartingRecording(false);
-        // プリセット使用回数を更新
-        await updatePreset(selectedPreset.id, {
-          lastUsedAt: new Date().toISOString(),
-          usageCount: (selectedPreset.usageCount || 0) + 1,
-        }).catch(() => {});
+        // プリセット使用回数を更新（非同期、待たない）
+        import("@/lib/member-storage").then(({ updatePreset }) => {
+          updatePreset(selectedPreset.id, {
+            lastUsedAt: new Date().toISOString(),
+            usageCount: (selectedPreset.usageCount || 0) + 1,
+          }).catch(() => {});
+        });
         return;
       } catch (e) {
         console.error("Failed to skip confirmation:", e);
@@ -811,11 +820,15 @@ export default function Home() {
     // プリセット選択済み: 確認スキップ → 即生成
     if (selectedPreset && selectedPreset.memberIds.length > 0) {
       try {
-        const { getAllMembers, updatePreset } = await import("@/lib/member-storage");
-        const allMembers = await getAllMembers();
+        let allMembers = cachedMembersRef.current;
+        if (allMembers.length === 0) {
+          const { getAllMembers } = await import("@/lib/member-storage");
+          allMembers = await getAllMembers();
+          cachedMembersRef.current = allMembers;
+        }
         const presetParticipants = selectedPreset.memberIds
           .map(id => {
-            const m = allMembers.find(mem => mem.id === id);
+            const m = allMembers.find((mem: any) => mem.id === id);
             if (!m) return null;
             return {
               id: m.id, name: m.name, hasVoice: !!m.voiceSample,
@@ -827,10 +840,12 @@ export default function Home() {
           .filter(Boolean) as ConfirmedParticipant[];
         setConfirmedParticipants(presetParticipants);
         generateMinutes(undefined, presetParticipants);
-        await updatePreset(selectedPreset.id, {
-          lastUsedAt: new Date().toISOString(),
-          usageCount: (selectedPreset.usageCount || 0) + 1,
-        }).catch(() => {});
+        import("@/lib/member-storage").then(({ updatePreset }) => {
+          updatePreset(selectedPreset.id, {
+            lastUsedAt: new Date().toISOString(),
+            usageCount: (selectedPreset.usageCount || 0) + 1,
+          }).catch(() => {});
+        });
         return;
       } catch (e) {
         console.error("Failed to skip confirmation:", e);
