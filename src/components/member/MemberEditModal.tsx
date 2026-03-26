@@ -211,18 +211,13 @@ export default function MemberEditModal({
                 {/* ============================== */}
                 {step === 1 && isNewMember && (
                     <>
-                        {/* Mic indicator */}
-                        <div
-                            className={`${styles.micIndicator} ${voice.isRecording ? styles.micIndicatorActive : ""}`}
-                            style={{
-                                display: "flex",
-                                flexDirection: "column",
-                                alignItems: "center",
-                                gap: 12,
-                                padding: "24px 0",
-                            }}
-                        >
-                            <span className={styles.micIcon} />
+                        {/* Mic indicator + recording status */}
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "24px 0" }}>
+                            <div
+                                className={`${styles.micIndicator} ${voice.isRecording ? styles.micIndicatorActive : ""}`}
+                            >
+                                <span className={styles.micIcon} />
+                            </div>
 
                             {voice.isRecording && (
                                 <div
