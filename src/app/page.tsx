@@ -67,6 +67,7 @@ export default function Home() {
   const [activeTab, setActiveTab] = useState<"record" | "upload">("record");
   const [uploadSource, setUploadSource] = useState<"audio" | "text">("audio");
   const [isStartingRecording, setIsStartingRecording] = useState(false);
+  const [isAdhocMode, setIsAdhocMode] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [minutes, setMinutes] = useState("");
@@ -1698,18 +1699,24 @@ export default function Home() {
               <PresetGrid
                 presets={allPresets}
                 selectedPreset={selectedPreset}
+                isAdhocMode={isAdhocMode}
                 onSelect={(preset) => {
                   setSelectedPreset(preset);
+                  setIsAdhocMode(false);
                   if (preset) {
                     setMode(preset.mode as MeetingMode);
                     if (preset.duration) setSelectedDuration(preset.duration);
                   }
                 }}
+                onAdhoc={() => {
+                  setSelectedPreset(null);
+                  setIsAdhocMode(true);
+                }}
               />
             )}
 
-            {/* Mode Selector (shown when no preset or as fallback) */}
-            {!selectedPreset && (
+            {/* Mode Selector (shown only in adhoc/spot mode) */}
+            {!selectedPreset && isAdhocMode && (
               <ModeSelector
                 selectedMode={mode}
                 onModeChange={setMode}

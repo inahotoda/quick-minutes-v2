@@ -7,7 +7,9 @@ import styles from "./PresetGrid.module.css";
 interface PresetGridProps {
     presets: MeetingPreset[];
     selectedPreset: MeetingPreset | null;
+    isAdhocMode?: boolean;
     onSelect: (preset: MeetingPreset | null) => void;
+    onAdhoc?: () => void;
 }
 
 const MODE_LABELS: Record<string, string> = {
@@ -22,7 +24,7 @@ const MODE_COLORS: Record<string, string> = {
     other: "#d1d5db",
 };
 
-export default function PresetGrid({ presets, selectedPreset, onSelect }: PresetGridProps) {
+export default function PresetGrid({ presets, selectedPreset, isAdhocMode, onSelect, onAdhoc }: PresetGridProps) {
     const [isOpen, setIsOpen] = useState(false);
     const [search, setSearch] = useState("");
     const containerRef = useRef<HTMLDivElement>(null);
@@ -72,6 +74,8 @@ export default function PresetGrid({ presets, selectedPreset, onSelect }: Preset
                             {" "}{selectedPreset.memberIds?.length || 0}名
                         </span>
                     </div>
+                ) : isAdhocMode ? (
+                    <span className={styles.selectedName}>スポット会議</span>
                 ) : (
                     <span className={styles.placeholder}>今日はどの会議ですか？</span>
                 )}
@@ -125,6 +129,13 @@ export default function PresetGrid({ presets, selectedPreset, onSelect }: Preset
                             <div className={styles.noResults}>一致するプリセットがありません</div>
                         )}
                     </div>
+                    <button
+                        className={`${styles.adhocOption} ${isAdhocMode && !selectedPreset ? styles.adhocOptionActive : ""}`}
+                        onClick={() => { setIsOpen(false); setSearch(""); onAdhoc?.(); }}
+                    >
+                        スポット会議
+                        <span className={styles.adhocHint}>プリセット未登録の会議</span>
+                    </button>
                     {selectedPreset && (
                         <button className={styles.clearOption} onClick={() => handleSelect(null)}>
                             選択解除

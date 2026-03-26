@@ -158,6 +158,37 @@
     color: rgba(255, 255, 255, 0.3);
 }
 
+.adhocOption {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 14px;
+    background: none;
+    border: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s;
+    text-align: left;
+}
+
+.adhocOption:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.adhocOptionActive {
+    color: #a5b4fc;
+}
+
+.adhocHint {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.3);
+    font-weight: 400;
+}
+
 .clearOption {
     width: 100%;
     padding: 10px;
