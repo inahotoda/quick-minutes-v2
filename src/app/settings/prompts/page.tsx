@@ -200,6 +200,24 @@ function UnresolvedTermCard({
                 {item.occurrence_count > 1 && (
                     <span className={styles.termOccurrence}>{item.occurrence_count}回</span>
                 )}
+                <div className={styles.termQuickActions}>
+                    <button
+                        className={styles.termQuickRegister}
+                        onClick={(e) => { e.stopPropagation(); onRegister(item.id, category, item.term, reading, description); }}
+                        disabled={isResolving}
+                        title="登録する"
+                    >
+                        {isResolving ? "..." : "✓"}
+                    </button>
+                    <button
+                        className={styles.termQuickIgnore}
+                        onClick={(e) => { e.stopPropagation(); onIgnore(item.id); }}
+                        disabled={isResolving}
+                        title="不要"
+                    >
+                        ✕
+                    </button>
+                </div>
                 <span className={styles.termChevron} style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
             </div>
             <div
