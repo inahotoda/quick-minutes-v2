@@ -13,7 +13,7 @@ export default function MembersPage() {
                 <button className={styles.backButton} onClick={() => router.push("/settings")}>
                     ← 戻る
                 </button>
-                <h1 className={styles.title}>👥 メンバー管理</h1>
+                <h1 className={styles.title}>メンバー管理</h1>
                 <div style={{ width: 80 }}></div>
             </header>
 

@@ -141,7 +141,7 @@ export default function TenantsPage() {
                 <button className={styles.backButton} onClick={() => router.push("/settings")}>
                     ← 設定に戻る
                 </button>
-                <h1 className={styles.title}>🏢 モニター企業管理</h1>
+                <h1 className={styles.title}>モニター企業管理</h1>
                 <div style={{ width: 80 }}></div>
             </header>
 

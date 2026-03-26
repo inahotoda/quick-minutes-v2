@@ -515,7 +515,7 @@ export default function PromptsSettingsPage() {
         <div className={styles.main}>
             <header className={styles.header}>
                 <button className={styles.backButton} onClick={() => router.push("/settings")}>← 設定に戻る</button>
-                <h1 className={styles.title}>📝 カスタムプロンプト設定</h1>
+                <h1 className={styles.title}>カスタムプロンプト設定</h1>
                 <div style={{ width: 80 }}></div>
             </header>
 

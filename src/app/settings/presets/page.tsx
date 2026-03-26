@@ -181,7 +181,7 @@ export default function PresetsPage() {
                 <button className={styles.backButton} onClick={() => router.push("/settings")}>
                     ← 戻る
                 </button>
-                <h1 className={styles.title}>📅 会議プリセット</h1>
+                <h1 className={styles.title}>会議プリセット</h1>
                 <div style={{ width: 80 }}></div>
             </header>
 
@@ -267,7 +267,7 @@ export default function PresetsPage() {
                         {displayedPresets.map((preset) => (
                             <div key={preset.id} className={presetStyles.presetCard} style={preset.isArchived ? { opacity: 0.6 } : undefined}>
                                 <div className={presetStyles.presetIcon}>
-                                    {preset.mode === "business" ? "🤝" : preset.mode === "internal" ? "💼" : "📝"}
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                                 </div>
                                 <div className={presetStyles.presetInfo}>
                                     <div className={presetStyles.presetName}>
@@ -282,7 +282,7 @@ export default function PresetsPage() {
                                         <span className={presetStyles.modeBadge}>{modeLabels[preset.mode]}</span>
                                         {preset.memberIds.length > 0 && (
                                             <span className={presetStyles.memberCount}>
-                                                👥 {preset.memberIds.length}名
+                                                {preset.memberIds.length}名
                                             </span>
                                         )}
                                         {preset.lastUsedAt && (
@@ -313,7 +313,7 @@ export default function PresetsPage() {
                                                 onClick={() => handleDelete(preset)}
                                                 title="完全削除"
                                             >
-                                                🗑️
+                                                削除
                                             </button>
                                         </>
                                     ) : (
@@ -323,7 +323,7 @@ export default function PresetsPage() {
                                                 onClick={() => handleOpenEditModal(preset)}
                                                 title="編集"
                                             >
-                                                ✏️
+                                                編集
                                             </button>
                                             <button
                                                 className={presetStyles.actionButton}
