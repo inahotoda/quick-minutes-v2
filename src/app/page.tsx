@@ -159,39 +159,30 @@ export default function Home() {
     }
   }, [session, status, accessCheckState]);
 
-  // Load presets (for PresetGrid) — 自分が参加メンバーに含まれるプリセットのみ表示
+  // Load presets (for PresetGrid) — まず即表示、その後メンバーフィルタを非同期適用
   useEffect(() => {
     if (accessCheckState === "granted") {
-      (async () => {
-        try {
-          const { getAllMembers } = await import("@/lib/member-storage");
-          const [presetData, allMembers] = await Promise.all([getAllPresets(), getAllMembers()]);
-          const userEmail = session?.user?.email?.toLowerCase();
-          const userName = session?.user?.name;
+      // Step 1: プリセットを即ロード（軽量）
+      getAllPresets().then(data => {
+        const active = data.filter(p => !p.isArchived).sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
+        setAllPresets(active);
 
-          // メールアドレスまたは名前でログインユーザーのメンバーIDを特定
-          const myMember = allMembers.find(m =>
-            (m.email && userEmail && m.email.toLowerCase() === userEmail) ||
-            (m.name && userName && m.name === userName)
-          );
-
-          const active = presetData
-            .filter(p => !p.isArchived)
-            .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
-
-          if (myMember) {
-            // 自分が参加メンバーに含まれるプリセットのみ
-            const myPresets = active.filter(p => p.memberIds.includes(myMember.id));
-            setAllPresets(myPresets.length > 0 ? myPresets : active); // 0件なら全件表示にフォールバック
-          } else {
-            setAllPresets(active);
-          }
-        } catch {
-          getAllPresets().then(data => {
-            setAllPresets(data.filter(p => !p.isArchived).sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0)));
+        // Step 2: メンバーを非同期でロードしてフィルタ適用（重い処理を後回し）
+        import("@/lib/member-storage").then(({ getAllMembers }) => {
+          getAllMembers().then(allMembers => {
+            const userEmail = session?.user?.email?.toLowerCase();
+            const userName = session?.user?.name;
+            const myMember = allMembers.find(m =>
+              (m.email && userEmail && m.email.toLowerCase() === userEmail) ||
+              (m.name && userName && m.name === userName)
+            );
+            if (myMember) {
+              const myPresets = active.filter(p => p.memberIds.includes(myMember.id));
+              if (myPresets.length > 0) setAllPresets(myPresets);
+            }
           }).catch(() => {});
-        }
-      })();
+        }).catch(() => {});
+      }).catch(() => {});
     }
   }, [accessCheckState, session]);
 
