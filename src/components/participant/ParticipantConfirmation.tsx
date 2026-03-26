@@ -34,6 +34,8 @@ interface ParticipantConfirmationProps {
     onClose?: () => void;
     // For upload mode (show "議事録生成" instead of "Mtgスタート")
     isUploadMode?: boolean;
+    // Pre-loaded members cache (skip getAllMembers if provided)
+    initialMembers?: Member[];
 }
 
 // --- Main component ---
@@ -47,6 +49,7 @@ export default function ParticipantConfirmation({
     onUpdate,
     onClose,
     isUploadMode = false,
+    initialMembers,
 }: ParticipantConfirmationProps) {
     const [members, setMembers] = useState<Member[]>([]);
     const [participants, setParticipants] = useState<ConfirmedParticipant[]>([]);
@@ -62,7 +65,7 @@ export default function ParticipantConfirmation({
         let isMounted = true;
         const load = async () => {
             try {
-                const allMembers = await getAllMembers();
+                const allMembers = (initialMembers && initialMembers.length > 0) ? initialMembers : await getAllMembers();
                 if (!isMounted) return;
                 setMembers(allMembers);
 

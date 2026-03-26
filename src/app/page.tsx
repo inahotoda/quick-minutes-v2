@@ -1912,6 +1912,7 @@ export default function Home() {
             preset={selectedPreset}
             onConfirm={handleParticipantConfirm}
             onCancel={handleParticipantCancel}
+            initialMembers={cachedMembersRef.current}
           />
         )}
 
@@ -1921,6 +1922,7 @@ export default function Home() {
             onConfirm={handleUploadParticipantConfirm}
             onCancel={() => setAppState("idle")}
             isUploadMode={true}
+            initialMembers={cachedMembersRef.current}
           />
         )}
 
