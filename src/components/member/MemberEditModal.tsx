@@ -464,14 +464,25 @@ export default function MemberEditModal({
                                     <button
                                         className={styles.playButton}
                                         onClick={() => {
-                                            const blob =
-                                                voice.voiceBlob ||
-                                                editingMember?.voiceSample?.blob;
-                                            if (blob) {
-                                                const audio = new Audio(
-                                                    URL.createObjectURL(blob),
-                                                );
-                                                audio.play();
+                                            try {
+                                                let audioUrl: string | null = null;
+                                                if (voice.voiceBlob instanceof Blob) {
+                                                    audioUrl = URL.createObjectURL(voice.voiceBlob);
+                                                } else if (editingMember?.voiceSample) {
+                                                    const vs = editingMember.voiceSample as any;
+                                                    if (vs.blob instanceof Blob) {
+                                                        audioUrl = URL.createObjectURL(vs.blob);
+                                                    } else if (vs.blobBase64) {
+                                                        const byteChars = atob(vs.blobBase64);
+                                                        const byteNums = new Array(byteChars.length);
+                                                        for (let i = 0; i < byteChars.length; i++) byteNums[i] = byteChars.charCodeAt(i);
+                                                        const blob = new Blob([new Uint8Array(byteNums)], { type: "audio/webm" });
+                                                        audioUrl = URL.createObjectURL(blob);
+                                                    }
+                                                }
+                                                if (audioUrl) new Audio(audioUrl).play();
+                                            } catch (err) {
+                                                console.error("Voice playback error:", err);
                                             }
                                         }}
                                         title="音声を確認"

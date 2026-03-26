@@ -117,7 +117,7 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
             if (SpeechRecognition) {
                 const recognition = new SpeechRecognition();
                 recognition.lang = "ja-JP";
-                recognition.continuous = false;
+                recognition.continuous = true;
                 recognition.interimResults = true;
 
                 recognition.onresult = (event: any) => {
@@ -135,6 +135,13 @@ export function useVoiceRecorder(): UseVoiceRecorderReturn {
                                 setVoiceDuration(duration);
                             }
                         }
+                    }
+                };
+
+                // 音声認識が途中で止まった場合に再開
+                recognition.onend = () => {
+                    if (mediaRecorderRef.current?.state === "recording") {
+                        try { recognition.start(); } catch { /* already started */ }
                     }
                 };
 

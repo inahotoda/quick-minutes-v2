@@ -50,12 +50,32 @@ export default function MemberCard({
         }
     }, []);
 
-    // Play voice sample
+    // Play voice sample (supports both Blob and base64 formats)
     const handlePlayVoice = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (member.voiceSample?.blob) {
-            const audio = new Audio(URL.createObjectURL(member.voiceSample.blob));
+        if (!member.voiceSample) return;
+        try {
+            const vs = member.voiceSample as any;
+            let audioUrl: string;
+            if (vs.blob instanceof Blob) {
+                audioUrl = URL.createObjectURL(vs.blob);
+            } else if (vs.blobBase64) {
+                // Fallback: base64 → Blob → URL
+                const byteCharacters = atob(vs.blobBase64);
+                const byteNumbers = new Array(byteCharacters.length);
+                for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                const blob = new Blob([byteArray], { type: "audio/webm" });
+                audioUrl = URL.createObjectURL(blob);
+            } else {
+                return;
+            }
+            const audio = new Audio(audioUrl);
             audio.play();
+        } catch (err) {
+            console.error("Voice playback error:", err);
         }
     };
 
