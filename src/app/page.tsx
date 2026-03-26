@@ -157,15 +157,41 @@ export default function Home() {
     }
   }, [session, status, accessCheckState]);
 
-  // Load presets (for PresetGrid)
+  // Load presets (for PresetGrid) — 自分が参加メンバーに含まれるプリセットのみ表示
   useEffect(() => {
     if (accessCheckState === "granted") {
-      getAllPresets().then(data => {
-        const active = data.filter(p => !p.isArchived).sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
-        setAllPresets(active);
-      }).catch(() => {});
+      (async () => {
+        try {
+          const { getAllMembers } = await import("@/lib/member-storage");
+          const [presetData, allMembers] = await Promise.all([getAllPresets(), getAllMembers()]);
+          const userEmail = session?.user?.email?.toLowerCase();
+          const userName = session?.user?.name;
+
+          // メールアドレスまたは名前でログインユーザーのメンバーIDを特定
+          const myMember = allMembers.find(m =>
+            (m.email && userEmail && m.email.toLowerCase() === userEmail) ||
+            (m.name && userName && m.name === userName)
+          );
+
+          const active = presetData
+            .filter(p => !p.isArchived)
+            .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
+
+          if (myMember) {
+            // 自分が参加メンバーに含まれるプリセットのみ
+            const myPresets = active.filter(p => p.memberIds.includes(myMember.id));
+            setAllPresets(myPresets.length > 0 ? myPresets : active); // 0件なら全件表示にフォールバック
+          } else {
+            setAllPresets(active);
+          }
+        } catch {
+          getAllPresets().then(data => {
+            setAllPresets(data.filter(p => !p.isArchived).sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0)));
+          }).catch(() => {});
+        }
+      })();
     }
-  }, [accessCheckState]);
+  }, [accessCheckState, session]);
 
   // Browser detection
   useEffect(() => {

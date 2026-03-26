@@ -73,7 +73,7 @@ export default function PresetGrid({ presets, selectedPreset, onSelect }: Preset
                         </span>
                     </div>
                 ) : (
-                    <span className={styles.placeholder}>プリセットを選択</span>
+                    <span className={styles.placeholder}>今日はどの会議ですか？</span>
                 )}
                 <svg
                     className={styles.chevron}

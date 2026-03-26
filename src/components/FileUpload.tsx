@@ -21,6 +21,8 @@ export default function FileUpload({
 }: FileUploadProps) {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [dragActive, setDragActive] = useState(false);
+    const isAudioOnly = acceptTypes.startsWith("audio/") && !acceptTypes.includes("pdf") && !acceptTypes.includes("image");
+    const isPdfImageOnly = !acceptTypes.includes("audio") && (acceptTypes.includes("pdf") || acceptTypes.includes("image"));
 
     const handleFileSelect = (selectedFiles: FileList | null) => {
         if (!selectedFiles) return;
@@ -140,16 +142,28 @@ export default function FileUpload({
                     className={styles.hiddenInput}
                 />
                 <div className={styles.dropzoneContent}>
-                    <span className={styles.uploadIcon}>📁</span>
+                    <span className={styles.uploadIcon}>
+                        {isAudioOnly ? (
+                            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                                <path d="M16 4a5 5 0 00-5 5v8a5 5 0 0010 0V9a5 5 0 00-5-5z" stroke="currentColor" strokeWidth="1.5" />
+                                <path d="M8 17a8 8 0 0016 0M16 27v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                        ) : "📁"}
+                    </span>
                     <p className={styles.dropzoneText}>
-                        ファイルをドラッグ&ドロップ
+                        {isAudioOnly ? "音声ファイルをドラッグ&ドロップ" : "ファイルをドラッグ&ドロップ"}
                         <br />
                         <span className={styles.dropzoneSubtext}>
                             または クリックして選択
                         </span>
                     </p>
                     <p className={styles.acceptedTypes}>
-                        対応形式: 音声 / PDF / 画像 / テキスト
+                        {isAudioOnly
+                            ? "対応形式: MP3 / M4A / WAV / OGG / WebM"
+                            : isPdfImageOnly
+                                ? "対応形式: PDF / 画像 / テキスト"
+                                : "対応形式: 音声 / PDF / 画像 / テキスト"
+                        }
                     </p>
                 </div>
             </div>
