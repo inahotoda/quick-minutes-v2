@@ -66,6 +66,7 @@ export default function Home() {
   const [allPresets, setAllPresets] = useState<MeetingPreset[]>([]);
   const [activeTab, setActiveTab] = useState<"record" | "upload">("record");
   const [uploadSource, setUploadSource] = useState<"audio" | "text">("audio");
+  const [isStartingRecording, setIsStartingRecording] = useState(false);
   const [transcript, setTranscript] = useState("");
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [minutes, setMinutes] = useState("");
@@ -278,6 +279,7 @@ export default function Home() {
   // Handle recording start - always go to participant confirmation
   const handleStartRecording = useCallback(async () => {
     setError(null);
+    setIsStartingRecording(true);
     await recorder.startRecording();
 
     // プリセット選択済みの場合: 参加者確認をスキップして即録音開始
@@ -300,6 +302,7 @@ export default function Home() {
         setConfirmedParticipants(presetParticipants);
         recorder.resetDuration();
         setAppState("recording");
+        setIsStartingRecording(false);
         // プリセット使用回数を更新
         await updatePreset(selectedPreset.id, {
           lastUsedAt: new Date().toISOString(),
@@ -312,6 +315,7 @@ export default function Home() {
     }
 
     // プリセットなし: 従来通り参加者確認画面へ
+    setIsStartingRecording(false);
     setAppState("confirming");
   }, [recorder, selectedPreset]);
 
@@ -378,8 +382,9 @@ export default function Home() {
     recorder.resetDuration(); // Reset timer for new countdown
   }, [recorder]);
 
-  // Handle recording stop
+  // Handle recording stop (with confirmation)
   const handleStopRecording = useCallback(async () => {
+    if (!confirm("録音を停止して議事録を生成しますか？")) return;
     try {
       setAppState("uploading");
       const blob = await recorder.stopRecording();
@@ -1738,22 +1743,31 @@ export default function Home() {
             {/* === 録音タブ === */}
             {activeTab === "record" && (
               <div className={styles.tabContent}>
-                <RecordButton
-                  isRecording={false}
-                  isPaused={false}
-                  isInterrupted={false}
-                  duration={0}
-                  onStart={handleStartRecording}
-                  onStop={() => { }}
-                  onPause={() => { }}
-                  onResume={() => { }}
-                  onResumeInterrupted={() => { }}
-                />
-                <TimerSelector
-                  selected={selectedDuration}
-                  onChange={setSelectedDuration}
-                  disabled={!!selectedPreset}
-                />
+                {isStartingRecording ? (
+                  <div className={styles.loading} style={{ padding: "3rem 0" }}>
+                    <div className={styles.spinner} />
+                    <p>準備中...</p>
+                  </div>
+                ) : (
+                  <>
+                    <RecordButton
+                      isRecording={false}
+                      isPaused={false}
+                      isInterrupted={false}
+                      duration={0}
+                      onStart={handleStartRecording}
+                      onStop={() => { }}
+                      onPause={() => { }}
+                      onResume={() => { }}
+                      onResumeInterrupted={() => { }}
+                    />
+                    <TimerSelector
+                      selected={selectedDuration}
+                      onChange={setSelectedDuration}
+                      disabled={!!selectedPreset}
+                    />
+                  </>
+                )}
               </div>
             )}
 
@@ -1916,19 +1930,65 @@ export default function Home() {
                 onTimeUp={handleTimeUp}
               />
 
-              {/* 録音中のオプション群 — 統一幅 */}
+              {/* 録音中のオプション群 */}
               <div className={styles.recordingOptions}>
-                {/* モードセレクタ + 追加指示（プロンプト） */}
-                <ModeSelector
-                  selectedMode={mode}
-                  onModeChange={setMode}
-                  selectedPreset={selectedPreset}
-                  onPresetChange={setSelectedPreset}
-                  hidePresets
-                  compact
-                  additionalPrompt={additionalPrompt}
-                  onAdditionalPromptChange={setAdditionalPrompt}
-                />
+                {/* プリセット名 or モード表示 */}
+                {selectedPreset ? (
+                  <div className={styles.recordingPresetInfo}>
+                    <span className={styles.recordingPresetName}>{selectedPreset.name}</span>
+                  </div>
+                ) : (
+                  <ModeSelector
+                    selectedMode={mode}
+                    onModeChange={setMode}
+                    hidePresets
+                    compact
+                  />
+                )}
+
+                {/* 参加者一覧（インライン表示） */}
+                {confirmedParticipants.length > 0 && (
+                  <div
+                    className={styles.recordingParticipants}
+                    onClick={() => setShowParticipantEdit(true)}
+                    role="button"
+                    tabIndex={0}
+                  >
+                    <span className={styles.recordingParticipantsLabel}>
+                      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: "-2px" }}>
+                        <path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                      </svg>
+                      {" "}{confirmedParticipants.length}名
+                    </span>
+                    <span className={styles.recordingParticipantNames}>
+                      {confirmedParticipants.map(p => p.name).join("、")}
+                    </span>
+                    <span className={styles.recordingParticipantsEdit}>変更</span>
+                  </div>
+                )}
+
+                {/* 追加の指示（プロンプト） */}
+                <div className={styles.recordingOptionItem}>
+                  <button
+                    className={`${styles.optionToggle} ${additionalPrompt ? styles.optionToggleActive : ''}`}
+                    onClick={() => {
+                      const el = document.getElementById('recording-prompt-area');
+                      if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+                    }}
+                  >
+                    <span className={styles.optionToggleArrow}>▼</span>
+                    <span>追加の指示</span>
+                  </button>
+                  <textarea
+                    id="recording-prompt-area"
+                    className={styles.optionTextarea}
+                    style={{ display: 'none' }}
+                    value={additionalPrompt}
+                    onChange={(e) => setAdditionalPrompt(e.target.value)}
+                    placeholder="例: 日本語と英語の併記にして / タスクを全て拾って"
+                    rows={3}
+                  />
+                </div>
 
                 {/* 資料追加 */}
                 <FileUpload
@@ -1936,7 +1996,7 @@ export default function Home() {
                   onFilesChange={setFiles}
                   acceptTypes="application/pdf,image/*,.txt"
                   compact={true}
-                  compactLabel="資料を追加"
+                  compactLabel="補足資料を追加"
                 />
 
                 {/* メモ */}
@@ -1946,11 +2006,10 @@ export default function Home() {
                     onClick={() => {
                       const el = document.getElementById('meeting-notes-area');
                       if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
-                      else return;
                     }}
                   >
                     <span className={styles.optionToggleArrow}>▼</span>
-                    <span>📌 メモ</span>
+                    <span>メモ</span>
                   </button>
                   <textarea
                     id="meeting-notes-area"
@@ -1965,16 +2024,18 @@ export default function Home() {
 
                 {/* キャンセルボタン（最下部） */}
                 <button className={styles.cancelRecordingButton} onClick={handleCancelRecording}>
-                  ✕ キャンセルしてトップへ戻る
+                  キャンセル
                 </button>
               </div>
             </div>
 
-            {/* Floating participant edit button */}
-            <ParticipantEditButton
-              onClick={() => setShowParticipantEdit(true)}
-              participantCount={confirmedParticipants.length}
-            />
+            {/* Floating participant edit button (hidden when inline display is shown) */}
+            {confirmedParticipants.length === 0 && (
+              <ParticipantEditButton
+                onClick={() => setShowParticipantEdit(true)}
+                participantCount={confirmedParticipants.length}
+              />
+            )}
 
             {/* Floating participant edit modal */}
             {showParticipantEdit && (

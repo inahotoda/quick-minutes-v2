@@ -463,6 +463,64 @@
     }
 }
 
+/* 録音画面: プリセット名表示 */
+.recordingPresetInfo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 16px;
+    background: rgba(99, 102, 241, 0.08);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 10px;
+    width: 100%;
+}
+
+.recordingPresetName {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #c7d2fe;
+}
+
+/* 録音画面: 参加者インライン表示 */
+.recordingParticipants {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    width: 100%;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.recordingParticipants:hover {
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.recordingParticipantsLabel {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.5);
+    flex-shrink: 0;
+}
+
+.recordingParticipantNames {
+    flex: 1;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.65);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.recordingParticipantsEdit {
+    font-size: 0.72rem;
+    color: #a5b4fc;
+    flex-shrink: 0;
+}
+
 /* 折りたたみ式入力アイテム */
 .recordingOptionItem {
     width: 100%;
