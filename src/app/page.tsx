@@ -511,6 +511,13 @@ export default function Home() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ minutesText: minutesBody }),
+          }).then(res => res.json()).then(data => {
+            if (data.autoRegistered > 0 || data.pendingReview > 0) {
+              const parts = [];
+              if (data.autoRegistered > 0) parts.push(`✅ ${data.autoRegistered}件自動登録`);
+              if (data.pendingReview > 0) parts.push(`❓ ${data.pendingReview}件確認待ち`);
+              console.log(`📖 [用語辞書] ${parts.join(" / ")}`);
+            }
           }).catch(() => {});
         }
         // パイプライン2: 人物分析（profile_analysis が有効な場合のみ）
@@ -666,6 +673,13 @@ export default function Home() {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ minutesText: minutesBody }),
+          }).then(res => res.json()).then(data => {
+            if (data.autoRegistered > 0 || data.pendingReview > 0) {
+              const parts = [];
+              if (data.autoRegistered > 0) parts.push(`✅ ${data.autoRegistered}件自動登録`);
+              if (data.pendingReview > 0) parts.push(`❓ ${data.pendingReview}件確認待ち`);
+              console.log(`📖 [用語辞書] ${parts.join(" / ")}`);
+            }
           }).catch(() => {});
         }
         if (tenantFeatures?.profile_analysis) {

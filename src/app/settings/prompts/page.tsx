@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import styles from "../settings.module.css";
 
@@ -15,16 +15,17 @@ interface PromptConfig {
     history?: any[];
 }
 
-// --- 用語辞書データ構造 ---
+// --- 用語辞書データ構造（3フィールド） ---
 interface TermEntry {
     term: string;
-    reading: string; // 読み仮名 or 正式名称
+    reading: string;
+    description: string;
 }
 
 interface TermCategories {
-    companyBrand: TermEntry[];   // 社名・ブランド名
-    abbreviation: TermEntry[];   // 略語・社内用語
-    technical: TermEntry[];      // 専門用語
+    companyBrand: TermEntry[];
+    abbreviation: TermEntry[];
+    technical: TermEntry[];
 }
 
 const EMPTY_CATEGORIES: TermCategories = {
@@ -33,152 +34,77 @@ const EMPTY_CATEGORIES: TermCategories = {
     technical: [],
 };
 
-// --- パース: terminology文字列 → 構造化データ ---
+// --- パース: 1行 → TermEntry（新旧フォーマット両対応） ---
+function parseSingleTermLine(cleaned: string): TermEntry {
+    // 新フォーマット: "用語（読み）— 説明"
+    const newFormat = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])\s*[—\-]\s*(.+)$/);
+    if (newFormat) return { term: newFormat[1].trim(), reading: newFormat[2].trim(), description: newFormat[3].trim() };
+
+    // 旧フォーマット: "用語（読み）"
+    const reading = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])$/);
+    if (reading) return { term: reading[1].trim(), reading: reading[2].trim(), description: "" };
+
+    // 旧フォーマット: "用語 = 正式名称"
+    const eq = cleaned.match(/^(.+?)\s*=\s*(.+)$/);
+    if (eq) return { term: eq[1].trim(), reading: "", description: eq[2].trim() };
+
+    return { term: cleaned, reading: "", description: "" };
+}
+
 function parseTerminology(raw: string): TermCategories {
     if (!raw || !raw.trim()) return { ...EMPTY_CATEGORIES };
-
-    const categories: TermCategories = {
-        companyBrand: [],
-        abbreviation: [],
-        technical: [],
-    };
-
-    // 新フォーマット: "## カテゴリ名" で区切られている場合
+    const categories: TermCategories = { companyBrand: [], abbreviation: [], technical: [] };
     const hasCategories = /^##\s/m.test(raw);
 
     if (!hasCategories) {
-        // 旧フォーマット: すべて「専門用語」カテゴリにフォールバック
-        const lines = raw.split("\n").filter(l => l.trim());
-        for (const line of lines) {
+        for (const line of raw.split("\n").filter(l => l.trim())) {
             const cleaned = line.replace(/^[-・]\s*/, "").trim();
-            if (!cleaned) continue;
-
-            // "用語（読み仮名）" or "用語(読み仮名)" パターン
-            const readingMatch = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])$/);
-            // "略語 = 正式名称" パターン
-            const eqMatch = cleaned.match(/^(.+?)\s*=\s*(.+)$/);
-            // カンマ区切りの場合
-            if (cleaned.includes(",") || cleaned.includes("、")) {
-                const items = cleaned.split(/[,、]\s*/);
-                for (const item of items) {
-                    const im = item.trim().match(/^(.+?)(?:[（(])(.+?)(?:[）)])$/);
-                    if (im) {
-                        categories.technical.push({ term: im[1].trim(), reading: im[2].trim() });
-                    } else if (item.trim()) {
-                        categories.technical.push({ term: item.trim(), reading: "" });
-                    }
-                }
-            } else if (readingMatch) {
-                categories.technical.push({ term: readingMatch[1].trim(), reading: readingMatch[2].trim() });
-            } else if (eqMatch) {
-                categories.abbreviation.push({ term: eqMatch[1].trim(), reading: eqMatch[2].trim() });
-            } else {
-                categories.technical.push({ term: cleaned, reading: "" });
-            }
+            if (cleaned) categories.technical.push(parseSingleTermLine(cleaned));
         }
         return categories;
     }
 
-    // 新フォーマット: セクション別にパース
-    let currentCategory: keyof TermCategories = "technical";
-    const lines = raw.split("\n");
-
-    for (const line of lines) {
+    let current: keyof TermCategories = "technical";
+    for (const line of raw.split("\n")) {
         const trimmed = line.trim();
-
-        // セクション見出し判定
         if (/^##\s/.test(trimmed)) {
-            if (/社名|ブランド/i.test(trimmed)) {
-                currentCategory = "companyBrand";
-            } else if (/略語|社内/i.test(trimmed)) {
-                currentCategory = "abbreviation";
-            } else if (/専門/i.test(trimmed)) {
-                currentCategory = "technical";
-            }
+            if (/社名|ブランド/i.test(trimmed)) current = "companyBrand";
+            else if (/略語|社内/i.test(trimmed)) current = "abbreviation";
+            else if (/専門/i.test(trimmed)) current = "technical";
             continue;
         }
-
         const cleaned = trimmed.replace(/^[-・]\s*/, "").trim();
-        if (!cleaned) continue;
-
-        // "用語（読み仮名）" パターン
-        const readingMatch = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])$/);
-        // "略語 = 正式名称" パターン
-        const eqMatch = cleaned.match(/^(.+?)\s*=\s*(.+)$/);
-
-        if (currentCategory === "abbreviation" && eqMatch) {
-            categories.abbreviation.push({ term: eqMatch[1].trim(), reading: eqMatch[2].trim() });
-        } else if (readingMatch) {
-            categories[currentCategory].push({ term: readingMatch[1].trim(), reading: readingMatch[2].trim() });
-        } else {
-            categories[currentCategory].push({ term: cleaned, reading: "" });
-        }
+        if (cleaned) categories[current].push(parseSingleTermLine(cleaned));
     }
-
     return categories;
 }
 
-// --- シリアライズ: 構造化データ → terminology文字列 ---
 function serializeTerminology(categories: TermCategories): string {
     const sections: string[] = [];
-
-    if (categories.companyBrand.length > 0) {
-        const lines = categories.companyBrand.map(e =>
-            e.reading ? `- ${e.term}（${e.reading}）` : `- ${e.term}`
-        );
-        sections.push(`## 社名・ブランド名\n${lines.join("\n")}`);
-    }
-
-    if (categories.abbreviation.length > 0) {
-        const lines = categories.abbreviation.map(e =>
-            e.reading ? `- ${e.term} = ${e.reading}` : `- ${e.term}`
-        );
-        sections.push(`## 略語・社内用語\n${lines.join("\n")}`);
-    }
-
-    if (categories.technical.length > 0) {
-        const lines = categories.technical.map(e =>
-            e.reading ? `- ${e.term}（${e.reading}）` : `- ${e.term}`
-        );
-        sections.push(`## 専門用語\n${lines.join("\n")}`);
-    }
-
+    const fmt = (e: TermEntry) => {
+        let line = `- ${e.term}`;
+        if (e.reading) line += `（${e.reading}）`;
+        if (e.description) line += ` — ${e.description}`;
+        return line;
+    };
+    if (categories.companyBrand.length > 0) sections.push(`## 社名・ブランド名\n${categories.companyBrand.map(fmt).join("\n")}`);
+    if (categories.abbreviation.length > 0) sections.push(`## 略語・社内用語\n${categories.abbreviation.map(fmt).join("\n")}`);
+    if (categories.technical.length > 0) sections.push(`## 専門用語\n${categories.technical.map(fmt).join("\n")}`);
     return sections.join("\n\n");
 }
 
 // --- カテゴリ設定 ---
-const CATEGORY_CONFIG = {
-    companyBrand: {
-        icon: "🏢",
-        title: "社名・ブランド名",
-        subtitle: "取引先やブランド名など、読み間違えやすい固有名詞",
-        col1: "用語",
-        col2: "読み仮名（任意）",
-        placeholder1: "例: YANUK",
-        placeholder2: "例: やぬーく",
-        borderColor: "#6366f1",
-    },
-    abbreviation: {
-        icon: "🔤",
-        title: "略語・社内用語",
-        subtitle: "アルファベット略語とその正式名称",
-        col1: "略語",
-        col2: "正式名称（任意）",
-        placeholder1: "例: AMS",
-        placeholder2: "例: 生産管理システム",
-        borderColor: "#10b981",
-    },
-    technical: {
-        icon: "🔧",
-        title: "専門用語",
-        subtitle: "業界特有の専門用語（一般辞書にないもの）",
-        col1: "用語",
-        col2: "読み仮名（任意）",
-        placeholder1: "例: 反内縫製",
-        placeholder2: "例: たんない",
-        borderColor: "#f59e0b",
-    },
-} as const;
+const CATEGORY_CONFIG: Record<string, { icon: string; label: string; color: string; bg: string; border: string }> = {
+    companyBrand: { icon: "🏢", label: "社名・ブランド名", color: "#a5b4fc", bg: "rgba(99,102,241,0.15)", border: "rgba(99,102,241,0.3)" },
+    abbreviation: { icon: "🔤", label: "略語・社内用語", color: "#6ee7b7", bg: "rgba(16,185,129,0.15)", border: "rgba(16,185,129,0.3)" },
+    technical: { icon: "🔧", label: "専門用語", color: "#fcd34d", bg: "rgba(245,158,11,0.15)", border: "rgba(245,158,11,0.3)" },
+};
+
+const CATEGORY_GUESS_TO_KEY: Record<string, keyof TermCategories> = {
+    "略語・社内用語": "abbreviation",
+    "専門用語": "technical",
+    "社名・ブランド名": "companyBrand",
+};
 
 // 未解決用語の型
 interface UnresolvedTerm {
@@ -188,25 +114,143 @@ interface UnresolvedTerm {
     context: string;
     category_guess: string;
     occurrence_count: number;
-    first_seen_at: string;
-    last_seen_at: string;
-    status: string;
 }
 
-// カテゴリ名 → キーのマッピング
-const CATEGORY_GUESS_TO_KEY: Record<string, keyof TermCategories> = {
-    "略語・社内用語": "abbreviation",
-    "専門用語": "technical",
-    "社名・ブランド名": "companyBrand",
-};
+// --- 展開型カードコンポーネント（登録済み用語用） ---
+function RegisteredTermCard({
+    entry,
+    catKey,
+    onUpdate,
+    onDelete,
+}: {
+    entry: TermEntry;
+    catKey: string;
+    onUpdate: (field: keyof TermEntry, value: string) => void;
+    onDelete: () => void;
+}) {
+    const [expanded, setExpanded] = useState(false);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const config = CATEGORY_CONFIG[catKey];
 
-// カテゴリごとのフィールドラベル
-const CATEGORY_FIELD_LABELS: Record<string, { col1: string; col2: string; placeholder2: string }> = {
-    "略語・社内用語": { col1: "略語", col2: "正式名称", placeholder2: "例: 生産管理システム" },
-    "専門用語": { col1: "用語", col2: "意味・説明", placeholder2: "例: 縫い目の種類のひとつ" },
-    "社名・ブランド名": { col1: "社名", col2: "読み", placeholder2: "例: せいたひふく" },
-};
+    return (
+        <div
+            className={styles.termCard}
+            style={{ borderLeftColor: config?.border || "rgba(255,255,255,0.1)" }}
+        >
+            <div className={styles.termCardHeader} onClick={() => setExpanded(!expanded)}>
+                <span className={styles.termName}>{entry.term}</span>
+                {entry.reading && <span className={styles.termReading}>{entry.reading}</span>}
+                <span className={styles.termBadge} style={{ background: config?.bg, borderColor: config?.border, color: config?.color }}>
+                    {config?.label || catKey}
+                </span>
+                <span className={styles.termChevron} style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+            </div>
+            <div
+                ref={contentRef}
+                className={styles.termCardBody}
+                style={{
+                    maxHeight: expanded ? (contentRef.current?.scrollHeight || 200) + 20 : 0,
+                    opacity: expanded ? 1 : 0,
+                }}
+            >
+                <div className={styles.termEditGrid}>
+                    <label className={styles.termEditLabel}>用語</label>
+                    <input className={styles.termEditInput} value={entry.term} onChange={e => onUpdate("term", e.target.value)} />
+                    <label className={styles.termEditLabel}>読み</label>
+                    <input className={styles.termEditInput} value={entry.reading} onChange={e => onUpdate("reading", e.target.value)} placeholder="読み仮名（任意）" />
+                    <label className={styles.termEditLabel}>説明</label>
+                    <input className={styles.termEditInput} value={entry.description} onChange={e => onUpdate("description", e.target.value)} placeholder="正式名称・説明（任意）" />
+                </div>
+                {entry.description && !expanded && null}
+                <div className={styles.termActions}>
+                    <button className={styles.termDeleteBtn} onClick={(e) => { e.stopPropagation(); onDelete(); }}>削除</button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
+// --- 展開型カードコンポーネント（未解決用語用） ---
+function UnresolvedTermCard({
+    item,
+    onRegister,
+    onIgnore,
+    isResolving,
+}: {
+    item: UnresolvedTerm;
+    onRegister: (id: string, category: string, term: string, reading: string, description: string) => void;
+    onIgnore: (id: string) => void;
+    isResolving: boolean;
+}) {
+    const [expanded, setExpanded] = useState(false);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const [category, setCategory] = useState(item.category_guess);
+    const [reading, setReading] = useState("");
+    const [description, setDescription] = useState(item.supplementary || "");
+    const catKey = CATEGORY_GUESS_TO_KEY[category] || "technical";
+    const config = CATEGORY_CONFIG[catKey];
+
+    return (
+        <div className={styles.termCard} style={{ borderLeftColor: "#f59e0b" }}>
+            <div className={styles.termCardHeader} onClick={() => setExpanded(!expanded)}>
+                <span className={styles.termName}>{item.term}</span>
+                <span className={styles.termBadge} style={{ background: config?.bg, borderColor: config?.border, color: config?.color }}>
+                    {category}
+                </span>
+                {item.occurrence_count > 1 && (
+                    <span className={styles.termOccurrence}>{item.occurrence_count}回</span>
+                )}
+                <span className={styles.termChevron} style={{ transform: expanded ? "rotate(180deg)" : "rotate(0deg)" }}>▼</span>
+            </div>
+            <div
+                ref={contentRef}
+                className={styles.termCardBody}
+                style={{
+                    maxHeight: expanded ? (contentRef.current?.scrollHeight || 300) + 20 : 0,
+                    opacity: expanded ? 1 : 0,
+                }}
+            >
+                <div className={styles.termEditGrid}>
+                    <label className={styles.termEditLabel}>読み</label>
+                    <input className={styles.termEditInput} value={reading} onChange={e => setReading(e.target.value)} placeholder="読み仮名（任意）" />
+                    <label className={styles.termEditLabel}>説明</label>
+                    <input className={styles.termEditInput} value={description} onChange={e => setDescription(e.target.value)} placeholder="正式名称・説明（任意）" />
+                    <label className={styles.termEditLabel}>カテゴリ</label>
+                    <select className={styles.termEditInput} value={category} onChange={e => setCategory(e.target.value)}>
+                        <option value="社名・ブランド名">🏢 社名・ブランド名</option>
+                        <option value="略語・社内用語">🔤 略語・社内用語</option>
+                        <option value="専門用語">🔧 専門用語</option>
+                    </select>
+                </div>
+                {item.context && (
+                    <p className={styles.termContext}>
+                        💬 {item.context}
+                    </p>
+                )}
+                <div className={styles.termActions}>
+                    <button
+                        className={styles.termRegisterBtn}
+                        onClick={(e) => { e.stopPropagation(); onRegister(item.id, category, item.term, reading, description); }}
+                        disabled={isResolving}
+                    >
+                        {isResolving ? "登録中..." : "登録する"}
+                    </button>
+                    <button
+                        className={styles.termIgnoreBtn}
+                        onClick={(e) => { e.stopPropagation(); onIgnore(item.id); }}
+                        disabled={isResolving}
+                    >
+                        不要
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// =======================================================
+// メインページ
+// =======================================================
 export default function PromptsSettingsPage() {
     const router = useRouter();
     const [loading, setLoading] = useState(true);
@@ -215,45 +259,23 @@ export default function PromptsSettingsPage() {
     const [toast, setToast] = useState<string | null>(null);
 
     const [settings, setSettings] = useState<PromptConfig>({
-        basePrompt: "",
-        internalPrompt: "",
-        businessPrompt: "",
-        otherPrompt: "",
-        terminology: "",
+        basePrompt: "", internalPrompt: "", businessPrompt: "", otherPrompt: "", terminology: "",
     });
-
-    // 変更検知用: 初期値を保持
     const [savedSettings, setSavedSettings] = useState<PromptConfig>({
-        basePrompt: "",
-        internalPrompt: "",
-        businessPrompt: "",
-        otherPrompt: "",
-        terminology: "",
+        basePrompt: "", internalPrompt: "", businessPrompt: "", otherPrompt: "", terminology: "",
     });
     const [savedTermCategories, setSavedTermCategories] = useState<TermCategories>({ ...EMPTY_CATEGORIES });
-
-    // 用語辞書の構造化データ
     const [termCategories, setTermCategories] = useState<TermCategories>({ ...EMPTY_CATEGORIES });
-
-    // 各カテゴリの入力中の値
-    const [inputs, setInputs] = useState<Record<keyof TermCategories, { term: string; reading: string }>>({
-        companyBrand: { term: "", reading: "" },
-        abbreviation: { term: "", reading: "" },
-        technical: { term: "", reading: "" },
-    });
 
     // 未解決用語
     const [unresolvedTerms, setUnresolvedTerms] = useState<UnresolvedTerm[]>([]);
-    const [hiddenTermIds, setHiddenTermIds] = useState<Set<string>>(new Set());
     const [resolvingId, setResolvingId] = useState<string | null>(null);
 
-    // 登録モーダル
-    const [registerModal, setRegisterModal] = useState<{
-        item: UnresolvedTerm;
-        category: string;
-        term: string;
-        reading: string;
-    } | null>(null);
+    // 新規追加フォーム
+    const [showAddForm, setShowAddForm] = useState(false);
+    const [newTerm, setNewTerm] = useState<TermEntry & { category: keyof TermCategories }>({
+        term: "", reading: "", description: "", category: "technical",
+    });
 
     // 変更検知
     const hasUnsavedChanges = useCallback(() => {
@@ -265,13 +287,8 @@ export default function PromptsSettingsPage() {
         return false;
     }, [settings, savedSettings, termCategories, savedTermCategories]);
 
-    // 未保存の変更がある場合にページ離脱を警告
     useEffect(() => {
-        const handler = (e: BeforeUnloadEvent) => {
-            if (hasUnsavedChanges()) {
-                e.preventDefault();
-            }
-        };
+        const handler = (e: BeforeUnloadEvent) => { if (hasUnsavedChanges()) e.preventDefault(); };
         window.addEventListener("beforeunload", handler);
         return () => window.removeEventListener("beforeunload", handler);
     }, [hasUnsavedChanges]);
@@ -297,7 +314,6 @@ export default function PromptsSettingsPage() {
         fetchPrompts();
     }, []);
 
-    // 未解決用語を取得
     useEffect(() => {
         fetch("/api/terminology/unresolved")
             .then(res => res.json())
@@ -305,40 +321,63 @@ export default function PromptsSettingsPage() {
             .catch(() => {});
     }, []);
 
-    // 用語を追加
-    const addTerm = useCallback((category: keyof TermCategories) => {
-        const input = inputs[category];
-        if (!input.term.trim()) return;
-
+    // 登録済み用語を編集
+    const updateTerm = useCallback((catKey: keyof TermCategories, index: number, field: keyof TermEntry, value: string) => {
         setTermCategories(prev => ({
             ...prev,
-            [category]: [...prev[category], { term: input.term.trim(), reading: input.reading.trim() }],
-        }));
-        setInputs(prev => ({
-            ...prev,
-            [category]: { term: "", reading: "" },
-        }));
-    }, [inputs]);
-
-    // 用語を編集
-    const updateTerm = useCallback((category: keyof TermCategories, index: number, field: "term" | "reading", value: string) => {
-        setTermCategories(prev => ({
-            ...prev,
-            [category]: prev[category].map((entry, i) =>
-                i === index ? { ...entry, [field]: value } : entry
-            ),
+            [catKey]: prev[catKey].map((entry, i) => i === index ? { ...entry, [field]: value } : entry),
         }));
     }, []);
 
-    // 用語を削除
-    const removeTerm = useCallback((category: keyof TermCategories, index: number) => {
+    // 登録済み用語を削除
+    const removeTerm = useCallback((catKey: keyof TermCategories, index: number) => {
         setTermCategories(prev => ({
             ...prev,
-            [category]: prev[category].filter((_, i) => i !== index),
+            [catKey]: prev[catKey].filter((_, i) => i !== index),
         }));
     }, []);
 
-    // 未解決用語: 無視する
+    // 新規用語を追加
+    const addNewTerm = useCallback(() => {
+        if (!newTerm.term.trim()) return;
+        setTermCategories(prev => ({
+            ...prev,
+            [newTerm.category]: [...prev[newTerm.category], { term: newTerm.term.trim(), reading: newTerm.reading.trim(), description: newTerm.description.trim() }],
+        }));
+        setNewTerm({ term: "", reading: "", description: "", category: "technical" });
+        setShowAddForm(false);
+    }, [newTerm]);
+
+    // 未解決用語を登録
+    const handleRegister = async (id: string, category: string, term: string, reading: string, description: string) => {
+        setResolvingId(id);
+        try {
+            const res = await fetch("/api/terminology/resolve", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ id, action: "register", category, term, reading, description }),
+            });
+            if (res.ok) {
+                setUnresolvedTerms(prev => prev.filter(t => t.id !== id));
+                const catKey = CATEGORY_GUESS_TO_KEY[category];
+                if (catKey) {
+                    setTermCategories(prev => ({
+                        ...prev,
+                        [catKey]: [...prev[catKey], { term, reading, description }],
+                    }));
+                    setSavedTermCategories(prev => ({
+                        ...prev,
+                        [catKey]: [...prev[catKey], { term, reading, description }],
+                    }));
+                }
+                setToast("辞書に登録しました");
+                setTimeout(() => setToast(null), 3000);
+            }
+        } catch {}
+        setResolvingId(null);
+    };
+
+    // 未解決用語を無視
     const handleIgnore = async (id: string) => {
         setResolvingId(id);
         try {
@@ -354,13 +393,12 @@ export default function PromptsSettingsPage() {
         setResolvingId(null);
     };
 
-    // 未解決用語: 全て登録（AIの推定カテゴリ・読みでまとめて登録）
+    // 全て登録
     const handleRegisterAll = async () => {
-        const items = unresolvedTerms.filter(t => !hiddenTermIds.has(t.id));
-        if (items.length === 0) return;
+        if (unresolvedTerms.length === 0) return;
         setResolvingId("all");
         try {
-            for (const item of items) {
+            for (const item of unresolvedTerms) {
                 await fetch("/api/terminology/resolve", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -369,62 +407,33 @@ export default function PromptsSettingsPage() {
                         action: "register",
                         category: item.category_guess,
                         term: item.term,
-                        reading: item.supplementary || "",
+                        reading: "",
+                        description: item.supplementary || "",
                     }),
                 });
             }
+            // ローカル状態も更新
+            for (const item of unresolvedTerms) {
+                const catKey = CATEGORY_GUESS_TO_KEY[item.category_guess];
+                if (catKey) {
+                    setTermCategories(prev => ({
+                        ...prev,
+                        [catKey]: [...prev[catKey], { term: item.term, reading: "", description: item.supplementary || "" }],
+                    }));
+                    setSavedTermCategories(prev => ({
+                        ...prev,
+                        [catKey]: [...prev[catKey], { term: item.term, reading: "", description: item.supplementary || "" }],
+                    }));
+                }
+            }
             setUnresolvedTerms([]);
-            setToast(`${items.length}件の用語を辞書に登録しました`);
+            setToast(`${unresolvedTerms.length}件の用語を辞書に登録しました`);
             setTimeout(() => setToast(null), 3000);
         } catch {}
         setResolvingId(null);
     };
 
-    // 未解決用語: 登録モーダルを開く
-    const openRegisterModal = (item: UnresolvedTerm) => {
-        setRegisterModal({
-            item,
-            category: item.category_guess,
-            term: item.term,
-            reading: item.supplementary || "",
-        });
-    };
-
-    // 未解決用語: 登録実行
-    const handleRegister = async () => {
-        if (!registerModal) return;
-        setResolvingId(registerModal.item.id);
-        try {
-            const res = await fetch("/api/terminology/resolve", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    id: registerModal.item.id,
-                    action: "register",
-                    category: registerModal.category,
-                    term: registerModal.term,
-                    reading: registerModal.reading,
-                }),
-            });
-            if (res.ok) {
-                setUnresolvedTerms(prev => prev.filter(t => t.id !== registerModal.item.id));
-                // ローカルの辞書データも更新
-                const catKey = CATEGORY_GUESS_TO_KEY[registerModal.category];
-                if (catKey) {
-                    setTermCategories(prev => ({
-                        ...prev,
-                        [catKey]: [...prev[catKey], { term: registerModal.term, reading: registerModal.reading }],
-                    }));
-                }
-                setRegisterModal(null);
-                setToast("辞書に登録しました");
-                setTimeout(() => setToast(null), 3000);
-            }
-        } catch {}
-        setResolvingId(null);
-    };
-
-    // 保存（terminology文字列にシリアライズしてから保存）
+    // 保存
     const handleSave = async () => {
         setSaving(true);
         setMessage(null);
@@ -437,7 +446,6 @@ export default function PromptsSettingsPage() {
                 otherPrompt: settings.otherPrompt,
                 terminology: terminologyStr,
             };
-
             const res = await fetch("/api/prompts", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -455,7 +463,7 @@ export default function PromptsSettingsPage() {
             } else {
                 throw new Error("Save failed");
             }
-        } catch (err) {
+        } catch {
             setMessage({ type: "error", text: "保存に失敗しました" });
         } finally {
             setSaving(false);
@@ -464,45 +472,31 @@ export default function PromptsSettingsPage() {
 
     const handleRestore = (oldVersion: any) => {
         if (confirm("このバージョンの内容を表示しますか？（現在の編集内容は上書きされます）")) {
-            setSettings({
-                ...settings,
-                basePrompt: oldVersion.basePrompt,
-                internalPrompt: oldVersion.internalPrompt,
-                businessPrompt: oldVersion.businessPrompt,
-                otherPrompt: oldVersion.otherPrompt,
-                terminology: oldVersion.terminology,
-            });
+            setSettings({ ...settings, basePrompt: oldVersion.basePrompt, internalPrompt: oldVersion.internalPrompt, businessPrompt: oldVersion.businessPrompt, otherPrompt: oldVersion.otherPrompt, terminology: oldVersion.terminology });
             setTermCategories(parseTerminology(oldVersion.terminology || ""));
             window.scrollTo({ top: 0, behavior: "smooth" });
             setMessage({ type: "success", text: "履歴から復元しました（「保存」するまで確定されません）" });
         }
     };
 
-    // Enterキーで追加（IME変換中は無視）
-    const handleKeyDown = (e: React.KeyboardEvent, category: keyof TermCategories) => {
-        if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-            e.preventDefault();
-            addTerm(category);
-        }
-    };
-
     if (loading) {
-        return (
-            <div className={styles.loading}>
-                <div className={styles.spinner} />
-                <p>読み込み中...</p>
-            </div>
-        );
+        return <div className={styles.loading}><div className={styles.spinner} /><p>読み込み中...</p></div>;
     }
 
     const totalTerms = termCategories.companyBrand.length + termCategories.abbreviation.length + termCategories.technical.length;
 
+    // 登録済み用語をフラットリストに変換
+    const allRegisteredTerms: { entry: TermEntry; catKey: keyof TermCategories; index: number }[] = [];
+    for (const catKey of ["companyBrand", "abbreviation", "technical"] as (keyof TermCategories)[]) {
+        termCategories[catKey].forEach((entry, index) => {
+            allRegisteredTerms.push({ entry, catKey, index });
+        });
+    }
+
     return (
         <div className={styles.main}>
             <header className={styles.header}>
-                <button className={styles.backButton} onClick={() => router.push("/settings")}>
-                    ← 設定に戻る
-                </button>
+                <button className={styles.backButton} onClick={() => router.push("/settings")}>← 設定に戻る</button>
                 <h1 className={styles.title}>📝 カスタムプロンプト設定</h1>
                 <div style={{ width: 80 }}></div>
             </header>
@@ -523,288 +517,113 @@ export default function PromptsSettingsPage() {
                 <section className={styles.section}>
                     <h2>基本プロンプト</h2>
                     <p className={styles.help}>議事録の全体的な構成やトーンを指定します。</p>
-                    <textarea
-                        value={settings.basePrompt}
-                        onChange={(e) => setSettings({ ...settings, basePrompt: e.target.value })}
-                        placeholder="あなたは優秀な議事録作成アシスタントです。..."
-                        rows={8}
-                    />
+                    <textarea value={settings.basePrompt} onChange={e => setSettings({ ...settings, basePrompt: e.target.value })} placeholder="あなたは優秀な議事録作成アシスタントです。..." rows={8} />
                 </section>
 
                 <section className={styles.section}>
                     <h2>社内MTGモード</h2>
                     <p className={styles.help}>「社内」モード選択時に追加される指示です。</p>
-                    <textarea
-                        value={settings.internalPrompt}
-                        onChange={(e) => setSettings({ ...settings, internalPrompt: e.target.value })}
-                        placeholder="決定事項とアクションアイテムを優先的に抽出してください。..."
-                        rows={5}
-                    />
+                    <textarea value={settings.internalPrompt} onChange={e => setSettings({ ...settings, internalPrompt: e.target.value })} placeholder="決定事項とアクションアイテムを優先的に抽出してください。..." rows={5} />
                 </section>
 
                 <section className={styles.section}>
                     <h2>商談モード</h2>
                     <p className={styles.help}>「商談」モード選択時に追加される指示です。</p>
-                    <textarea
-                        value={settings.businessPrompt}
-                        onChange={(e) => setSettings({ ...settings, businessPrompt: e.target.value })}
-                        placeholder="顧客の課題、提案への反応、ネクストアクションを整理してください。..."
-                        rows={5}
-                    />
+                    <textarea value={settings.businessPrompt} onChange={e => setSettings({ ...settings, businessPrompt: e.target.value })} placeholder="顧客の課題、提案への反応、ネクストアクションを整理してください。..." rows={5} />
                 </section>
-
-                {/* ===== 未解決の用語 ===== */}
-                {unresolvedTerms.filter(t => !hiddenTermIds.has(t.id)).length > 0 && (
-                    <section className={styles.section}>
-                        <div className={styles.unresolvedHeader}>
-                            <h2>🔍 未解決の用語</h2>
-                            <span className={styles.unresolvedCount}>
-                                {unresolvedTerms.filter(t => !hiddenTermIds.has(t.id)).length}件
-                            </span>
-                        </div>
-                        <p className={styles.help}>
-                            AIが議事録から検出した未登録の専門用語です。辞書に登録すると次回以降の精度が向上します。
-                        </p>
-
-                        <button
-                            className={styles.unresolvedRegisterAllBtn}
-                            onClick={handleRegisterAll}
-                            disabled={resolvingId === "all"}
-                        >
-                            {resolvingId === "all" ? "登録中..." : "全て登録"}
-                        </button>
-
-                        <div className={styles.unresolvedList}>
-                            {unresolvedTerms
-                                .filter(t => !hiddenTermIds.has(t.id))
-                                .map(item => (
-                                    <div key={item.id} className={styles.unresolvedItem}>
-                                        <div className={styles.unresolvedItemMain}>
-                                            <div className={styles.unresolvedTermRow}>
-                                                <span className={styles.unresolvedTerm}>{item.term}</span>
-                                                <span className={styles.unresolvedCategory}>{item.category_guess}</span>
-                                                {item.occurrence_count > 1 && (
-                                                    <span className={styles.unresolvedOccurrence}>
-                                                        {item.occurrence_count}回出現
-                                                    </span>
-                                                )}
-                                            </div>
-                                            {item.supplementary && (
-                                                <p className={styles.unresolvedSupplementary}>
-                                                    AI推定: {item.supplementary}
-                                                </p>
-                                            )}
-                                            <p className={styles.unresolvedContext}>
-                                                {item.context}
-                                            </p>
-                                        </div>
-                                        <div className={styles.unresolvedActions}>
-                                            <button
-                                                className={styles.unresolvedRegisterBtn}
-                                                onClick={() => openRegisterModal(item)}
-                                                disabled={resolvingId === item.id}
-                                            >
-                                                登録する
-                                            </button>
-                                            <button
-                                                className={styles.unresolvedIgnoreBtn}
-                                                onClick={() => handleIgnore(item.id)}
-                                                disabled={resolvingId === item.id}
-                                            >
-                                                不要
-                                            </button>
-                                        </div>
-                                    </div>
-                                ))}
-                        </div>
-                    </section>
-                )}
-
-                {/* ===== 登録モーダル ===== */}
-                {registerModal && (
-                    <div className={styles.modalOverlay} onClick={() => setRegisterModal(null)}>
-                        <div className={styles.modalContent} onClick={e => e.stopPropagation()}>
-                            <h3 className={styles.modalTitle}>用語を登録</h3>
-
-                            <div className={styles.modalField}>
-                                <label className={styles.modalLabel}>カテゴリ</label>
-                                <div className={styles.modalRadioGroup}>
-                                    {["専門用語", "略語・社内用語", "社名・ブランド名"].map(cat => (
-                                        <label key={cat} className={styles.modalRadio}>
-                                            <input
-                                                type="radio"
-                                                name="category"
-                                                checked={registerModal.category === cat}
-                                                onChange={() => setRegisterModal({ ...registerModal, category: cat })}
-                                            />
-                                            <span>{cat}</span>
-                                        </label>
-                                    ))}
-                                </div>
-                            </div>
-
-                            <div className={styles.modalField}>
-                                <label className={styles.modalLabel}>
-                                    {CATEGORY_FIELD_LABELS[registerModal.category]?.col1 || "用語"}
-                                </label>
-                                <input
-                                    className={styles.modalInput}
-                                    type="text"
-                                    value={registerModal.term}
-                                    onChange={e => setRegisterModal({ ...registerModal, term: e.target.value })}
-                                />
-                            </div>
-
-                            <div className={styles.modalField}>
-                                <label className={styles.modalLabel}>
-                                    {CATEGORY_FIELD_LABELS[registerModal.category]?.col2 || "補足"}
-                                </label>
-                                <input
-                                    className={styles.modalInput}
-                                    type="text"
-                                    value={registerModal.reading}
-                                    onChange={e => setRegisterModal({ ...registerModal, reading: e.target.value })}
-                                    placeholder={CATEGORY_FIELD_LABELS[registerModal.category]?.placeholder2}
-                                />
-                            </div>
-
-                            <div className={styles.modalActions}>
-                                <button
-                                    className={styles.modalCancelBtn}
-                                    onClick={() => setRegisterModal(null)}
-                                >
-                                    キャンセル
-                                </button>
-                                <button
-                                    className={styles.modalRegisterBtn}
-                                    onClick={handleRegister}
-                                    disabled={!registerModal.term.trim() || resolvingId === registerModal.item.id}
-                                >
-                                    {resolvingId === registerModal.item.id ? "登録中..." : "登録する"}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
 
                 {/* ===== 用語辞書 ===== */}
                 <section className={styles.section}>
-                    <h2>📖 用語辞書</h2>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                        <h2>📖 用語辞書 {totalTerms > 0 && <span style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.4)", fontWeight: 400 }}>({totalTerms}件)</span>}</h2>
+                        <button
+                            className={styles.termAddNewBtn}
+                            onClick={() => setShowAddForm(!showAddForm)}
+                        >
+                            {showAddForm ? "✕ 閉じる" : "+ 新規追加"}
+                        </button>
+                    </div>
                     <p className={styles.help}>
                         音声で正しく認識されにくい固有名詞や専門用語を登録すると、議事録の精度が向上します。
                     </p>
 
-                    <div className={styles.dictInfo}>
-                        💡 参加者名は「メンバー管理」から自動で反映されるため、ここへの登録は不要です。
-                    </div>
-
-                    {(Object.keys(CATEGORY_CONFIG) as (keyof TermCategories)[]).map((catKey) => {
-                        const config = CATEGORY_CONFIG[catKey];
-                        const entries = termCategories[catKey];
-                        const input = inputs[catKey];
-
-                        return (
-                            <div
-                                key={catKey}
-                                className={styles.dictCategory}
-                                style={{ borderLeftColor: config.borderColor }}
-                            >
-                                <div className={styles.dictCategoryHeader}>
-                                    <div>
-                                        <h3 className={styles.dictCategoryTitle}>
-                                            {config.icon} {config.title}
-                                        </h3>
-                                        <p className={styles.dictCategorySubtitle}>{config.subtitle}</p>
-                                    </div>
-                                    <span className={styles.dictBadge} style={{ background: config.borderColor }}>
-                                        {entries.length}件
-                                    </span>
-                                </div>
-
-                                {entries.length > 0 && (
-                                    <div className={styles.dictList}>
-                                        <div className={styles.dictListHeader}>
-                                            <span>{config.col1}</span>
-                                            <span>{config.col2}</span>
-                                            <span></span>
-                                        </div>
-                                        {entries.map((entry, idx) => (
-                                            <div key={idx} className={styles.dictItem}>
-                                                <input
-                                                    className={styles.dictEditInput}
-                                                    type="text"
-                                                    value={entry.term}
-                                                    onChange={(e) => updateTerm(catKey, idx, "term", e.target.value)}
-                                                />
-                                                <input
-                                                    className={styles.dictEditInput}
-                                                    type="text"
-                                                    value={entry.reading}
-                                                    onChange={(e) => updateTerm(catKey, idx, "reading", e.target.value)}
-                                                    placeholder="—"
-                                                />
-                                                <button
-                                                    className={styles.dictDeleteBtn}
-                                                    onClick={() => removeTerm(catKey, idx)}
-                                                    title="削除"
-                                                >
-                                                    ×
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <div className={styles.dictAddRow}>
-                                    <input
-                                        className={styles.dictInput}
-                                        type="text"
-                                        placeholder={config.placeholder1}
-                                        value={input.term}
-                                        onChange={(e) => setInputs(prev => ({
-                                            ...prev,
-                                            [catKey]: { ...prev[catKey], term: e.target.value },
-                                        }))}
-                                        onKeyDown={(e) => handleKeyDown(e, catKey)}
-                                    />
-                                    <input
-                                        className={styles.dictInput}
-                                        type="text"
-                                        placeholder={config.placeholder2}
-                                        value={input.reading}
-                                        onChange={(e) => setInputs(prev => ({
-                                            ...prev,
-                                            [catKey]: { ...prev[catKey], reading: e.target.value },
-                                        }))}
-                                        onKeyDown={(e) => handleKeyDown(e, catKey)}
-                                    />
-                                    <button
-                                        className={styles.dictAddBtn}
-                                        onClick={() => addTerm(catKey)}
-                                        disabled={!input.term.trim()}
-                                        style={{ borderColor: config.borderColor, color: config.borderColor }}
-                                    >
-                                        + 追加
-                                    </button>
-                                </div>
+                    {/* 新規追加フォーム */}
+                    {showAddForm && (
+                        <div className={styles.termAddForm}>
+                            <div className={styles.termEditGrid}>
+                                <label className={styles.termEditLabel}>用語</label>
+                                <input className={styles.termEditInput} value={newTerm.term} onChange={e => setNewTerm({ ...newTerm, term: e.target.value })} placeholder="例: YANUK" autoFocus />
+                                <label className={styles.termEditLabel}>読み</label>
+                                <input className={styles.termEditInput} value={newTerm.reading} onChange={e => setNewTerm({ ...newTerm, reading: e.target.value })} placeholder="例: やぬーく（任意）" />
+                                <label className={styles.termEditLabel}>説明</label>
+                                <input className={styles.termEditInput} value={newTerm.description} onChange={e => setNewTerm({ ...newTerm, description: e.target.value })} placeholder="例: デニムブランド（任意）" />
+                                <label className={styles.termEditLabel}>カテゴリ</label>
+                                <select className={styles.termEditInput} value={newTerm.category} onChange={e => setNewTerm({ ...newTerm, category: e.target.value as keyof TermCategories })}>
+                                    <option value="companyBrand">🏢 社名・ブランド名</option>
+                                    <option value="abbreviation">🔤 略語・社内用語</option>
+                                    <option value="technical">🔧 専門用語</option>
+                                </select>
                             </div>
-                        );
-                    })}
+                            <button className={styles.termRegisterBtn} onClick={addNewTerm} disabled={!newTerm.term.trim()}>
+                                追加する
+                            </button>
+                        </div>
+                    )}
 
-                    {totalTerms > 0 && (
-                        <p className={styles.help} style={{ marginTop: "0.5rem" }}>
-                            合計 {totalTerms} 件の用語が登録されています
-                        </p>
+                    {/* 未解決の用語 */}
+                    {unresolvedTerms.length > 0 && (
+                        <div style={{ marginTop: 16 }}>
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                                    <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "#fbbf24" }}>❓ 確認待ち</span>
+                                    <span className={styles.termPendingBadge}>{unresolvedTerms.length}件</span>
+                                </div>
+                                <button
+                                    className={styles.termRegisterAllBtn}
+                                    onClick={handleRegisterAll}
+                                    disabled={resolvingId === "all"}
+                                >
+                                    {resolvingId === "all" ? "登録中..." : "全て登録"}
+                                </button>
+                            </div>
+                            <div className={styles.termCardList}>
+                                {unresolvedTerms.map(item => (
+                                    <UnresolvedTermCard
+                                        key={item.id}
+                                        item={item}
+                                        onRegister={handleRegister}
+                                        onIgnore={handleIgnore}
+                                        isResolving={resolvingId === item.id}
+                                    />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* 登録済みの用語 */}
+                    {allRegisteredTerms.length > 0 && (
+                        <div style={{ marginTop: 16 }}>
+                            <span style={{ fontSize: "0.9rem", fontWeight: 600, color: "rgba(255,255,255,0.6)" }}>
+                                登録済み ({totalTerms}件)
+                            </span>
+                            <div className={styles.termCardList} style={{ marginTop: 8 }}>
+                                {allRegisteredTerms.map(({ entry, catKey, index }) => (
+                                    <RegisteredTermCard
+                                        key={`${catKey}-${index}`}
+                                        entry={entry}
+                                        catKey={catKey}
+                                        onUpdate={(field, value) => updateTerm(catKey, index, field, value)}
+                                        onDelete={() => removeTerm(catKey, index)}
+                                    />
+                                ))}
+                            </div>
+                        </div>
                     )}
                 </section>
 
-                {/* 保存ボタン（常時表示） */}
+                {/* 保存ボタン */}
                 <div className={styles.actions}>
-                    <button
-                        className={styles.saveButton}
-                        onClick={handleSave}
-                        disabled={saving}
-                    >
+                    <button className={styles.saveButton} onClick={handleSave} disabled={saving}>
                         {saving ? "保存中..." : "設定を保存する"}
                     </button>
                 </div>
@@ -817,17 +636,10 @@ export default function PromptsSettingsPage() {
                             {settings.history.map((item, index) => (
                                 <div key={index} className={styles.historyItem}>
                                     <div className={styles.historyInfo}>
-                                        <span className={styles.historyDate}>
-                                            {new Date(item.updatedAt).toLocaleString("ja-JP")}
-                                        </span>
+                                        <span className={styles.historyDate}>{new Date(item.updatedAt).toLocaleString("ja-JP")}</span>
                                         <span className={styles.historyUser}>{item.updatedBy}</span>
                                     </div>
-                                    <button
-                                        className={styles.restoreButton}
-                                        onClick={() => handleRestore(item)}
-                                    >
-                                        復元
-                                    </button>
+                                    <button className={styles.restoreButton} onClick={() => handleRestore(item)}>復元</button>
                                 </div>
                             ))}
                         </div>
@@ -839,22 +651,14 @@ export default function PromptsSettingsPage() {
             {hasUnsavedChanges() && (
                 <div className={styles.floatingSaveBar}>
                     <span>未保存の変更があります</span>
-                    <button
-                        className={styles.floatingSaveBtn}
-                        onClick={handleSave}
-                        disabled={saving}
-                    >
+                    <button className={styles.floatingSaveBtn} onClick={handleSave} disabled={saving}>
                         {saving ? "保存中..." : "保存する"}
                     </button>
                 </div>
             )}
 
             {/* トースト通知 */}
-            {toast && (
-                <div className={styles.toast}>
-                    ✅ {toast}
-                </div>
-            )}
+            {toast && <div className={styles.toast}>✅ {toast}</div>}
         </div>
     );
 }

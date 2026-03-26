@@ -1530,3 +1530,240 @@
     border-color: #6366f1;
     background: rgba(99, 102, 241, 0.05);
 }
+
+/* ===== 用語辞書 カードUI ===== */
+.termCardList {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.termCard {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-left: 3px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    overflow: hidden;
+    transition: border-color 0.2s;
+}
+
+.termCard:hover {
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.termCardHeader {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.termName {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: white;
+}
+
+.termReading {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+.termBadge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    border: 1px solid;
+    white-space: nowrap;
+}
+
+.termOccurrence {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.35);
+}
+
+.termChevron {
+    margin-left: auto;
+    font-size: 0.6rem;
+    color: rgba(255, 255, 255, 0.25);
+    transition: transform 0.2s ease;
+    flex-shrink: 0;
+}
+
+.termCardBody {
+    padding: 0 14px;
+    transition: max-height 0.3s ease, opacity 0.25s ease;
+    overflow: hidden;
+}
+
+.termEditGrid {
+    display: grid;
+    grid-template-columns: 60px 1fr;
+    gap: 6px 10px;
+    align-items: center;
+    padding-bottom: 8px;
+}
+
+.termEditLabel {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.4);
+    text-align: right;
+}
+
+.termEditInput {
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 6px;
+    color: white;
+    font-size: 0.85rem;
+    font-family: inherit;
+    transition: border-color 0.2s;
+}
+
+.termEditInput:focus {
+    outline: none;
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.termContext {
+    font-size: 0.78rem;
+    color: rgba(255, 255, 255, 0.35);
+    font-style: italic;
+    margin: 4px 0 8px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 4px;
+    line-height: 1.5;
+}
+
+.termActions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    padding: 8px 0 12px;
+}
+
+.termRegisterBtn {
+    padding: 6px 16px;
+    background: #6366f1;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.termRegisterBtn:hover:not(:disabled) {
+    background: #4f46e5;
+}
+
+.termRegisterBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.termIgnoreBtn {
+    padding: 6px 16px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.termIgnoreBtn:hover:not(:disabled) {
+    border-color: #ef4444;
+    color: #ef4444;
+}
+
+.termDeleteBtn {
+    padding: 6px 16px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.4);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.termDeleteBtn:hover {
+    border-color: #ef4444;
+    color: #ef4444;
+    background: rgba(239, 68, 68, 0.1);
+}
+
+.termAddNewBtn {
+    padding: 6px 14px;
+    background: rgba(99, 102, 241, 0.15);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.termAddNewBtn:hover {
+    background: rgba(99, 102, 241, 0.25);
+}
+
+.termAddForm {
+    padding: 16px;
+    background: rgba(99, 102, 241, 0.05);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    border-radius: 8px;
+    margin-bottom: 12px;
+}
+
+.termPendingBadge {
+    font-size: 0.75rem;
+    padding: 2px 8px;
+    background: rgba(251, 191, 36, 0.2);
+    color: #fbbf24;
+    border-radius: 10px;
+    border: 1px solid rgba(251, 191, 36, 0.3);
+}
+
+.termRegisterAllBtn {
+    padding: 6px 14px;
+    background: rgba(99, 102, 241, 0.15);
+    color: #a5b4fc;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.termRegisterAllBtn:hover:not(:disabled) {
+    background: rgba(99, 102, 241, 0.25);
+}
+
+.termRegisterAllBtn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+@media (max-width: 600px) {
+    .termEditGrid {
+        grid-template-columns: 50px 1fr;
+    }
+    .termCardHeader {
+        padding: 8px 10px;
+        gap: 6px;
+    }
+    .termBadge {
+        font-size: 0.65rem;
+        padding: 1px 6px;
+    }
+}

@@ -5,6 +5,7 @@ import { resolveTenantPlan } from "@/lib/plan";
 interface TermEntry {
     term: string;
     reading: string;
+    description: string;
 }
 
 interface TermCategories {
@@ -19,6 +20,29 @@ const CATEGORY_KEY_MAP: Record<string, keyof TermCategories> = {
     "社名・ブランド名": "companyBrand",
 };
 
+/** 1行の用語テキストを TermEntry にパース（新旧フォーマット両対応） */
+function parseSingleTermLine(cleaned: string): TermEntry {
+    // 新フォーマット: "用語（読み）— 説明"
+    const newFormatMatch = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])\s*[—\-]\s*(.+)$/);
+    if (newFormatMatch) {
+        return { term: newFormatMatch[1].trim(), reading: newFormatMatch[2].trim(), description: newFormatMatch[3].trim() };
+    }
+
+    // 旧フォーマット: "用語（読み）"
+    const readingMatch = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])$/);
+    if (readingMatch) {
+        return { term: readingMatch[1].trim(), reading: readingMatch[2].trim(), description: "" };
+    }
+
+    // 旧フォーマット: "用語 = 正式名称"
+    const eqMatch = cleaned.match(/^(.+?)\s*=\s*(.+)$/);
+    if (eqMatch) {
+        return { term: eqMatch[1].trim(), reading: "", description: eqMatch[2].trim() };
+    }
+
+    return { term: cleaned, reading: "", description: "" };
+}
+
 function parseTerminology(raw: string): TermCategories {
     if (!raw || !raw.trim()) return { companyBrand: [], abbreviation: [], technical: [] };
 
@@ -30,15 +54,7 @@ function parseTerminology(raw: string): TermCategories {
         for (const line of lines) {
             const cleaned = line.replace(/^[-・]\s*/, "").trim();
             if (!cleaned) continue;
-            const readingMatch = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])$/);
-            const eqMatch = cleaned.match(/^(.+?)\s*=\s*(.+)$/);
-            if (readingMatch) {
-                categories.technical.push({ term: readingMatch[1].trim(), reading: readingMatch[2].trim() });
-            } else if (eqMatch) {
-                categories.abbreviation.push({ term: eqMatch[1].trim(), reading: eqMatch[2].trim() });
-            } else {
-                categories.technical.push({ term: cleaned, reading: "" });
-            }
+            categories.technical.push(parseSingleTermLine(cleaned));
         }
         return categories;
     }
@@ -54,32 +70,29 @@ function parseTerminology(raw: string): TermCategories {
         }
         const cleaned = trimmed.replace(/^[-・]\s*/, "").trim();
         if (!cleaned) continue;
-        const readingMatch = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])$/);
-        const eqMatch = cleaned.match(/^(.+?)\s*=\s*(.+)$/);
-        if (currentCategory === "abbreviation" && eqMatch) {
-            categories.abbreviation.push({ term: eqMatch[1].trim(), reading: eqMatch[2].trim() });
-        } else if (readingMatch) {
-            categories[currentCategory].push({ term: readingMatch[1].trim(), reading: readingMatch[2].trim() });
-        } else {
-            categories[currentCategory].push({ term: cleaned, reading: "" });
-        }
+        categories[currentCategory].push(parseSingleTermLine(cleaned));
     }
     return categories;
 }
 
 function serializeTerminology(categories: TermCategories): string {
     const sections: string[] = [];
+
+    const formatEntry = (e: TermEntry) => {
+        let line = `- ${e.term}`;
+        if (e.reading) line += `（${e.reading}）`;
+        if (e.description) line += ` — ${e.description}`;
+        return line;
+    };
+
     if (categories.companyBrand.length > 0) {
-        const lines = categories.companyBrand.map(e => e.reading ? `- ${e.term}（${e.reading}）` : `- ${e.term}`);
-        sections.push(`## 社名・ブランド名\n${lines.join("\n")}`);
+        sections.push(`## 社名・ブランド名\n${categories.companyBrand.map(formatEntry).join("\n")}`);
     }
     if (categories.abbreviation.length > 0) {
-        const lines = categories.abbreviation.map(e => e.reading ? `- ${e.term} = ${e.reading}` : `- ${e.term}`);
-        sections.push(`## 略語・社内用語\n${lines.join("\n")}`);
+        sections.push(`## 略語・社内用語\n${categories.abbreviation.map(formatEntry).join("\n")}`);
     }
     if (categories.technical.length > 0) {
-        const lines = categories.technical.map(e => e.reading ? `- ${e.term}（${e.reading}）` : `- ${e.term}`);
-        sections.push(`## 専門用語\n${lines.join("\n")}`);
+        sections.push(`## 専門用語\n${categories.technical.map(formatEntry).join("\n")}`);
     }
     return sections.join("\n\n");
 }
@@ -95,7 +108,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "テナントが見つかりません" }, { status: 403 });
         }
 
-        const { id, action, category, term, reading } = await request.json();
+        const { id, action, category, term, reading, description } = await request.json();
 
         if (!id || !action) {
             return NextResponse.json({ error: "id と action は必須です" }, { status: 400 });
@@ -126,7 +139,7 @@ export async function POST(request: NextRequest) {
             const categories = parseTerminology(config.terminology || "");
 
             // 2. 新しい用語を追加
-            categories[categoryKey].push({ term, reading: reading || "" });
+            categories[categoryKey].push({ term, reading: reading || "", description: description || "" });
 
             // 3. シリアライズしてSupabaseに保存
             const newTerminology = serializeTerminology(categories);
