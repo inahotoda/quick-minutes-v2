@@ -38,7 +38,7 @@ export const MEMBER_TYPE_COLORS: Record<MemberType, { bg: string; border: string
     internal: { bg: "rgba(99,102,241,0.15)", border: "rgba(99,102,241,0.4)", text: "#a5b4fc" },
     client: { bg: "rgba(16,185,129,0.15)", border: "rgba(16,185,129,0.4)", text: "#6ee7b7" },
     supplier: { bg: "rgba(245,158,11,0.15)", border: "rgba(245,158,11,0.4)", text: "#fcd34d" },
-    other: { bg: "rgba(156,163,175,0.15)", border: "rgba(156,163,175,0.4)", text: "#d1d5db" },
+    other: { bg: "rgba(156,163,175,0.2)", border: "rgba(156,163,175,0.5)", text: "#e5e7eb" },
 };
 
 // API用のメンバー型（BlobはBase64として保存）
