@@ -16,17 +16,11 @@ interface ModeSelectorProps {
     onAdditionalPromptChange?: (value: string) => void;
 }
 
-const modes: { value: MeetingMode; label: string; icon: string }[] = [
-    { value: "internal", label: "社内", icon: "🏢" },
-    { value: "business", label: "商談", icon: "🤝" },
-    { value: "other", label: "その他", icon: "📋" },
+const modes: { value: MeetingMode; label: string }[] = [
+    { value: "internal", label: "社内" },
+    { value: "business", label: "商談" },
+    { value: "other", label: "その他" },
 ];
-
-const modeIcons: Record<string, string> = {
-    internal: "💼",
-    business: "🤝",
-    other: "📝",
-};
 
 export default function ModeSelector({
     selectedMode,
@@ -100,7 +94,7 @@ export default function ModeSelector({
             className={styles.presetChip}
             onClick={() => handlePresetSelect(preset)}
         >
-            <span className={styles.presetChipIcon}>{modeIcons[preset.mode] || "📝"}</span>
+            <span className={styles.presetChipIcon}>{preset.mode === "internal" ? "社内" : preset.mode === "business" ? "商談" : "他"}</span>
             <span className={styles.presetChipName}>{preset.name}</span>
             <span className={styles.presetChipCount}>👥{preset.memberIds.length}</span>
         </button>
@@ -117,7 +111,6 @@ export default function ModeSelector({
                         onClick={() => handleModeClick(mode.value)}
                         disabled={!!selectedPreset}
                     >
-                        <span className={styles.icon}>{mode.icon}</span>
                         {mode.label}
                     </button>
                 ))}
