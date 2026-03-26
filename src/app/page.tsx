@@ -1757,17 +1757,25 @@ export default function Home() {
                   </div>
                 ) : (
                   <>
-                    <RecordButton
-                      isRecording={false}
-                      isPaused={false}
-                      isInterrupted={false}
-                      duration={0}
-                      onStart={handleStartRecording}
-                      onStop={() => { }}
-                      onPause={() => { }}
-                      onResume={() => { }}
-                      onResumeInterrupted={() => { }}
-                    />
+                    {/* 未選択時はdisabledスタイルで録音ボタンを表示 */}
+                    <div style={!selectedPreset && !isAdhocMode ? { opacity: 0.35, pointerEvents: "none", filter: "grayscale(0.5)" } : undefined}>
+                      <RecordButton
+                        isRecording={false}
+                        isPaused={false}
+                        isInterrupted={false}
+                        duration={0}
+                        onStart={handleStartRecording}
+                        onStop={() => { }}
+                        onPause={() => { }}
+                        onResume={() => { }}
+                        onResumeInterrupted={() => { }}
+                      />
+                    </div>
+                    {!selectedPreset && !isAdhocMode && (
+                      <p style={{ fontSize: "0.78rem", color: "rgba(255,255,255,0.35)", textAlign: "center", marginTop: -8 }}>
+                        会議を選択すると録音を開始できます
+                      </p>
+                    )}
                     <TimerSelector
                       selected={selectedDuration}
                       onChange={setSelectedDuration}
@@ -1882,11 +1890,11 @@ export default function Home() {
 
                 {/* 生成ボタン */}
                 <button
-                  className={`${styles.generateButton} ${(!transcript && files.length === 0) ? styles.generateButtonDisabled : ''}`}
+                  className={`${styles.generateButton} ${(!transcript && files.length === 0) || (!selectedPreset && !isAdhocMode) ? styles.generateButtonDisabled : ''}`}
                   onClick={handleGenerateFromInput}
-                  disabled={!transcript && files.length === 0}
+                  disabled={(!transcript && files.length === 0) || (!selectedPreset && !isAdhocMode)}
                 >
-                  議事録を生成
+                  {!selectedPreset && !isAdhocMode ? "会議を選択してください" : "議事録を生成"}
                 </button>
               </div>
             )}
