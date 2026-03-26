@@ -1712,6 +1712,9 @@ export default function Home() {
                   if (preset) {
                     setMode(preset.mode as MeetingMode);
                     if (preset.duration) setSelectedDuration(preset.duration);
+                    setAdditionalPrompt(preset.additionalPrompt || "");
+                  } else {
+                    setAdditionalPrompt("");
                   }
                 }}
                 onAdhoc={() => {
@@ -1848,7 +1851,7 @@ export default function Home() {
                   />
                 </div>
 
-                {/* 追加の指示（プロンプト） */}
+                {/* 追加プロンプト（プロンプト） */}
                 <div className={styles.recordingOptionItem}>
                   <button
                     className={`${styles.optionToggle} ${additionalPrompt ? styles.optionToggleActive : ''}`}
@@ -1858,7 +1861,7 @@ export default function Home() {
                     }}
                   >
                     <span className={styles.optionToggleArrow}>▼</span>
-                    <span>追加の指示</span>
+                    <span>追加プロンプト</span>
                   </button>
                   <textarea
                     id="upload-prompt-area"
@@ -1990,7 +1993,7 @@ export default function Home() {
                   </div>
                 )}
 
-                {/* 追加の指示（プロンプト） */}
+                {/* 追加プロンプト（プロンプト） */}
                 <div className={styles.recordingOptionItem}>
                   <button
                     className={`${styles.optionToggle} ${additionalPrompt ? styles.optionToggleActive : ''}`}
@@ -2000,7 +2003,7 @@ export default function Home() {
                     }}
                   >
                     <span className={styles.optionToggleArrow}>▼</span>
-                    <span>追加の指示</span>
+                    <span>追加プロンプト</span>
                   </button>
                   <textarea
                     id="recording-prompt-area"

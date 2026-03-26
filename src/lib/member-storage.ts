@@ -69,6 +69,7 @@ export interface MeetingPreset {
     mode: "internal" | "business" | "other";
     duration?: MeetingDuration;
     memberIds: string[];
+    additionalPrompt?: string;
     isArchived?: boolean;
     lastUsedAt?: string;    // ISO 8601
     usageCount?: number;
@@ -505,7 +506,7 @@ export async function addPreset(
 
 export async function updatePreset(
     id: string,
-    updates: Partial<Pick<MeetingPreset, "name" | "mode" | "duration" | "memberIds" | "isArchived" | "lastUsedAt" | "usageCount">>
+    updates: Partial<Pick<MeetingPreset, "name" | "mode" | "duration" | "memberIds" | "additionalPrompt" | "isArchived" | "lastUsedAt" | "usageCount">>
 ): Promise<void> {
     const db = await openDB();
     const preset = await getPreset(id);

@@ -31,6 +31,7 @@ export default function PresetsPage() {
     const [presetMode, setPresetMode] = useState<"internal" | "business" | "other">("internal");
     const [presetDuration, setPresetDuration] = useState<MeetingDuration>(30);
     const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
+    const [presetPrompt, setPresetPrompt] = useState("");
 
     // Load data
     const loadData = useCallback(async () => {
@@ -66,6 +67,7 @@ export default function PresetsPage() {
         setPresetMode("internal");
         setPresetDuration(30);
         setSelectedMemberIds([]);
+        setPresetPrompt("");
         setIsModalOpen(true);
     };
 
@@ -76,6 +78,7 @@ export default function PresetsPage() {
         setPresetMode(preset.mode);
         setPresetDuration(preset.duration || 30);
         setSelectedMemberIds(preset.memberIds);
+        setPresetPrompt(preset.additionalPrompt || "");
         setIsModalOpen(true);
     };
 
@@ -105,9 +108,13 @@ export default function PresetsPage() {
                     mode: presetMode,
                     duration: presetDuration,
                     memberIds: selectedMemberIds,
+                    additionalPrompt: presetPrompt.trim() || undefined,
                 });
             } else {
-                await addPreset(presetName.trim(), presetMode, selectedMemberIds, presetDuration);
+                const newPreset = await addPreset(presetName.trim(), presetMode, selectedMemberIds, presetDuration);
+                if (presetPrompt.trim() && newPreset) {
+                    await updatePreset(newPreset.id, { additionalPrompt: presetPrompt.trim() });
+                }
             }
             await loadData();
             handleCloseModal();
@@ -408,6 +415,19 @@ export default function PresetsPage() {
                                 ))}
                             </div>
                         </div>
+                        {/* 追加プロンプト */}
+                        <div className={presetStyles.formGroup}>
+                            <label className={presetStyles.label}>追加プロンプト（任意）</label>
+                            <textarea
+                                className={presetStyles.input}
+                                value={presetPrompt}
+                                onChange={(e) => setPresetPrompt(e.target.value)}
+                                placeholder="例: タスクを必ず拾って / 英語併記で / 要点を箇条書きに"
+                                rows={3}
+                                style={{ resize: "vertical", minHeight: 60 }}
+                            />
+                        </div>
+
                         <div className={presetStyles.formGroup}>
                             <label className={presetStyles.label}>
                                 参加メンバー
