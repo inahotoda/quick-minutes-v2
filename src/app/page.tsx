@@ -1635,13 +1635,63 @@ export default function Home() {
               onChange={setTranscript}
             />
 
+            {/* 追加の指示（プロンプト） */}
+            {(files.length > 0 || transcript) && (
+              <div className={styles.recordingOptionItem}>
+                <button
+                  className={`${styles.optionToggle} ${additionalPrompt ? styles.optionToggleActive : ''}`}
+                  onClick={() => {
+                    const el = document.getElementById('upload-prompt-area');
+                    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+                  }}
+                >
+                  <span className={styles.optionToggleArrow}>▼</span>
+                  <span>追加の指示（プロンプト）</span>
+                </button>
+                <textarea
+                  id="upload-prompt-area"
+                  className={styles.optionTextarea}
+                  style={{ display: 'none' }}
+                  value={additionalPrompt}
+                  onChange={(e) => setAdditionalPrompt(e.target.value)}
+                  placeholder="例: 日本語と英語の併記にして / タスクを全て拾って"
+                  rows={3}
+                />
+              </div>
+            )}
+
+            {/* メモ */}
+            {(files.length > 0 || transcript) && (
+              <div className={styles.recordingOptionItem}>
+                <button
+                  className={`${styles.optionToggle} ${meetingNotes ? styles.optionToggleActive : ''}`}
+                  onClick={() => {
+                    const el = document.getElementById('upload-notes-area');
+                    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+                  }}
+                >
+                  <span className={styles.optionToggleArrow}>▼</span>
+                  <span>メモ</span>
+                </button>
+                <textarea
+                  id="upload-notes-area"
+                  className={styles.optionTextarea}
+                  style={{ display: 'none' }}
+                  value={meetingNotes}
+                  onChange={(e) => setMeetingNotes(e.target.value)}
+                  placeholder="例: 株式会社○○っていう会社はこんな会社です / ○○というのは最近開発した新しいアプリのこと"
+                  rows={3}
+                />
+              </div>
+            )}
+
             {/* Generate Button (always visible) */}
             <button
               className={`${styles.generateButton} ${(!transcript && files.length === 0) ? styles.generateButtonDisabled : ''}`}
               onClick={handleGenerateFromInput}
               disabled={!transcript && files.length === 0}
             >
-              ✨ 議事録を生成
+              議事録を生成
             </button>
           </div>
         )}

@@ -99,6 +99,16 @@
     font-size: 0.95rem;
     font-weight: 500;
     color: white;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.companyTag {
+    font-size: 0.78rem;
+    font-weight: 400;
+    opacity: 0.85;
 }
 
 .participantMeta {
@@ -248,6 +258,12 @@
     background: rgba(99, 102, 241, 0.1);
     border-color: rgba(99, 102, 241, 0.3);
     color: white;
+}
+
+.chipCompany {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.4);
+    font-weight: 400;
 }
 
 .addNewButton {

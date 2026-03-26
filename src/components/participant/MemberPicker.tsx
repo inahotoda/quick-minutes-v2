@@ -208,6 +208,9 @@ export default function MemberPicker({
                                         <MemberAvatar name={member.name} size="sm" memberType={member.type} />
                                     </span>
                                     {member.name}
+                                    {(type === "client" || type === "supplier") && member.company && (
+                                        <span className={styles.chipCompany}>({member.company})</span>
+                                    )}
                                 </button>
                             ))}
                         </div>

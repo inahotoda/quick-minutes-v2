@@ -15,10 +15,11 @@ export default function ParticipantCard({ participant, onRemove }: ParticipantCa
     const memberType = p.memberType as MemberType | undefined;
     const typeColor = memberType ? MEMBER_TYPE_COLORS[memberType] : null;
     const typeLabel = memberType ? MEMBER_TYPE_LABELS[memberType] : null;
+    const isExternal = memberType === "client" || memberType === "supplier";
 
-    // Build subtitle: company or department / role
+    // Build subtitle: for external, company is shown inline so skip it here
     const subtitleParts: string[] = [];
-    if (p.company) {
+    if (!isExternal && p.company) {
         subtitleParts.push(p.company);
     } else if (p.department) {
         subtitleParts.push(p.department);
@@ -39,6 +40,11 @@ export default function ParticipantCard({ participant, onRemove }: ParticipantCa
             <div className={styles.participantInfo}>
                 <div className={styles.participantName}>
                     {p.name}
+                    {isExternal && p.company && (
+                        <span className={styles.companyTag} style={{ color: typeColor?.text }}>
+                            @ {p.company}
+                        </span>
+                    )}
                     {typeLabel && typeColor && (
                         <span
                             className={styles.typeBadge}
