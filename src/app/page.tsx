@@ -65,6 +65,7 @@ export default function Home() {
   const [selectedPreset, setSelectedPreset] = useState<MeetingPreset | null>(null);
   const [allPresets, setAllPresets] = useState<MeetingPreset[]>([]);
   const [activeTab, setActiveTab] = useState<"record" | "upload">("record");
+  const [uploadSource, setUploadSource] = useState<"audio" | "text">("audio");
   const [transcript, setTranscript] = useState("");
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [minutes, setMinutes] = useState("");
@@ -1733,20 +1734,46 @@ export default function Home() {
             {/* === アップロードタブ === */}
             {activeTab === "upload" && (
               <div className={styles.tabContent}>
-                {/* 音声ファイルアップロード（音声専用） */}
-                <div className={styles.uploadSection}>
-                  <FileUpload
-                    files={files.filter(f => f.type === "audio")}
-                    onFilesChange={(audioFiles) => {
-                      const nonAudio = files.filter(f => f.type !== "audio");
-                      setFiles([...audioFiles, ...nonAudio]);
-                    }}
-                    acceptTypes="audio/*"
-                    compactLabel="音声ファイル"
-                  />
+                {/* 入力ソース切替 */}
+                <div className={styles.uploadSourceTabs}>
+                  <button
+                    className={`${styles.uploadSourceTab} ${uploadSource === "audio" ? styles.uploadSourceTabActive : ""}`}
+                    onClick={() => setUploadSource("audio")}
+                  >
+                    音声ファイル
+                  </button>
+                  <button
+                    className={`${styles.uploadSourceTab} ${uploadSource === "text" ? styles.uploadSourceTabActive : ""}`}
+                    onClick={() => setUploadSource("text")}
+                  >
+                    テキスト（Google Meet等）
+                  </button>
                 </div>
 
-                {/* 補足資料（折りたたみ） */}
+                {/* 音声ファイルアップロード */}
+                {uploadSource === "audio" && (
+                  <div className={styles.uploadSection}>
+                    <FileUpload
+                      files={files.filter(f => f.type === "audio")}
+                      onFilesChange={(audioFiles) => {
+                        const nonAudio = files.filter(f => f.type !== "audio");
+                        setFiles([...audioFiles, ...nonAudio]);
+                      }}
+                      acceptTypes="audio/*,audio/mpeg,audio/mp4,audio/x-m4a,.mp3,.m4a,.wav,.ogg,.webm"
+                      compactLabel="音声ファイル"
+                    />
+                  </div>
+                )}
+
+                {/* テキスト入力（Google Meet文字起こし等） */}
+                {uploadSource === "text" && (
+                  <TranscriptInput
+                    value={transcript}
+                    onChange={setTranscript}
+                  />
+                )}
+
+                {/* 補足資料（常に表示、折りたたみ） */}
                 <div className={styles.recordingOptionItem}>
                   <FileUpload
                     files={files.filter(f => f.type !== "audio")}
@@ -1759,12 +1786,6 @@ export default function Home() {
                     compactLabel="補足資料を追加"
                   />
                 </div>
-
-                {/* テキスト入力 */}
-                <TranscriptInput
-                  value={transcript}
-                  onChange={setTranscript}
-                />
 
                 {/* 追加の指示（プロンプト） */}
                 <div className={styles.recordingOptionItem}>

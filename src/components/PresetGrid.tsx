@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { MeetingPreset } from "@/lib/member-storage";
 import styles from "./PresetGrid.module.css";
 
@@ -22,80 +22,114 @@ const MODE_COLORS: Record<string, string> = {
     other: "#d1d5db",
 };
 
-function formatDuration(duration?: number): string {
-    if (!duration || duration === 0) return "無制限";
-    return `${duration}分`;
-}
-
 export default function PresetGrid({ presets, selectedPreset, onSelect }: PresetGridProps) {
-    const [showAll, setShowAll] = useState(false);
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState("");
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    // Close on outside click
+    useEffect(() => {
+        if (!isOpen) return;
+        const handler = (e: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+                setIsOpen(false);
+                setSearch("");
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, [isOpen]);
 
     if (presets.length === 0) return null;
 
-    const topPresets = presets.slice(0, 4);
-    const hasMore = presets.length > 4;
-    const displayPresets = showAll ? presets : topPresets;
+    const filtered = search.trim()
+        ? presets.filter(p => p.name.toLowerCase().includes(search.trim().toLowerCase()))
+        : presets;
+
+    const handleSelect = (preset: MeetingPreset | null) => {
+        onSelect(preset);
+        setIsOpen(false);
+        setSearch("");
+    };
 
     return (
-        <div className={styles.container}>
-            <div className={styles.header}>
-                <span className={styles.label}>プリセット</span>
-                {selectedPreset && (
-                    <button className={styles.clearBtn} onClick={() => onSelect(null)}>
-                        選択解除
-                    </button>
+        <div className={styles.container} ref={containerRef}>
+            <button
+                className={`${styles.selector} ${selectedPreset ? styles.selectorActive : ""}`}
+                onClick={() => setIsOpen(!isOpen)}
+            >
+                {selectedPreset ? (
+                    <div className={styles.selectedInfo}>
+                        <span className={styles.selectedName}>{selectedPreset.name}</span>
+                        <span className={styles.selectedMeta}>
+                            <span style={{ color: MODE_COLORS[selectedPreset.mode] }}>
+                                {MODE_LABELS[selectedPreset.mode]}
+                            </span>
+                            <span className={styles.dot} />
+                            <svg width="11" height="11" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: "-1px" }}>
+                                <path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+                            </svg>
+                            {" "}{selectedPreset.memberIds?.length || 0}名
+                        </span>
+                    </div>
+                ) : (
+                    <span className={styles.placeholder}>プリセットを選択</span>
                 )}
-            </div>
+                <svg
+                    className={styles.chevron}
+                    width="14" height="14" viewBox="0 0 16 16" fill="none"
+                    style={{ transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                >
+                    <path d="M4 6l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+            </button>
 
-            <div className={styles.grid}>
-                {displayPresets.map((preset) => {
-                    const isSelected = selectedPreset?.id === preset.id;
-                    const modeColor = MODE_COLORS[preset.mode] || MODE_COLORS.other;
-                    return (
-                        <button
-                            key={preset.id}
-                            className={`${styles.card} ${isSelected ? styles.cardSelected : ""}`}
-                            onClick={() => onSelect(isSelected ? null : preset)}
-                        >
-                            <div className={styles.cardName}>{preset.name}</div>
-                            <div className={styles.cardMeta}>
-                                <span className={styles.cardMode} style={{ color: modeColor }}>
-                                    {MODE_LABELS[preset.mode] || preset.mode}
-                                </span>
-                                <span className={styles.cardDot} />
-                                <span>{formatDuration(preset.duration)}</span>
-                                <span className={styles.cardDot} />
-                                <span>
-                                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: "-1px", marginRight: 2 }}>
-                                        <path d="M8 8a3 3 0 100-6 3 3 0 000 6zM2 14a6 6 0 0112 0" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
-                                    </svg>
-                                    {preset.memberIds?.length || 0}名
-                                </span>
-                            </div>
-                            {isSelected && (
-                                <div className={styles.selectedIndicator}>
-                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-                                        <path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                </div>
-                            )}
+            {isOpen && (
+                <div className={styles.dropdown}>
+                    {presets.length >= 5 && (
+                        <input
+                            className={styles.search}
+                            type="text"
+                            value={search}
+                            onChange={e => setSearch(e.target.value)}
+                            placeholder="検索..."
+                            autoFocus
+                        />
+                    )}
+                    <div className={styles.list}>
+                        {filtered.map(preset => {
+                            const isSelected = selectedPreset?.id === preset.id;
+                            return (
+                                <button
+                                    key={preset.id}
+                                    className={`${styles.item} ${isSelected ? styles.itemSelected : ""}`}
+                                    onClick={() => handleSelect(isSelected ? null : preset)}
+                                >
+                                    <span className={styles.itemName}>{preset.name}</span>
+                                    <span className={styles.itemMeta}>
+                                        <span style={{ color: MODE_COLORS[preset.mode] }}>
+                                            {MODE_LABELS[preset.mode]}
+                                        </span>
+                                        <span className={styles.dot} />
+                                        {preset.memberIds?.length || 0}名
+                                    </span>
+                                    {isSelected && (
+                                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" className={styles.checkIcon}>
+                                            <path d="M13.5 4.5L6.5 11.5L2.5 7.5" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                        </svg>
+                                    )}
+                                </button>
+                            );
+                        })}
+                        {filtered.length === 0 && (
+                            <div className={styles.noResults}>一致するプリセットがありません</div>
+                        )}
+                    </div>
+                    {selectedPreset && (
+                        <button className={styles.clearOption} onClick={() => handleSelect(null)}>
+                            選択解除
                         </button>
-                    );
-                })}
-
-                {hasMore && !showAll && (
-                    <button className={`${styles.card} ${styles.cardMore}`} onClick={() => setShowAll(true)}>
-                        <div className={styles.cardName}>+ その他</div>
-                        <div className={styles.cardMeta}>
-                            <span>残り {presets.length - 4} 件</span>
-                        </div>
-                    </button>
-                )}
-            </div>
-
-            {!selectedPreset && (
-                <div className={styles.noPresetLink}>
-                    プリセットなしで開始
+                    )}
                 </div>
             )}
         </div>

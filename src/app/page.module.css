@@ -342,6 +342,41 @@
     border-bottom-color: #6366f1;
 }
 
+/* Upload Source Sub-Tabs */
+.uploadSourceTabs {
+    display: flex;
+    gap: 0;
+    width: 100%;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 3px;
+}
+
+.uploadSourceTab {
+    flex: 1;
+    padding: 8px 12px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: rgba(255, 255, 255, 0.45);
+    font-size: 0.82rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.uploadSourceTab:hover {
+    color: rgba(255, 255, 255, 0.7);
+}
+
+.uploadSourceTabActive {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.3);
+    color: #a5b4fc;
+}
+
 .tabContent {
     display: flex;
     flex-direction: column;
