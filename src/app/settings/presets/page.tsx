@@ -15,6 +15,8 @@ import {
 import styles from "../settings.module.css";
 import presetStyles from "./presets.module.css";
 
+type PresetTab = "active" | "archived";
+
 export default function PresetsPage() {
     const router = useRouter();
     const [presets, setPresets] = useState<MeetingPreset[]>([]);
@@ -22,6 +24,7 @@ export default function PresetsPage() {
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPreset, setEditingPreset] = useState<MeetingPreset | null>(null);
+    const [activeTab, setActiveTab] = useState<PresetTab>("active");
 
     // Form state
     const [presetName, setPresetName] = useState("");
@@ -127,6 +130,32 @@ export default function PresetsPage() {
         }
     };
 
+    // Archive / restore preset
+    const handleArchive = async (preset: MeetingPreset) => {
+        try {
+            await updatePreset(preset.id, { isArchived: true });
+            await loadData();
+        } catch (error) {
+            console.error("Failed to archive preset:", error);
+        }
+    };
+
+    const handleRestore = async (preset: MeetingPreset) => {
+        try {
+            await updatePreset(preset.id, { isArchived: false });
+            await loadData();
+        } catch (error) {
+            console.error("Failed to restore preset:", error);
+        }
+    };
+
+    // Filter presets by tab
+    const activePresets = presets
+        .filter((p) => !p.isArchived)
+        .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
+    const archivedPresets = presets.filter((p) => p.isArchived);
+    const displayedPresets = activeTab === "active" ? activePresets : archivedPresets;
+
     // Get member names for a preset
     const getMemberNames = (memberIds: string[]) => {
         return memberIds
@@ -169,25 +198,96 @@ export default function PresetsPage() {
                     </button>
                 </div>
 
+                {/* Tabs: Active / Archived */}
+                <div style={{
+                    display: "flex",
+                    gap: 0,
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: 10,
+                    padding: 3,
+                    marginBottom: "1rem",
+                }}>
+                    {([
+                        { key: "active" as PresetTab, label: "アクティブ", count: activePresets.length },
+                        { key: "archived" as PresetTab, label: "アーカイブ", count: archivedPresets.length },
+                    ]).map(({ key, label, count }) => {
+                        const isActive = activeTab === key;
+                        return (
+                            <button
+                                key={key}
+                                onClick={() => setActiveTab(key)}
+                                style={{
+                                    flex: 1,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    gap: 8,
+                                    padding: "0.5rem 0.75rem",
+                                    background: isActive ? "rgba(99,102,241,0.2)" : "transparent",
+                                    border: isActive ? "1px solid rgba(99,102,241,0.3)" : "1px solid transparent",
+                                    borderRadius: 8,
+                                    color: isActive ? "#a5b4fc" : "rgba(255,255,255,0.5)",
+                                    fontSize: "0.85rem",
+                                    fontWeight: 500,
+                                    cursor: "pointer",
+                                    transition: "all 0.2s",
+                                }}
+                            >
+                                {label}
+                                <span style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    minWidth: 20,
+                                    height: 20,
+                                    padding: "0 6px",
+                                    background: isActive ? "rgba(99,102,241,0.3)" : "rgba(255,255,255,0.1)",
+                                    borderRadius: 10,
+                                    fontSize: "0.7rem",
+                                    fontWeight: 600,
+                                }}>
+                                    {count}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+
                 {/* Preset List */}
-                {presets.length === 0 ? (
+                {displayedPresets.length === 0 ? (
                     <div className={styles.emptyState}>
-                        <p>プリセットがまだ登録されていません。</p>
+                        <p>{activeTab === "active"
+                            ? "アクティブなプリセットがありません。"
+                            : "アーカイブされたプリセットはありません。"
+                        }</p>
                     </div>
                 ) : (
                     <div className={presetStyles.presetList}>
-                        {presets.map((preset) => (
-                            <div key={preset.id} className={presetStyles.presetCard}>
+                        {displayedPresets.map((preset) => (
+                            <div key={preset.id} className={presetStyles.presetCard} style={preset.isArchived ? { opacity: 0.6 } : undefined}>
                                 <div className={presetStyles.presetIcon}>
                                     {preset.mode === "business" ? "🤝" : preset.mode === "internal" ? "💼" : "📝"}
                                 </div>
                                 <div className={presetStyles.presetInfo}>
-                                    <div className={presetStyles.presetName}>{preset.name}</div>
+                                    <div className={presetStyles.presetName}>
+                                        {preset.name}
+                                        {(preset.usageCount ?? 0) > 0 && (
+                                            <span style={{ marginLeft: 8, fontSize: "0.7rem", color: "rgba(255,255,255,0.35)", fontWeight: 400 }}>
+                                                {preset.usageCount}回使用
+                                            </span>
+                                        )}
+                                    </div>
                                     <div className={presetStyles.presetMeta}>
                                         <span className={presetStyles.modeBadge}>{modeLabels[preset.mode]}</span>
                                         {preset.memberIds.length > 0 && (
                                             <span className={presetStyles.memberCount}>
                                                 👥 {preset.memberIds.length}名
+                                            </span>
+                                        )}
+                                        {preset.lastUsedAt && (
+                                            <span style={{ fontSize: "0.75rem", color: "rgba(255,255,255,0.35)" }}>
+                                                最終: {new Date(preset.lastUsedAt).toLocaleDateString("ja-JP")}
                                             </span>
                                         )}
                                     </div>
@@ -198,18 +298,43 @@ export default function PresetsPage() {
                                     )}
                                 </div>
                                 <div className={presetStyles.presetActions}>
-                                    <button
-                                        className={presetStyles.actionButton}
-                                        onClick={() => handleOpenEditModal(preset)}
-                                    >
-                                        ✏️
-                                    </button>
-                                    <button
-                                        className={`${presetStyles.actionButton} ${presetStyles.deleteButton}`}
-                                        onClick={() => handleDelete(preset)}
-                                    >
-                                        🗑️
-                                    </button>
+                                    {preset.isArchived ? (
+                                        <>
+                                            <button
+                                                className={presetStyles.actionButton}
+                                                onClick={() => handleRestore(preset)}
+                                                title="復元"
+                                                style={{ fontSize: "0.75rem", padding: "0.4rem 0.6rem" }}
+                                            >
+                                                復元
+                                            </button>
+                                            <button
+                                                className={`${presetStyles.actionButton} ${presetStyles.deleteButton}`}
+                                                onClick={() => handleDelete(preset)}
+                                                title="完全削除"
+                                            >
+                                                🗑️
+                                            </button>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <button
+                                                className={presetStyles.actionButton}
+                                                onClick={() => handleOpenEditModal(preset)}
+                                                title="編集"
+                                            >
+                                                ✏️
+                                            </button>
+                                            <button
+                                                className={presetStyles.actionButton}
+                                                onClick={() => handleArchive(preset)}
+                                                title="アーカイブ"
+                                                style={{ fontSize: "0.75rem", padding: "0.4rem 0.6rem" }}
+                                            >
+                                                📦
+                                            </button>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         ))}

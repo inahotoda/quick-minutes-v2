@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { supabase } from "@/lib/supabase";
 import { resolveTenantPlan } from "@/lib/plan";
+import { logUsage } from "@/lib/usage-logger";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -91,6 +92,7 @@ ${minutesText}`;
 }
 
 export async function POST(request: NextRequest) {
+    const startTime = Date.now();
     try {
         if (!supabase) {
             return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
@@ -154,6 +156,18 @@ export async function POST(request: NextRequest) {
         }
 
         console.log(`✅ [Profile] Analyzed ${analyzed.length} persons. Inserted: ${insertedCount}`);
+
+        // コスト計測
+        if (tenant) {
+            logUsage({
+                tenantDomain: tenant.domain,
+                userEmail: tenant.userEmail,
+                eventType: "profile",
+                durationMs: Date.now() - startTime,
+                model: "gemini-flash-latest",
+                metadata: { analyzedPersons: analyzed.length, inserted: insertedCount },
+            });
+        }
 
         return NextResponse.json({
             analyzed: analyzed.length,

@@ -41,7 +41,7 @@ async function refreshAccessToken(token: any) {
 
 // 全ユーザーに同一スコープを要求（機能のON/OFFはプランで制御）
 // 段階的スコープ要求は将来的にGoogle Incremental Authで対応予定
-const oauthScope = "openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/gmail.send";
+const oauthScope = "openid email profile https://www.googleapis.com/auth/drive https://www.googleapis.com/auth/documents https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/calendar.events";
 
 export const authOptions: NextAuthOptions = {
     providers: [

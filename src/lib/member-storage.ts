@@ -6,7 +6,13 @@
 // メンバー型定義
 export interface Member {
     id: string;
-    name: string;
+    name: string;                    // フルネーム
+    nameVariants?: string[];         // ニックネーム・呼び名
+    email?: string | null;           // Google アカウント（Calendar/Chat 配信用）
+    company?: string | null;         // 会社名
+    department?: string | null;      // 部署
+    role?: string | null;            // 役職
+    type?: MemberType;              // 区分
     voiceSample?: {
         blob: Blob;
         duration: number;
@@ -16,10 +22,35 @@ export interface Member {
     updatedAt: string;
 }
 
+// メンバー区分型
+export type MemberType = "internal" | "client" | "supplier" | "other";
+
+// 区分ラベル
+export const MEMBER_TYPE_LABELS: Record<MemberType, string> = {
+    internal: "社内",
+    client: "顧客",
+    supplier: "仕入先",
+    other: "その他",
+};
+
+// 区分カラー (CSS用)
+export const MEMBER_TYPE_COLORS: Record<MemberType, { bg: string; border: string; text: string }> = {
+    internal: { bg: "rgba(99,102,241,0.15)", border: "rgba(99,102,241,0.4)", text: "#a5b4fc" },
+    client: { bg: "rgba(16,185,129,0.15)", border: "rgba(16,185,129,0.4)", text: "#6ee7b7" },
+    supplier: { bg: "rgba(245,158,11,0.15)", border: "rgba(245,158,11,0.4)", text: "#fcd34d" },
+    other: { bg: "rgba(156,163,175,0.15)", border: "rgba(156,163,175,0.4)", text: "#d1d5db" },
+};
+
 // API用のメンバー型（BlobはBase64として保存）
 interface MemberData {
     id: string;
     name: string;
+    nameVariants?: string[];
+    email?: string | null;
+    company?: string | null;
+    department?: string | null;
+    role?: string | null;
+    type?: MemberType;
     voiceSample?: {
         blobBase64: string;
         duration: number;
@@ -38,6 +69,9 @@ export interface MeetingPreset {
     mode: "internal" | "business" | "other";
     duration?: MeetingDuration;
     memberIds: string[];
+    isArchived?: boolean;
+    lastUsedAt?: string;    // ISO 8601
+    usageCount?: number;
     createdAt: string;
     updatedAt: string;
 }
@@ -107,6 +141,12 @@ async function memberToData(member: Member): Promise<MemberData> {
     const data: MemberData = {
         id: member.id,
         name: member.name,
+        nameVariants: member.nameVariants,
+        email: member.email,
+        company: member.company,
+        department: member.department,
+        role: member.role,
+        type: member.type,
         createdAt: member.createdAt,
         updatedAt: member.updatedAt,
     };
@@ -120,11 +160,22 @@ async function memberToData(member: Member): Promise<MemberData> {
     return data;
 }
 
-// MemberData to Member (from API)
+// MemberData to Member (from API) - includes migration from "external" to "client"
 function dataToMember(data: MemberData): Member {
+    // Migrate legacy "external" type to "client"
+    let migratedType = data.type;
+    if (migratedType === ("external" as any)) {
+        migratedType = "client";
+    }
     const member: Member = {
         id: data.id,
         name: data.name,
+        nameVariants: data.nameVariants,
+        email: data.email,
+        company: data.company,
+        department: data.department,
+        role: data.role,
+        type: migratedType,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
     };
@@ -305,7 +356,7 @@ async function getAllMembersLocal(): Promise<Member[]> {
     });
 }
 
-export async function updateMember(id: string, updates: Partial<Pick<Member, "name" | "voiceSample">>): Promise<void> {
+export async function updateMember(id: string, updates: Partial<Pick<Member, "name" | "nameVariants" | "email" | "company" | "department" | "role" | "type" | "voiceSample">>): Promise<void> {
     const db = await openDB();
     const member = await getMember(id);
     if (!member) throw new Error("Member not found");
@@ -454,7 +505,7 @@ export async function addPreset(
 
 export async function updatePreset(
     id: string,
-    updates: Partial<Pick<MeetingPreset, "name" | "mode" | "duration" | "memberIds">>
+    updates: Partial<Pick<MeetingPreset, "name" | "mode" | "duration" | "memberIds" | "isArchived" | "lastUsedAt" | "usageCount">>
 ): Promise<void> {
     const db = await openDB();
     const preset = await getPreset(id);

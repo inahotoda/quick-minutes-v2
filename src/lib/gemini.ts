@@ -46,6 +46,17 @@ interface GenerateStreamParams {
     feedback?: string;
     // ユーザーが追加した背景情報メモ
     notes?: string;
+    // メンバープロファイル（タスク担当者の精度向上用）
+    memberProfiles?: Array<{
+        name: string;
+        nameVariants?: string[];
+        email?: string | null;
+        company?: string | null;
+        department?: string | null;
+        role?: string | null;
+        type?: "internal" | "external";
+        isParticipant: boolean; // 会議参加者か関連メンバーか
+    }>;
 }
 
 /**
@@ -93,6 +104,7 @@ export async function* generateEverythingStream({
     participants,
     feedback,
     notes,
+    memberProfiles,
 }: GenerateStreamParams): AsyncGenerator<string> {
     console.log("🎯 [Gemini] generateEverythingStream called with participants:", participants);
     const model = genAI.getGenerativeModel({ model: MODEL_NAME });
@@ -139,6 +151,37 @@ export async function* generateEverythingStream({
         notesSection = `\n## 📌 ユーザーからの補足メモ（背景情報）\n以下はユーザーが会議中に追加したメモです。固有名詞や背景情報として議事録に反映してください：\n"${notes}"\n\n**重要**: このメモの情報を踏まえて、音声内の言及を正確に解釈してください。例えば会社名や製品名の正式名称、専門用語の意味などが含まれている場合があります。`;
     }
 
+    // メンバープロファイルセクション
+    let memberProfilesSection = "";
+    if (memberProfiles && memberProfiles.length > 0) {
+        const participantProfiles = memberProfiles.filter(m => m.isParticipant);
+        const relatedProfiles = memberProfiles.filter(m => !m.isParticipant);
+
+        const formatProfile = (m: typeof memberProfiles[0]) => {
+            const parts = [`- ${m.name}`];
+            if (m.company || m.department || m.role) {
+                const orgParts = [m.company, m.department, m.role].filter(Boolean);
+                parts[0] += `（${orgParts.join(" / ")}）`;
+            }
+            if (m.type === "external") parts[0] += " [社外]";
+            if (m.nameVariants && m.nameVariants.length > 0) {
+                parts[0] += ` ※呼び名: ${m.nameVariants.join("、")}`;
+            }
+            if (m.email) parts[0] += ` → ${m.email}`;
+            return parts[0];
+        };
+
+        let section = "\n## 👤 メンバープロファイル（タスク担当者の正確な特定に使用）\n";
+        if (participantProfiles.length > 0) {
+            section += "### 会議参加者:\n" + participantProfiles.map(formatProfile).join("\n") + "\n";
+        }
+        if (relatedProfiles.length > 0) {
+            section += "### 関連メンバー（会議不参加だがタスクの対象になり得る人）:\n" + relatedProfiles.map(formatProfile).join("\n") + "\n";
+        }
+        section += "\n**重要**: ネクストアクションの担当者欄には、上記プロファイルの正式名を使用してください。";
+        memberProfilesSection = section;
+    }
+
     const mainInstruction = `
 ${basePrompt}
 ${modePrompts[mode]}
@@ -147,6 +190,7 @@ ${speakerSection}
 ${participantsSection}
 ${feedbackSection}
 ${notesSection}
+${memberProfilesSection}
 
 ---
 日付: ${date || new Date().toLocaleDateString("ja-JP")}
@@ -190,19 +234,27 @@ ${notesSection}
 
 ## 🎯 ネクストアクション抽出（最重要セクション）
 **ネクストアクションは絶対に漏らさず、全て余すことなく抽出してください。**
+**拾い漏れは信頼低下に直結します。誤検出はユーザーが消すだけなので、迷ったら必ず含めてください。**
 
 ### 抽出ルール:
 1. **全ての発言を精査**: 会議のあらゆる箇所で言及されたタスク・宿題・依頼を全て抽出すること
 2. **暗黙のタスクも抽出**: 「〇〇について確認する」「〇〇を検討しておく」「〇〇を共有する」「〇〇をまとめておく」など、直接的な指示でなくても実質的なタスクとなるものは全て含める
 3. **担当者を明確に**: 誰が実行するタスクか必ず特定すること。文脈から推定できる場合はその人を担当者とし、不明な場合は「要確認」と記載
-4. **期限を可能な限り記載**: 明示的な期限がある場合はそのまま記載。暗黙の期限（「来週までに」「次回MTGまでに」「なるべく早く」等）も含める。期限が不明な場合は「期限未定」と記載
-5. **拾い漏れチェック**: 議事録を作成した後、全ての発言を再度スキャンし、タスク・アクション・宿題・依頼・確認事項・To-Doに該当するものが漏れていないか最終確認すること
+4. **期限を可能な限り YYYY-MM-DD 形式で記載**: 明示的な期限がある場合はその日付を YYYY-MM-DD 形式に変換して記載。「来週金曜」「月末まで」等の相対表現も可能な限り具体的な日付に変換。暗黙の期限（「来週までに」「次回MTGまでに」「なるべく早く」等）も含める。期限が不明な場合は「期限未定」と記載
+5. **拾い漏れチェック（必須）**: 議事録を作成した後、**全ての発言を最初から最後まで再度スキャンし**、タスク・アクション・宿題・依頼・確認事項・To-Doに該当するものが漏れていないか最終確認すること。**1件でも漏れがあればアプリの価値を損なう**
 6. **多すぎることより少なすぎることが問題**: 迷ったらネクストアクションに含めてください。拾いすぎて困ることはありません
-7. **「〜する」「〜を行う」「〜を進める」「〜を連絡する」「〜を送る」「〜を調べる」「〜を準備する」などの動詞表現** は全てアクション候補として検討すること
+7. **「〜する」「〜を行う」「〜を進める」「〜を連絡する」「〜を送る」「〜を調べる」「〜を準備する」「〜を確認する」「〜を手配する」「〜をまとめる」「〜を報告する」などの動詞表現** は全てアクション候補として検討すること
+8. **重複排除**: 同一担当者 × 同一内容のタスクのみ重複とみなす。担当者が異なれば別タスクとして出力
+
+### 優先度の判定基準:
+- **critical（緊急）**: 他タスクがブロックされる / 外部への影響がある / 当日〜翌日期限
+- **high（高）**: 明示的な期限あり（3日以内）/ 上位者からの依頼
+- **medium（中）**: 期限に余裕あり（1〜2週間）/ 通常業務
+- **low（低）**: 期限なし / 検討事項 / 長期的な課題
 
 ### ネクストアクションの出力フォーマット:
-| ID | アクション内容 | 担当者 | 期限 | 備考 |
-|:---|:---|:---|:---|:---|
+| ID | アクション内容 | 担当者 | 期限 | 優先度 | 備考 |
+|:---|:---|:---|:---|:---|:---|
 
 ## フォーマットについて（重要）
 **会議概要は必ず以下の形式で、各項目を別々の行に記載してください（1行に複数項目を入れないでください）：**

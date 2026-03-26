@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import MemberManager from "@/components/MemberManager";
+import MemberManager from "@/components/member/MemberManager";
 import styles from "../settings.module.css";
 
 export default function MembersPage() {

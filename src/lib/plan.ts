@@ -7,6 +7,8 @@ export interface FeatureFlags {
     email_send: boolean;
     terminology_pipeline: boolean;
     profile_analysis: boolean;
+    task_extraction: boolean;
+    task_delivery: boolean;
 }
 
 export interface TenantPlan {
@@ -22,9 +24,9 @@ export interface TenantPlan {
 }
 
 const PLAN_DEFAULTS: Record<string, FeatureFlags> = {
-    trial: { drive_save: false, email_send: false, terminology_pipeline: false, profile_analysis: false },
-    standard: { drive_save: true, email_send: true, terminology_pipeline: true, profile_analysis: false },
-    premium: { drive_save: true, email_send: true, terminology_pipeline: true, profile_analysis: true },
+    trial: { drive_save: false, email_send: false, terminology_pipeline: false, profile_analysis: false, task_extraction: false, task_delivery: false },
+    standard: { drive_save: true, email_send: true, terminology_pipeline: true, profile_analysis: false, task_extraction: true, task_delivery: true },
+    premium: { drive_save: true, email_send: true, terminology_pipeline: true, profile_analysis: true, task_extraction: true, task_delivery: true },
 };
 
 function resolveFeatures(plan: string, overrides: Partial<FeatureFlags>): FeatureFlags {

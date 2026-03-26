@@ -8,6 +8,7 @@ import os from "os";
 
 import { resolveTenantPlan } from "@/lib/plan";
 import { getTenantConfig } from "@/lib/supabase";
+import { logUsage } from "@/lib/usage-logger";
 
 // Vercel Pro: max 300s. Speech-to-Text + Gemini streaming needs sufficient time.
 export const maxDuration = 300;
@@ -34,10 +35,11 @@ async function saveBase64ToTmp(base64: string, filename: string): Promise<string
 
 export async function POST(request: NextRequest) {
     const encoder = new TextEncoder();
+    const requestStartTime = Date.now();
 
     try {
         const body = await request.json();
-        const { mode, transcript, audioData, uploadedFiles, date, useSpeakerDiarization = true, participants = [], feedback, notes } = body;
+        const { mode, transcript, audioData, uploadedFiles, date, useSpeakerDiarization = true, participants = [], feedback, notes, memberProfiles } = body;
         console.log("🚀 [API] Start processing generation request", {
             mode,
             hasAudio: !!audioData,
@@ -46,6 +48,9 @@ export async function POST(request: NextRequest) {
             participantsCount: participants?.length,
             participants: participants
         });
+
+        // テナント情報を取得（コスト計測用）
+        const { tenant } = await resolveTenantPlan();
 
         console.log("🚀 [API] Loading custom prompts...");
         const customPrompts = await loadCustomPrompts();
@@ -66,6 +71,7 @@ export async function POST(request: NextRequest) {
 
         if (audioData?.base64 && useSpeakerDiarization) {
             console.log("🚀 [API] Phase 1.5: Starting Speech-to-Text with speaker diarization...");
+            const sttStartTime = Date.now();
             try {
                 const audioBuffer = Buffer.from(audioData.base64, "base64");
                 const transcriptionResult = await transcribeWithSpeakerDiarization(audioBuffer);
@@ -77,6 +83,17 @@ export async function POST(request: NextRequest) {
                     };
                     console.log(`🚀 [API] Phase 1.5: Complete. Identified ${Object.keys(transcriptionResult.speakerMapping).length} speakers`);
                     console.log(`🚀 [API] Speakers: ${JSON.stringify(transcriptionResult.speakerMapping)}`);
+                }
+
+                // STTコスト計測
+                if (tenant) {
+                    logUsage({
+                        tenantDomain: tenant.domain,
+                        userEmail: tenant.userEmail,
+                        eventType: "stt",
+                        durationMs: Date.now() - sttStartTime,
+                        metadata: { speakerCount: Object.keys(transcriptionResult.speakerMapping).length },
+                    });
                 }
             } catch (error) {
                 console.error("⚠️ [API] Speech-to-Text failed, falling back to Gemini-only:", error);
@@ -99,6 +116,7 @@ export async function POST(request: NextRequest) {
                         participants,
                         feedback,
                         notes,
+                        memberProfiles,
                     });
 
                     let chunkCount = 0;
@@ -110,6 +128,25 @@ export async function POST(request: NextRequest) {
                         controller.enqueue(encoder.encode(chunk));
                     }
                     console.log(`🚀 [API] Generation finished. Total chunks: ${chunkCount}`);
+
+                    // 議事録生成コスト計測
+                    if (tenant) {
+                        logUsage({
+                            tenantDomain: tenant.domain,
+                            userEmail: tenant.userEmail,
+                            eventType: feedback ? "regenerate" : "generate",
+                            durationMs: Date.now() - requestStartTime,
+                            model: GEMINI_MODEL,
+                            metadata: {
+                                mode,
+                                hasAudio: !!audioData,
+                                filesCount: uploadedFiles?.length ?? 0,
+                                chunkCount,
+                                participantsCount: participants?.length ?? 0,
+                            },
+                        });
+                    }
+
                     controller.close();
                 } catch (error) {
                     console.error("❌ [API] Stream generation error:", error);

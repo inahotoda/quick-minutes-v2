@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { MeetingMode } from "@/types";
 import { MeetingPreset, getAllPresets } from "@/lib/member-storage";
 import styles from "./ModeSelector.module.css";
@@ -22,6 +22,12 @@ const modes: { value: MeetingMode; label: string; icon: string }[] = [
     { value: "other", label: "その他", icon: "📋" },
 ];
 
+const modeIcons: Record<string, string> = {
+    internal: "💼",
+    business: "🤝",
+    other: "📝",
+};
+
 export default function ModeSelector({
     selectedMode,
     onModeChange,
@@ -35,19 +41,38 @@ export default function ModeSelector({
     const [presets, setPresets] = useState<MeetingPreset[]>([]);
     const [isPresetOpen, setIsPresetOpen] = useState(false);
     const [isPromptOpen, setIsPromptOpen] = useState(false);
+    const [presetSearch, setPresetSearch] = useState("");
 
-    // Load presets
+    // Load presets (exclude archived, sort by usage)
     useEffect(() => {
         const load = async () => {
             try {
                 const data = await getAllPresets();
-                setPresets(data);
+                const active = data
+                    .filter((p) => !p.isArchived)
+                    .sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
+                setPresets(active);
             } catch (error) {
                 console.error("Failed to load presets:", error);
             }
         };
         load();
     }, []);
+
+    // Split into recent (top 3 with usage) and others
+    const recentPresets = useMemo(
+        () => presets.filter((p) => (p.usageCount || 0) > 0).slice(0, 3),
+        [presets],
+    );
+    const recentIds = useMemo(() => new Set(recentPresets.map((p) => p.id)), [recentPresets]);
+
+    // Filtered presets for search
+    const filteredOther = useMemo(() => {
+        const others = presets.filter((p) => !recentIds.has(p.id));
+        if (!presetSearch.trim()) return others;
+        const q = presetSearch.trim().toLowerCase();
+        return presets.filter((p) => p.name.toLowerCase().includes(q));
+    }, [presets, recentIds, presetSearch]);
 
     // Handle mode click
     const handleModeClick = (mode: MeetingMode) => {
@@ -60,12 +85,26 @@ export default function ModeSelector({
         onModeChange(preset.mode);
         onPresetChange?.(preset);
         setIsPresetOpen(false);
+        setPresetSearch("");
     };
 
     // Clear preset
     const handleClearPreset = () => {
         onPresetChange?.(null);
     };
+
+    // Render a preset chip
+    const renderPresetChip = (preset: MeetingPreset) => (
+        <button
+            key={preset.id}
+            className={styles.presetChip}
+            onClick={() => handlePresetSelect(preset)}
+        >
+            <span className={styles.presetChipIcon}>{modeIcons[preset.mode] || "📝"}</span>
+            <span className={styles.presetChipName}>{preset.name}</span>
+            <span className={styles.presetChipCount}>👥{preset.memberIds.length}</span>
+        </button>
+    );
 
     return (
         <div className={`${styles.container} ${compact ? styles.compact : ''}`}>
@@ -133,26 +172,59 @@ export default function ModeSelector({
                         </button>
                     )}
 
-                    {/* Preset Dropdown */}
+                    {/* Preset Dropdown - Redesigned */}
                     {isPresetOpen && !selectedPreset && (
                         <div className={styles.presetDropdown}>
-                            {presets.map((preset) => (
-                                <button
-                                    key={preset.id}
-                                    className={styles.presetItem}
-                                    onClick={() => handlePresetSelect(preset)}
-                                >
-                                    <span className={styles.presetItemIcon}>
-                                        {preset.mode === "business" ? "🤝" : preset.mode === "internal" ? "💼" : "📝"}
-                                    </span>
-                                    <span className={styles.presetItemName}>{preset.name}</span>
-                                    {preset.memberIds.length > 0 && (
-                                        <span className={styles.presetItemCount}>
-                                            👥 {preset.memberIds.length}
-                                        </span>
+                            {/* Search (show when 5+ presets) */}
+                            {presets.length >= 5 && (
+                                <input
+                                    type="text"
+                                    className={styles.presetSearchInput}
+                                    value={presetSearch}
+                                    onChange={(e) => setPresetSearch(e.target.value)}
+                                    placeholder="検索..."
+                                    autoFocus
+                                />
+                            )}
+
+                            {!presetSearch.trim() && (
+                                <>
+                                    {/* Recent presets */}
+                                    {recentPresets.length > 0 && (
+                                        <div className={styles.presetGroup}>
+                                            <div className={styles.presetGroupLabel}>よく使う</div>
+                                            <div className={styles.presetChipGrid}>
+                                                {recentPresets.map(renderPresetChip)}
+                                            </div>
+                                        </div>
                                     )}
-                                </button>
-                            ))}
+
+                                    {/* Other presets */}
+                                    {filteredOther.length > 0 && (
+                                        <div className={styles.presetGroup}>
+                                            {recentPresets.length > 0 && (
+                                                <div className={styles.presetGroupLabel}>その他</div>
+                                            )}
+                                            <div className={styles.presetChipGrid}>
+                                                {filteredOther.map(renderPresetChip)}
+                                            </div>
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            {/* Search results */}
+                            {presetSearch.trim() && (
+                                <div className={styles.presetChipGrid}>
+                                    {filteredOther.length > 0 ? (
+                                        filteredOther.map(renderPresetChip)
+                                    ) : (
+                                        <div className={styles.presetNoResults}>
+                                            該当なし
+                                        </div>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>

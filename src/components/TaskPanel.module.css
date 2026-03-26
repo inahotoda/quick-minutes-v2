@@ -1,0 +1,559 @@
+.container {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+    margin-top: 1rem;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 1rem;
+    background: #f0fdf4;
+    border-bottom: 1px solid #bbf7d0;
+    cursor: pointer;
+    user-select: none;
+}
+
+.titleWrapper {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #166534;
+}
+
+.count {
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: #16a34a;
+    background: #dcfce7;
+    padding: 0.1rem 0.5rem;
+    border-radius: 999px;
+    margin-left: 0.5rem;
+}
+
+.loadingLabel {
+    font-size: 0.75rem;
+    color: #6b7280;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.collapseBtn {
+    background: none;
+    border: none;
+    font-size: 0.75rem;
+    color: #6b7280;
+    cursor: pointer;
+    padding: 0.25rem;
+}
+
+.body {
+    padding: 1rem;
+}
+
+.loadingState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    padding: 2.5rem 1rem;
+    color: #6b7280;
+    font-size: 0.85rem;
+    animation: fadeInUp 0.5s ease;
+}
+
+@keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.loadingAnimation {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+}
+
+.loadingDots {
+    position: absolute;
+    bottom: -12px;
+    display: flex;
+    gap: 4px;
+}
+
+.dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: #16a34a;
+    animation: dotBounce 1.2s ease-in-out infinite;
+}
+
+.dot:nth-child(2) { animation-delay: 0.15s; }
+.dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes dotBounce {
+    0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+    40% { opacity: 1; transform: scale(1.2); }
+}
+
+.loadingText {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.loadingTitle {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #166534;
+}
+
+.loadingSubtext {
+    font-size: 0.78rem;
+    color: #9ca3af;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #dcfce7;
+    border-top-color: #16a34a;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.summaryBar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem 0;
+    margin-bottom: 0.75rem;
+    border-bottom: 1px solid #f3f4f6;
+}
+
+.assigneeSummary {
+    font-size: 0.75rem;
+    color: #4b5563;
+    background: #f3f4f6;
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+}
+
+/* 一括アクションバー */
+.bulkActions {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.approveAllBtn {
+    font-size: 0.8rem;
+    padding: 0.4rem 1rem;
+    border: 1px solid #bbf7d0;
+    border-radius: 8px;
+    background: #f0fdf4;
+    color: #166534;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.15s;
+}
+
+.approveAllBtn:hover:not(:disabled) {
+    background: #dcfce7;
+}
+
+.approveAllBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.deliverBtn {
+    font-size: 0.8rem;
+    padding: 0.4rem 1rem;
+    border: none;
+    border-radius: 8px;
+    background: #2563eb;
+    color: #ffffff;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.15s;
+}
+
+.deliverBtn:hover:not(:disabled) {
+    background: #1d4ed8;
+}
+
+.deliverBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.deliveryMessage {
+    font-size: 0.8rem;
+    padding: 0.5rem 0.75rem;
+    background: #eff6ff;
+    color: #1e40af;
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+}
+
+.taskList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.taskCard {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 0.75rem 1rem;
+    background: #fafafa;
+    position: relative;
+    transition: box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.taskCard:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* ステータス別スタイル */
+.taskCard_approved {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+}
+
+.taskCard_edited {
+    border-color: #bbf7d0;
+    background: #f0fdf4;
+}
+
+.taskCard_skipped {
+    opacity: 0.5;
+    background: #f9fafb;
+}
+
+.taskCard_delivered {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+}
+
+.taskHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.headerRight {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.priorityBadge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.prioritySelect {
+    font-size: 0.75rem;
+    padding: 0.2rem 0.4rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #ffffff;
+}
+
+.deliveredBadge {
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.skippedBadge {
+    font-size: 0.6rem;
+    font-weight: 600;
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.channels {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.channelBadge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.45rem;
+    border-radius: 6px;
+    background: #f3f4f6;
+    color: #4b5563;
+}
+
+.channelBadge[data-channel="calendar"] {
+    background: #eff6ff;
+    color: #2563eb;
+}
+
+.channelBadge[data-channel="chat"] {
+    background: #faf5ff;
+    color: #7c3aed;
+}
+
+.taskBody {
+    margin-bottom: 0.5rem;
+}
+
+.actionSummary {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #1f2937;
+    margin: 0;
+    line-height: 1.4;
+}
+
+.actionContext {
+    font-size: 0.75rem;
+    color: #6b7280;
+    margin: 0.25rem 0 0;
+    line-height: 1.3;
+}
+
+/* 編集用インプット */
+.editInput {
+    width: 100%;
+    font-size: 0.9rem;
+    font-weight: 500;
+    padding: 0.35rem 0.5rem;
+    border: 1px solid #93c5fd;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #1f2937;
+    outline: none;
+}
+
+.editInput:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.editInputSmall {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.4rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #ffffff;
+    outline: none;
+    max-width: 140px;
+}
+
+.editInputSmall:focus {
+    border-color: #2563eb;
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.editSelect {
+    font-size: 0.8rem;
+    padding: 0.2rem 0.4rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background: #ffffff;
+    max-width: 140px;
+}
+
+.taskMeta {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.metaItem {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+}
+
+.metaLabel {
+    font-size: 0.7rem;
+    color: #9ca3af;
+    font-weight: 500;
+}
+
+.metaValue {
+    font-size: 0.8rem;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.confidenceDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* タスクアクションボタン */
+.taskActions {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.6rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid #f3f4f6;
+}
+
+.approveBtn {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.75rem;
+    border: 1px solid #bbf7d0;
+    border-radius: 6px;
+    background: #f0fdf4;
+    color: #166534;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.15s;
+}
+
+.approveBtn:hover {
+    background: #dcfce7;
+}
+
+.editBtn {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #374151;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.15s;
+}
+
+.editBtn:hover {
+    background: #f3f4f6;
+}
+
+.skipBtn {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #9ca3af;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.15s;
+}
+
+.skipBtn:hover {
+    background: #f9fafb;
+    color: #6b7280;
+}
+
+.saveBtn {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.75rem;
+    border: none;
+    border-radius: 6px;
+    background: #2563eb;
+    color: #ffffff;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.15s;
+}
+
+.saveBtn:hover {
+    background: #1d4ed8;
+}
+
+.cancelBtn {
+    font-size: 0.75rem;
+    padding: 0.3rem 0.75rem;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #6b7280;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.cancelBtn:hover {
+    background: #f3f4f6;
+}
+
+.calendarLink {
+    margin-left: 0.4rem;
+    color: #2563eb;
+    text-decoration: none;
+    font-size: 0.7rem;
+    font-weight: 500;
+}
+
+.calendarLink:hover {
+    text-decoration: underline;
+}
+
+.lockedOverlay {
+    margin-top: 0.5rem;
+    padding: 0.35rem 0.75rem;
+    background: #fef3c7;
+    border-radius: 8px;
+    font-size: 0.7rem;
+    color: #92400e;
+    text-align: center;
+}
+
+@media (max-width: 480px) {
+    .taskHeader {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.35rem;
+    }
+
+    .taskMeta {
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    .bulkActions {
+        flex-direction: column;
+    }
+
+    .taskActions {
+        flex-wrap: wrap;
+    }
+}

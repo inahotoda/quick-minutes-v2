@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useSession, signIn } from "next-auth/react";
-import { MeetingMode, UploadedFile } from "@/types";
+import { MeetingMode, UploadedFile, ExtractedTask, TaskExtractionResult } from "@/types";
+import { parseNextActions } from "@/lib/task-parser";
 import { MeetingPreset, MeetingDuration } from "@/lib/member-storage";
 import { useAudioRecorder, blobToBase64 } from "@/hooks/useAudioRecorder";
 
@@ -16,7 +17,8 @@ import TranscriptInput from "@/components/TranscriptInput";
 import MinutesEditor from "@/components/MinutesEditor";
 import ProcessingScreen from "@/components/ProcessingScreen";
 import IntroductionScreen from "@/components/IntroductionScreen";
-import ParticipantConfirmation, { ConfirmedParticipant, ParticipantEditButton } from "@/components/ParticipantConfirmation";
+import ParticipantConfirmation, { ConfirmedParticipant, ParticipantEditButton } from "@/components/participant/ParticipantConfirmation";
+import TaskPanel from "@/components/TaskPanel";
 import Image from "next/image";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
@@ -36,7 +38,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.24.4";
+const APP_VERSION = "v4.25.0";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -77,6 +79,11 @@ export default function Home() {
   const [meetingNotes, setMeetingNotes] = useState("");
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [unresolvedTermCount, setUnresolvedTermCount] = useState(0);
+  // Next Action Bridge
+  const [extractedTasks, setExtractedTasks] = useState<ExtractedTask[]>([]);
+  const [isExtractingTasks, setIsExtractingTasks] = useState(false);
+  const [taskSummary, setTaskSummary] = useState<TaskExtractionResult["summary"] | undefined>();
+  const [taskBatchId, setTaskBatchId] = useState<string | null>(null);
   const [lastGenerationParams, setLastGenerationParams] = useState<{
     audioData?: { fileUri?: string; fileId?: string; base64?: string };
     uploadedFiles?: any[];
@@ -100,6 +107,8 @@ export default function Home() {
     email_send: boolean;
     terminology_pipeline: boolean;
     profile_analysis: boolean;
+    task_extraction: boolean;
+    task_delivery: boolean;
   } | null>(null);
   const [tenantInfo, setTenantInfo] = useState<{
     plan?: string;
@@ -235,11 +244,24 @@ export default function Home() {
   }, [recorder]);
 
   // Handle participant confirmation complete
-  const handleParticipantConfirm = useCallback((participants: ConfirmedParticipant[]) => {
+  const handleParticipantConfirm = useCallback(async (participants: ConfirmedParticipant[]) => {
     setConfirmedParticipants(participants);
     recorder.resetDuration(); // タイマーをリセット（ミーティングスタート時からカウント開始）
     setAppState("recording");
-  }, [recorder]);
+
+    // プリセット使用時: lastUsedAt / usageCount を更新
+    if (selectedPreset) {
+      try {
+        const { updatePreset } = await import("@/lib/member-storage");
+        await updatePreset(selectedPreset.id, {
+          lastUsedAt: new Date().toISOString(),
+          usageCount: (selectedPreset.usageCount || 0) + 1,
+        });
+      } catch (e) {
+        console.error("Failed to update preset usage:", e);
+      }
+    }
+  }, [recorder, selectedPreset]);
 
   // Handle participant confirmation cancel
   const handleParticipantCancel = useCallback(() => {
@@ -330,10 +352,25 @@ export default function Home() {
 
     try {
       console.log("🔍 [DEBUG] participantsToUse:", participantsToUse);
+      // メンバープロファイルを構築（Gemini 注入用）
+      const memberProfiles = participantsToUse
+        .filter(p => p.company || p.email || p.role || p.nameVariants?.length)
+        .map(p => ({
+          name: p.name,
+          nameVariants: p.nameVariants,
+          email: p.email,
+          company: p.company,
+          department: p.department,
+          role: p.role,
+          type: p.memberType,
+          isParticipant: true,
+        }));
+
       const requestBody: Record<string, unknown> = {
         mode,
         date: new Date().toLocaleDateString("ja-JP"),
         participants: participantsToUse.map(p => p.name),
+        ...(memberProfiles.length > 0 && { memberProfiles }),
       };
 
       // 追加プロンプト（初回生成時の追加指示）
@@ -367,14 +404,26 @@ export default function Home() {
           const f = files[i];
           setUploadProgress(`資料をアップロード中 (${i + 1}/${files.length}): ${f.name}`);
           const uploadResult = await uploadToGemini(f.file, f.name);
-          uploadedGeminiFiles.push({
-            name: f.name,
-            mimeType: f.file.type,
-            fileUri: uploadResult.file.uri,
-            fileId: uploadResult.file.name,
-          });
+
+          // 録音がなく、まだaudioData未設定の場合、最初の音声ファイルをメイン音声として扱う
+          if (f.type === "audio" && !audioBlob && !requestBody.audioData) {
+            requestBody.audioData = {
+              mimeType: f.file.type,
+              fileUri: uploadResult.file.uri,
+              fileId: uploadResult.file.name,
+            };
+          } else {
+            uploadedGeminiFiles.push({
+              name: f.name,
+              mimeType: f.file.type,
+              fileUri: uploadResult.file.uri,
+              fileId: uploadResult.file.name,
+            });
+          }
         }
-        requestBody.uploadedFiles = uploadedGeminiFiles;
+        if (uploadedGeminiFiles.length > 0) {
+          requestBody.uploadedFiles = uploadedGeminiFiles;
+        }
       }
 
       // Check if we have any input
@@ -450,8 +499,12 @@ export default function Home() {
 
       // 非同期で後処理パイプラインを起動（fire-and-forget、features に応じて）
       const extractedMinutes = fullText.match(/\[MINUTES_START\]([\s\S]*?)\[MINUTES_END\]/);
+      console.log("🔍 [DEBUG-GEN] extractedMinutes found:", !!extractedMinutes?.[1]);
+      console.log("🔍 [DEBUG-GEN] tenantFeatures:", JSON.stringify(tenantFeatures));
       if (extractedMinutes?.[1]?.trim()) {
         const minutesBody = extractedMinutes[1].trim();
+        console.log("🔍 [DEBUG-GEN] minutesBody length:", minutesBody.length);
+        console.log("🔍 [DEBUG-GEN] contains ネクストアクション:", minutesBody.includes("ネクストアクション"));
         // パイプライン1: 用語抽出（terminology_pipeline が有効な場合のみ）
         if (tenantFeatures?.terminology_pipeline) {
           fetch("/api/terminology/extract", {
@@ -467,6 +520,46 @@ export default function Home() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ minutesText: minutesBody }),
           }).catch(() => {});
+        }
+        // パイプライン3: タスク抽出（Gemini 出力から直接パース — Sonnet 廃止）
+        console.log("🔍 [DEBUG-GEN] task_extraction enabled:", tenantFeatures?.task_extraction);
+        if (tenantFeatures?.task_extraction) {
+          // 抽出中フラグを先にセット → UIに「抽出中...」アニメーションを表示
+          setIsExtractingTasks(true);
+
+          // 少し遅延してUIが描画されてからパース結果を反映
+          setTimeout(() => {
+            const parsedTasks = parseNextActions(minutesBody, {
+              meetingDate: new Date().toISOString().split("T")[0],
+              participants: confirmedParticipants.map(p => p.name),
+            });
+            if (parsedTasks.length > 0) {
+              setExtractedTasks(parsedTasks);
+              const byAssignee: Record<string, number> = {};
+              parsedTasks.forEach(t => {
+                const key = t.assignee || "未定";
+                byAssignee[key] = (byAssignee[key] || 0) + 1;
+              });
+              setTaskSummary({ total: parsedTasks.length, by_assignee: byAssignee });
+              // Supabase に保存
+              fetch("/api/tasks/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tasks: parsedTasks }),
+              })
+                .then(res => res.json())
+                .then((data) => {
+                  if (data.batchId) setTaskBatchId(data.batchId);
+                  if (data.tasks?.length > 0) {
+                    setExtractedTasks(data.tasks);
+                  }
+                })
+                .catch(() => {})
+                .finally(() => setIsExtractingTasks(false));
+            } else {
+              setIsExtractingTasks(false);
+            }
+          }, 800); // 800ms待ってからパース → 「抽出中」表示が見える
         }
       }
     } catch (err) {
@@ -562,8 +655,12 @@ export default function Home() {
 
       // 非同期で後処理パイプラインを起動（fire-and-forget、features に応じて）
       const extractedMinutes = fullText.match(/\[MINUTES_START\]([\s\S]*?)\[MINUTES_END\]/);
+      console.log("🔍 [DEBUG-REGEN] extractedMinutes found:", !!extractedMinutes?.[1]);
+      console.log("🔍 [DEBUG-REGEN] tenantFeatures:", JSON.stringify(tenantFeatures));
       if (extractedMinutes?.[1]?.trim()) {
         const minutesBody = extractedMinutes[1].trim();
+        console.log("🔍 [DEBUG-REGEN] minutesBody length:", minutesBody.length);
+        console.log("🔍 [DEBUG-REGEN] contains ネクストアクション:", minutesBody.includes("ネクストアクション"));
         if (tenantFeatures?.terminology_pipeline) {
           fetch("/api/terminology/extract", {
             method: "POST",
@@ -577,6 +674,40 @@ export default function Home() {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ minutesText: minutesBody }),
           }).catch(() => {});
+        }
+        // パイプライン3: タスク抽出（再生成時も実行 — Gemini 出力から直接パース）
+        console.log("🔍 [DEBUG-REGEN] task_extraction enabled:", tenantFeatures?.task_extraction);
+        if (tenantFeatures?.task_extraction) {
+          setExtractedTasks([]);
+          setTaskBatchId(null);
+          const parsedTasks = parseNextActions(minutesBody, {
+            meetingDate: new Date().toISOString().split("T")[0],
+            participants: confirmedParticipants.map(p => p.name),
+          });
+          console.log("🔍 [DEBUG-REGEN] parsedTasks:", parsedTasks.length);
+          if (parsedTasks.length > 0) {
+            setExtractedTasks(parsedTasks);
+            const byAssignee: Record<string, number> = {};
+            parsedTasks.forEach(t => {
+              const key = t.assignee || "未定";
+              byAssignee[key] = (byAssignee[key] || 0) + 1;
+            });
+            setTaskSummary({ total: parsedTasks.length, by_assignee: byAssignee });
+            // Supabase に保存（fire-and-forget）
+            fetch("/api/tasks/save", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ tasks: parsedTasks }),
+            })
+              .then(res => res.json())
+              .then((data) => {
+                if (data.batchId) setTaskBatchId(data.batchId);
+                if (data.tasks?.length > 0) {
+                  setExtractedTasks(data.tasks);
+                }
+              })
+              .catch(() => {});
+          }
         }
       }
     } catch (err) {
@@ -1701,6 +1832,21 @@ export default function Home() {
               isTrialMode={isTrialDeployment}
               isPdfReady={isPdfReady}
             />
+
+            {(isExtractingTasks || extractedTasks.length > 0) && (
+              <TaskPanel
+                tasks={extractedTasks}
+                isLoading={isExtractingTasks}
+                isDeliveryEnabled={tenantFeatures?.task_delivery ?? false}
+                accessToken={(session as any)?.accessToken}
+                summary={taskSummary}
+                onTasksUpdate={setExtractedTasks}
+                participants={confirmedParticipants.map(p => p.name)}
+                memberInfos={confirmedParticipants
+                  .filter(p => p.email)
+                  .map(p => ({ name: p.name, email: p.email, nameVariants: p.nameVariants }))}
+              />
+            )}
 
             <div className={styles.secondaryActions}>
               <button

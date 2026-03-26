@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Member, getAllMembers, addMember } from "@/lib/member-storage";
-import { ConfirmedParticipant } from "./ParticipantConfirmation";
+import { ConfirmedParticipant } from "./participant/ParticipantConfirmation";
 import styles from "./IntroductionScreen.module.css";
 
 // Web Speech API types
