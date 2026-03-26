@@ -286,6 +286,47 @@
     font-size: 0.75rem;
 }
 
+.memberSearch {
+    width: 100%;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    color: white;
+    font-size: 0.85rem;
+    margin-bottom: 0.5rem;
+}
+
+.memberSearch:focus {
+    outline: none;
+    border-color: #6366f1;
+}
+
+.memberSearch::placeholder {
+    color: rgba(255, 255, 255, 0.3);
+}
+
+.memberGroupSection {
+    margin-bottom: 0.5rem;
+}
+
+.memberGroupLabel {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.4);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 4px 0;
+    margin-bottom: 4px;
+}
+
+.memberCompany {
+    margin-left: auto;
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.35);
+    font-weight: 400;
+}
+
 /* Modal Actions */
 .modalActions {
     display: flex;

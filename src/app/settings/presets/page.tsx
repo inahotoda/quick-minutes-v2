@@ -409,33 +409,134 @@ export default function PresetsPage() {
                             </div>
                         </div>
                         <div className={presetStyles.formGroup}>
-                            <label className={presetStyles.label}>参加メンバー</label>
+                            <label className={presetStyles.label}>
+                                参加メンバー
+                                {selectedMemberIds.length > 0 && (
+                                    <span style={{ marginLeft: 8, fontSize: "0.78rem", color: "#a5b4fc", fontWeight: 400 }}>
+                                        {selectedMemberIds.length}名選択中
+                                    </span>
+                                )}
+                            </label>
                             {members.length === 0 ? (
                                 <p className={presetStyles.noMembers}>
                                     メンバーが登録されていません
                                 </p>
                             ) : (
-                                <div className={presetStyles.memberGrid}>
-                                    {members.map((member) => (
-                                        <label
-                                            key={member.id}
-                                            className={`${presetStyles.memberCheckbox} ${selectedMemberIds.includes(member.id)
-                                                ? presetStyles.memberCheckboxSelected
-                                                : ""
-                                                }`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={selectedMemberIds.includes(member.id)}
-                                                onChange={() => toggleMember(member.id)}
-                                            />
-                                            <span>{member.name}</span>
-                                            {member.voiceSample && (
-                                                <span className={presetStyles.voiceIcon}>🎵</span>
-                                            )}
-                                        </label>
-                                    ))}
-                                </div>
+                                <>
+                                    {members.length >= 10 && (
+                                        <input
+                                            type="text"
+                                            className={presetStyles.memberSearch}
+                                            placeholder="名前・会社名で検索..."
+                                            onChange={(e) => {
+                                                const q = e.target.value.toLowerCase();
+                                                document.querySelectorAll('[data-member-item]').forEach((el) => {
+                                                    const name = el.getAttribute('data-member-name') || '';
+                                                    const company = el.getAttribute('data-member-company') || '';
+                                                    (el as HTMLElement).style.display =
+                                                        !q || name.includes(q) || company.includes(q) ? '' : 'none';
+                                                });
+                                            }}
+                                        />
+                                    )}
+                                    {/* 選択済みメンバー */}
+                                    {selectedMemberIds.length > 0 && (
+                                        <div className={presetStyles.memberGroupSection}>
+                                            <div className={presetStyles.memberGroupLabel}>選択済み</div>
+                                            <div className={presetStyles.memberGrid}>
+                                                {members.filter(m => selectedMemberIds.includes(m.id)).map((member) => (
+                                                    <label
+                                                        key={member.id}
+                                                        data-member-item
+                                                        data-member-name={member.name.toLowerCase()}
+                                                        data-member-company={(member.company || '').toLowerCase()}
+                                                        className={`${presetStyles.memberCheckbox} ${presetStyles.memberCheckboxSelected}`}
+                                                    >
+                                                        <input type="checkbox" checked onChange={() => toggleMember(member.id)} />
+                                                        <span>{member.name}</span>
+                                                        {member.company && <span className={presetStyles.memberCompany}>{member.company}</span>}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {/* 社内 */}
+                                    {(() => {
+                                        const group = members.filter(m => (m.type === 'internal' || !m.type) && !selectedMemberIds.includes(m.id));
+                                        if (group.length === 0) return null;
+                                        return (
+                                            <div className={presetStyles.memberGroupSection}>
+                                                <div className={presetStyles.memberGroupLabel}>社内</div>
+                                                <div className={presetStyles.memberGrid}>
+                                                    {group.map((member) => (
+                                                        <label key={member.id} data-member-item data-member-name={member.name.toLowerCase()} data-member-company={(member.company || '').toLowerCase()} className={presetStyles.memberCheckbox}>
+                                                            <input type="checkbox" checked={false} onChange={() => toggleMember(member.id)} />
+                                                            <span>{member.name}</span>
+                                                            {member.department && <span className={presetStyles.memberCompany}>{member.department}</span>}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                    {/* 顧客 */}
+                                    {(() => {
+                                        const group = members.filter(m => m.type === 'client' && !selectedMemberIds.includes(m.id));
+                                        if (group.length === 0) return null;
+                                        return (
+                                            <div className={presetStyles.memberGroupSection}>
+                                                <div className={presetStyles.memberGroupLabel}>顧客</div>
+                                                <div className={presetStyles.memberGrid}>
+                                                    {group.map((member) => (
+                                                        <label key={member.id} data-member-item data-member-name={member.name.toLowerCase()} data-member-company={(member.company || '').toLowerCase()} className={presetStyles.memberCheckbox}>
+                                                            <input type="checkbox" checked={false} onChange={() => toggleMember(member.id)} />
+                                                            <span>{member.name}</span>
+                                                            {member.company && <span className={presetStyles.memberCompany}>{member.company}</span>}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                    {/* 仕入先 */}
+                                    {(() => {
+                                        const group = members.filter(m => m.type === 'supplier' && !selectedMemberIds.includes(m.id));
+                                        if (group.length === 0) return null;
+                                        return (
+                                            <div className={presetStyles.memberGroupSection}>
+                                                <div className={presetStyles.memberGroupLabel}>仕入先</div>
+                                                <div className={presetStyles.memberGrid}>
+                                                    {group.map((member) => (
+                                                        <label key={member.id} data-member-item data-member-name={member.name.toLowerCase()} data-member-company={(member.company || '').toLowerCase()} className={presetStyles.memberCheckbox}>
+                                                            <input type="checkbox" checked={false} onChange={() => toggleMember(member.id)} />
+                                                            <span>{member.name}</span>
+                                                            {member.company && <span className={presetStyles.memberCompany}>{member.company}</span>}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                    {/* その他 */}
+                                    {(() => {
+                                        const group = members.filter(m => m.type === 'other' && !selectedMemberIds.includes(m.id));
+                                        if (group.length === 0) return null;
+                                        return (
+                                            <div className={presetStyles.memberGroupSection}>
+                                                <div className={presetStyles.memberGroupLabel}>その他</div>
+                                                <div className={presetStyles.memberGrid}>
+                                                    {group.map((member) => (
+                                                        <label key={member.id} data-member-item data-member-name={member.name.toLowerCase()} data-member-company={(member.company || '').toLowerCase()} className={presetStyles.memberCheckbox}>
+                                                            <input type="checkbox" checked={false} onChange={() => toggleMember(member.id)} />
+                                                            <span>{member.name}</span>
+                                                            {member.company && <span className={presetStyles.memberCompany}>{member.company}</span>}
+                                                        </label>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        );
+                                    })()}
+                                </>
                             )}
                         </div>
 
