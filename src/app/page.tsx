@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import { useSession, signIn } from "next-auth/react";
 import { MeetingMode, UploadedFile, ExtractedTask, TaskExtractionResult } from "@/types";
 import { parseNextActions } from "@/lib/task-parser";
-import { MeetingPreset, MeetingDuration } from "@/lib/member-storage";
+import { MeetingPreset, MeetingDuration, getAllPresets } from "@/lib/member-storage";
 import { useAudioRecorder, blobToBase64 } from "@/hooks/useAudioRecorder";
 
 import LoginButton from "@/components/LoginButton";
@@ -19,6 +19,7 @@ import ProcessingScreen from "@/components/ProcessingScreen";
 import IntroductionScreen from "@/components/IntroductionScreen";
 import ParticipantConfirmation, { ConfirmedParticipant, ParticipantEditButton } from "@/components/participant/ParticipantConfirmation";
 import TaskPanel from "@/components/TaskPanel";
+import PresetGrid from "@/components/PresetGrid";
 import Image from "next/image";
 import styles from "./page.module.css";
 import { uploadToGemini } from "@/lib/gemini-client";
@@ -62,6 +63,8 @@ export default function Home() {
   const [uploadProgress, setUploadProgress] = useState<string>("");
   const [mode, setMode] = useState<MeetingMode>("internal");
   const [selectedPreset, setSelectedPreset] = useState<MeetingPreset | null>(null);
+  const [allPresets, setAllPresets] = useState<MeetingPreset[]>([]);
+  const [activeTab, setActiveTab] = useState<"record" | "upload">("record");
   const [transcript, setTranscript] = useState("");
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [minutes, setMinutes] = useState("");
@@ -153,6 +156,16 @@ export default function Home() {
     }
   }, [session, status, accessCheckState]);
 
+  // Load presets (for PresetGrid)
+  useEffect(() => {
+    if (accessCheckState === "granted") {
+      getAllPresets().then(data => {
+        const active = data.filter(p => !p.isArchived).sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
+        setAllPresets(active);
+      }).catch(() => {});
+    }
+  }, [accessCheckState]);
+
   // Browser detection
   useEffect(() => {
     const ua = window.navigator.userAgent.toLowerCase();
@@ -239,9 +252,41 @@ export default function Home() {
   const handleStartRecording = useCallback(async () => {
     setError(null);
     await recorder.startRecording();
-    // 常に参加者確認画面へ遷移
+
+    // プリセット選択済みの場合: 参加者確認をスキップして即録音開始
+    if (selectedPreset && selectedPreset.memberIds.length > 0) {
+      try {
+        const { getAllMembers, updatePreset } = await import("@/lib/member-storage");
+        const allMembers = await getAllMembers();
+        const presetParticipants = selectedPreset.memberIds
+          .map(id => {
+            const m = allMembers.find(mem => mem.id === id);
+            if (!m) return null;
+            return {
+              id: m.id, name: m.name, hasVoice: !!m.voiceSample,
+              voiceBlob: m.voiceSample?.blob, nameVariants: m.nameVariants,
+              email: m.email, company: m.company, department: m.department,
+              role: m.role, memberType: m.type,
+            };
+          })
+          .filter(Boolean) as ConfirmedParticipant[];
+        setConfirmedParticipants(presetParticipants);
+        recorder.resetDuration();
+        setAppState("recording");
+        // プリセット使用回数を更新
+        await updatePreset(selectedPreset.id, {
+          lastUsedAt: new Date().toISOString(),
+          usageCount: (selectedPreset.usageCount || 0) + 1,
+        }).catch(() => {});
+        return;
+      } catch (e) {
+        console.error("Failed to skip confirmation:", e);
+      }
+    }
+
+    // プリセットなし: 従来通り参加者確認画面へ
     setAppState("confirming");
-  }, [recorder]);
+  }, [recorder, selectedPreset]);
 
   // Handle participant confirmation complete
   const handleParticipantConfirm = useCallback(async (participants: ConfirmedParticipant[]) => {
@@ -733,12 +778,42 @@ export default function Home() {
   };
 
   // Handle generate from transcript or files
-  const handleGenerateFromInput = () => {
+  const handleGenerateFromInput = async () => {
     if (!transcript.trim() && files.length === 0) {
       setError("文字起こしテキストを入力するか、ファイルをアップロードしてください");
       return;
     }
-    // 参加者確認画面へ遷移
+
+    // プリセット選択済み: 確認スキップ → 即生成
+    if (selectedPreset && selectedPreset.memberIds.length > 0) {
+      try {
+        const { getAllMembers, updatePreset } = await import("@/lib/member-storage");
+        const allMembers = await getAllMembers();
+        const presetParticipants = selectedPreset.memberIds
+          .map(id => {
+            const m = allMembers.find(mem => mem.id === id);
+            if (!m) return null;
+            return {
+              id: m.id, name: m.name, hasVoice: !!m.voiceSample,
+              voiceBlob: m.voiceSample?.blob, nameVariants: m.nameVariants,
+              email: m.email, company: m.company, department: m.department,
+              role: m.role, memberType: m.type,
+            };
+          })
+          .filter(Boolean) as ConfirmedParticipant[];
+        setConfirmedParticipants(presetParticipants);
+        generateMinutes(undefined, presetParticipants);
+        await updatePreset(selectedPreset.id, {
+          lastUsedAt: new Date().toISOString(),
+          usageCount: (selectedPreset.usageCount || 0) + 1,
+        }).catch(() => {});
+        return;
+      } catch (e) {
+        console.error("Failed to skip confirmation:", e);
+      }
+    }
+
+    // プリセットなし: 参加者確認画面へ
     setAppState("uploadConfirming");
   };
 
@@ -1586,113 +1661,167 @@ export default function Home() {
       <div className={styles.content}>
         {appState === "idle" && (
           <div className={styles.homeScreen}>
-            {/* Record Button */}
-            <RecordButton
-              isRecording={false}
-              isPaused={false}
-              isInterrupted={false}
-              duration={0}
-              onStart={handleStartRecording}
-              onStop={() => { }}
-              onPause={() => { }}
-              onResume={() => { }}
-              onResumeInterrupted={() => { }}
-            />
+            {/* Preset Grid */}
+            {allPresets.length > 0 && (
+              <PresetGrid
+                presets={allPresets}
+                selectedPreset={selectedPreset}
+                onSelect={(preset) => {
+                  setSelectedPreset(preset);
+                  if (preset) {
+                    setMode(preset.mode as MeetingMode);
+                    if (preset.duration) setSelectedDuration(preset.duration);
+                  }
+                }}
+              />
+            )}
 
-            {/* Mode Selector */}
-            <ModeSelector
-              selectedMode={mode}
-              onModeChange={setMode}
-              selectedPreset={selectedPreset}
-              onPresetChange={(preset) => {
-                setSelectedPreset(preset);
-                if (preset?.duration) {
-                  setSelectedDuration(preset.duration);
-                }
-              }}
-            />
+            {/* Mode Selector (shown when no preset or as fallback) */}
+            {!selectedPreset && (
+              <ModeSelector
+                selectedMode={mode}
+                onModeChange={setMode}
+                hidePresets
+              />
+            )}
 
-            {/* Timer Selector */}
-            <TimerSelector
-              selected={selectedDuration}
-              onChange={setSelectedDuration}
-              disabled={!!selectedPreset}
-            />
-
-            {/* Input Section Header */}
-            <div className={styles.inputSectionHeader}>
-              <p>録音以外の方法で議事録を作成する場合は、<br />下記にファイルまたは文字起こしを入力してください</p>
+            {/* Tab Switcher */}
+            <div className={styles.tabSwitcher}>
+              <button
+                className={`${styles.tabBtn} ${activeTab === "record" ? styles.tabBtnActive : ""}`}
+                onClick={() => setActiveTab("record")}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: "-2px" }}>
+                  <path d="M8 1a2.5 2.5 0 00-2.5 2.5v4a2.5 2.5 0 005 0v-4A2.5 2.5 0 008 1z" stroke="currentColor" strokeWidth="1.2" />
+                  <path d="M4 7.5a4 4 0 008 0M8 12.5v2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+                </svg>
+                {" "}録音
+              </button>
+              <button
+                className={`${styles.tabBtn} ${activeTab === "upload" ? styles.tabBtnActive : ""}`}
+                onClick={() => setActiveTab("upload")}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ verticalAlign: "-2px" }}>
+                  <path d="M2 10v3a1 1 0 001 1h10a1 1 0 001-1v-3M8 2v8M5 5l3-3 3 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                {" "}アップロード
+              </button>
             </div>
 
-            {/* File Upload */}
-            <div className={styles.uploadSection}>
-              <FileUpload files={files} onFilesChange={setFiles} />
-            </div>
-
-            {/* Transcript Input */}
-            <TranscriptInput
-              value={transcript}
-              onChange={setTranscript}
-            />
-
-            {/* 追加の指示（プロンプト） */}
-            {(files.length > 0 || transcript) && (
-              <div className={styles.recordingOptionItem}>
-                <button
-                  className={`${styles.optionToggle} ${additionalPrompt ? styles.optionToggleActive : ''}`}
-                  onClick={() => {
-                    const el = document.getElementById('upload-prompt-area');
-                    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
-                  }}
-                >
-                  <span className={styles.optionToggleArrow}>▼</span>
-                  <span>追加の指示（プロンプト）</span>
-                </button>
-                <textarea
-                  id="upload-prompt-area"
-                  className={styles.optionTextarea}
-                  style={{ display: 'none' }}
-                  value={additionalPrompt}
-                  onChange={(e) => setAdditionalPrompt(e.target.value)}
-                  placeholder="例: 日本語と英語の併記にして / タスクを全て拾って"
-                  rows={3}
+            {/* === 録音タブ === */}
+            {activeTab === "record" && (
+              <div className={styles.tabContent}>
+                <RecordButton
+                  isRecording={false}
+                  isPaused={false}
+                  isInterrupted={false}
+                  duration={0}
+                  onStart={handleStartRecording}
+                  onStop={() => { }}
+                  onPause={() => { }}
+                  onResume={() => { }}
+                  onResumeInterrupted={() => { }}
+                />
+                <TimerSelector
+                  selected={selectedDuration}
+                  onChange={setSelectedDuration}
+                  disabled={!!selectedPreset}
                 />
               </div>
             )}
 
-            {/* メモ */}
-            {(files.length > 0 || transcript) && (
-              <div className={styles.recordingOptionItem}>
-                <button
-                  className={`${styles.optionToggle} ${meetingNotes ? styles.optionToggleActive : ''}`}
-                  onClick={() => {
-                    const el = document.getElementById('upload-notes-area');
-                    if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
-                  }}
-                >
-                  <span className={styles.optionToggleArrow}>▼</span>
-                  <span>メモ</span>
-                </button>
-                <textarea
-                  id="upload-notes-area"
-                  className={styles.optionTextarea}
-                  style={{ display: 'none' }}
-                  value={meetingNotes}
-                  onChange={(e) => setMeetingNotes(e.target.value)}
-                  placeholder="例: 株式会社○○っていう会社はこんな会社です / ○○というのは最近開発した新しいアプリのこと"
-                  rows={3}
+            {/* === アップロードタブ === */}
+            {activeTab === "upload" && (
+              <div className={styles.tabContent}>
+                {/* 音声ファイルアップロード（音声専用） */}
+                <div className={styles.uploadSection}>
+                  <FileUpload
+                    files={files.filter(f => f.type === "audio")}
+                    onFilesChange={(audioFiles) => {
+                      const nonAudio = files.filter(f => f.type !== "audio");
+                      setFiles([...audioFiles, ...nonAudio]);
+                    }}
+                    acceptTypes="audio/*"
+                    compactLabel="音声ファイル"
+                  />
+                </div>
+
+                {/* 補足資料（折りたたみ） */}
+                <div className={styles.recordingOptionItem}>
+                  <FileUpload
+                    files={files.filter(f => f.type !== "audio")}
+                    onFilesChange={(suppFiles) => {
+                      const audio = files.filter(f => f.type === "audio");
+                      setFiles([...audio, ...suppFiles]);
+                    }}
+                    acceptTypes="application/pdf,image/*,.txt"
+                    compact={true}
+                    compactLabel="補足資料を追加"
+                  />
+                </div>
+
+                {/* テキスト入力 */}
+                <TranscriptInput
+                  value={transcript}
+                  onChange={setTranscript}
                 />
+
+                {/* 追加の指示（プロンプト） */}
+                <div className={styles.recordingOptionItem}>
+                  <button
+                    className={`${styles.optionToggle} ${additionalPrompt ? styles.optionToggleActive : ''}`}
+                    onClick={() => {
+                      const el = document.getElementById('upload-prompt-area');
+                      if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+                    }}
+                  >
+                    <span className={styles.optionToggleArrow}>▼</span>
+                    <span>追加の指示</span>
+                  </button>
+                  <textarea
+                    id="upload-prompt-area"
+                    className={styles.optionTextarea}
+                    style={{ display: 'none' }}
+                    value={additionalPrompt}
+                    onChange={(e) => setAdditionalPrompt(e.target.value)}
+                    placeholder="例: 日本語と英語の併記にして / タスクを全て拾って"
+                    rows={3}
+                  />
+                </div>
+
+                {/* メモ */}
+                <div className={styles.recordingOptionItem}>
+                  <button
+                    className={`${styles.optionToggle} ${meetingNotes ? styles.optionToggleActive : ''}`}
+                    onClick={() => {
+                      const el = document.getElementById('upload-notes-area');
+                      if (el) el.style.display = el.style.display === 'none' ? 'block' : 'none';
+                    }}
+                  >
+                    <span className={styles.optionToggleArrow}>▼</span>
+                    <span>メモ</span>
+                  </button>
+                  <textarea
+                    id="upload-notes-area"
+                    className={styles.optionTextarea}
+                    style={{ display: 'none' }}
+                    value={meetingNotes}
+                    onChange={(e) => setMeetingNotes(e.target.value)}
+                    placeholder="例: 株式会社○○っていう会社はこんな会社です / ○○というのは最近開発した新しいアプリのこと"
+                    rows={3}
+                  />
+                </div>
+
+                {/* 生成ボタン */}
+                <button
+                  className={`${styles.generateButton} ${(!transcript && files.length === 0) ? styles.generateButtonDisabled : ''}`}
+                  onClick={handleGenerateFromInput}
+                  disabled={!transcript && files.length === 0}
+                >
+                  議事録を生成
+                </button>
               </div>
             )}
-
-            {/* Generate Button (always visible) */}
-            <button
-              className={`${styles.generateButton} ${(!transcript && files.length === 0) ? styles.generateButtonDisabled : ''}`}
-              onClick={handleGenerateFromInput}
-              disabled={!transcript && files.length === 0}
-            >
-              議事録を生成
-            </button>
           </div>
         )}
 
