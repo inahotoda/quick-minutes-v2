@@ -168,6 +168,11 @@ export default function Home() {
         const active = data.filter(p => !p.isArchived).sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
         setAllPresets(active);
 
+        // プリセットが0件ならアドホックモード（スポット会議）を自動有効化
+        if (active.length === 0) {
+          setIsAdhocMode(true);
+        }
+
         // Step 2: メンバーを非同期でロード → キャッシュ + フィルタ適用
         import("@/lib/member-storage").then(({ getAllMembers }) => {
           getAllMembers().then(allMembers => {
@@ -180,7 +185,12 @@ export default function Home() {
             );
             if (myMember) {
               const myPresets = active.filter(p => p.memberIds.includes(myMember.id));
-              if (myPresets.length > 0) setAllPresets(myPresets);
+              if (myPresets.length > 0) {
+                setAllPresets(myPresets);
+              } else {
+                // 自分が参加者のプリセットが0件の場合もアドホックモード有効化
+                setIsAdhocMode(true);
+              }
             }
           }).catch(() => {});
         }).catch(() => {});
