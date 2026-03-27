@@ -308,6 +308,8 @@ export async function POST(request: NextRequest) {
                     .insert({
                         term: item.term,
                         supplementary: item.reading_guess || item.description_guess,
+                        reading_guess: item.reading_guess || null,
+                        description_guess: item.description_guess || null,
                         context: item.context,
                         category_guess: item.category_guess,
                         status: "pending",

@@ -111,6 +111,8 @@ interface UnresolvedTerm {
     id: string;
     term: string;
     supplementary: string | null;
+    reading_guess: string | null;
+    description_guess: string | null;
     context: string;
     category_guess: string;
     occurrence_count: number;
@@ -185,8 +187,8 @@ function UnresolvedTermCard({
     const [expanded, setExpanded] = useState(false);
     const contentRef = useRef<HTMLDivElement>(null);
     const [category, setCategory] = useState(item.category_guess);
-    const [reading, setReading] = useState("");
-    const [description, setDescription] = useState(item.supplementary || "");
+    const [reading, setReading] = useState(item.reading_guess || "");
+    const [description, setDescription] = useState(item.description_guess || item.supplementary || "");
     const catKey = CATEGORY_GUESS_TO_KEY[category] || "technical";
     const config = CATEGORY_CONFIG[catKey];
 
@@ -425,8 +427,8 @@ export default function PromptsSettingsPage() {
                         action: "register",
                         category: item.category_guess,
                         term: item.term,
-                        reading: "",
-                        description: item.supplementary || "",
+                        reading: item.reading_guess || "",
+                        description: item.description_guess || item.supplementary || "",
                     }),
                 });
             }
@@ -436,11 +438,11 @@ export default function PromptsSettingsPage() {
                 if (catKey) {
                     setTermCategories(prev => ({
                         ...prev,
-                        [catKey]: [...prev[catKey], { term: item.term, reading: "", description: item.supplementary || "" }],
+                        [catKey]: [...prev[catKey], { term: item.term, reading: item.reading_guess || "", description: item.description_guess || item.supplementary || "" }],
                     }));
                     setSavedTermCategories(prev => ({
                         ...prev,
-                        [catKey]: [...prev[catKey], { term: item.term, reading: "", description: item.supplementary || "" }],
+                        [catKey]: [...prev[catKey], { term: item.term, reading: item.reading_guess || "", description: item.description_guess || item.supplementary || "" }],
                     }));
                 }
             }
