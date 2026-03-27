@@ -763,6 +763,164 @@
     color: rgba(255, 255, 255, 0.45);
 }
 
+.tenantDomainList {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-top: 0.6rem;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.tenantDomainItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.35rem 0.6rem;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 6px;
+    transition: background 0.15s;
+}
+
+.tenantDomainItem:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.tenantDomainLabel {
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.6);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tenantDomainDeleteBtn {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid rgba(239, 68, 68, 0.15);
+    border-radius: 4px;
+    color: rgba(239, 68, 68, 0.5);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    padding: 0;
+    flex-shrink: 0;
+    line-height: 1;
+}
+
+.tenantDomainDeleteBtn:hover:not(:disabled) {
+    background: rgba(239, 68, 68, 0.15);
+    border-color: rgba(239, 68, 68, 0.4);
+    color: #fca5a5;
+}
+
+.tenantDomainDeleteBtn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+.tenantDomainAddTrigger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.4rem 0.6rem;
+    margin-top: 0.2rem;
+    background: none;
+    border: 1px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 6px;
+    color: rgba(255, 255, 255, 0.35);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tenantDomainAddTrigger:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+    color: #a5b4fc;
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.tenantDomainAddForm {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    margin-top: 0.3rem;
+    padding: 0.6rem;
+    background: rgba(99, 102, 241, 0.05);
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    border-radius: 8px;
+}
+
+.tenantDomainAddInput {
+    padding: 0.5rem 0.65rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: white;
+    font-size: 0.8rem;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+.tenantDomainAddInput:focus {
+    outline: none;
+    border-color: #6366f1;
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.tenantDomainAddInput::placeholder {
+    color: rgba(255, 255, 255, 0.25);
+}
+
+.tenantDomainAddActions {
+    display: flex;
+    gap: 0.4rem;
+    justify-content: flex-end;
+}
+
+.tenantDomainAddBtn {
+    padding: 0.3rem 0.7rem;
+    background: #6366f1;
+    border: none;
+    border-radius: 5px;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tenantDomainAddBtn:hover:not(:disabled) {
+    background: #4f46e5;
+}
+
+.tenantDomainAddBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+.tenantDomainCancelBtn {
+    padding: 0.3rem 0.7rem;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 5px;
+    color: rgba(255, 255, 255, 0.5);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tenantDomainCancelBtn:hover {
+    border-color: rgba(255, 255, 255, 0.3);
+    color: white;
+}
+
 .tenantCardRight {
     display: flex;
     align-items: center;

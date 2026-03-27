@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3001,
+      "autoPort": false
+    },
+    {
+      "name": "knowledge-portal",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["-c", "cd /Users/soichiro/Projects/inaho-knowledge-portal && npm run dev -- -p 3002"],
+      "port": 3002
+    }
+  ]
+}

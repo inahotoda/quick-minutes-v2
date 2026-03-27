@@ -20,43 +20,54 @@ export function extractDomain(email: string): string {
 
 /**
  * ドメインまたは個別メールアドレスからテナント情報を取得
+ * tenant_domains テーブルでドメイン/メールを検索し、allowed_tenants を返す
  * 1. まずドメインでマッチ（match_type='domain'）
  * 2. なければ個別メールでマッチ（match_type='email'）
  */
 export async function getTenantByDomainOrEmail(domain: string, email: string) {
     if (!supabase) return null;
 
-    // 1. ドメインマッチ
+    // 1. ドメインマッチ（tenant_domains テーブル）
     const { data: domainMatch } = await supabase
-        .from("allowed_tenants")
-        .select("*")
+        .from("tenant_domains")
+        .select("tenant_id")
         .eq("domain", domain)
-        .eq("is_active", true)
-        .in("match_type", ["domain"])
+        .eq("match_type", "domain")
+        .limit(1)
         .single();
 
-    if (domainMatch) return domainMatch;
+    if (domainMatch) {
+        const { data: tenant } = await supabase
+            .from("allowed_tenants")
+            .select("*")
+            .eq("tenant_id", domainMatch.tenant_id)
+            .eq("is_active", true)
+            .single();
+        if (tenant) return tenant;
+    }
 
     // 2. 個別メールマッチ
-    const { data: emailMatch } = await supabase
-        .from("allowed_tenants")
-        .select("*")
-        .eq("email", email.toLowerCase())
-        .eq("is_active", true)
-        .eq("match_type", "email")
-        .single();
+    if (email) {
+        const { data: emailMatch } = await supabase
+            .from("tenant_domains")
+            .select("tenant_id")
+            .eq("email", email.toLowerCase())
+            .eq("match_type", "email")
+            .limit(1)
+            .single();
 
-    if (emailMatch) return emailMatch;
+        if (emailMatch) {
+            const { data: tenant } = await supabase
+                .from("allowed_tenants")
+                .select("*")
+                .eq("tenant_id", emailMatch.tenant_id)
+                .eq("is_active", true)
+                .single();
+            if (tenant) return tenant;
+        }
+    }
 
-    // 3. フォールバック: 旧データ（match_type未設定）のドメインマッチ
-    const { data: legacyMatch } = await supabase
-        .from("allowed_tenants")
-        .select("*")
-        .eq("domain", domain)
-        .eq("is_active", true)
-        .single();
-
-    return legacyMatch || null;
+    return null;
 }
 
 /**

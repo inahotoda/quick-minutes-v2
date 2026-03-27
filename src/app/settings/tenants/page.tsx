@@ -4,15 +4,22 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import styles from "../settings.module.css";
 
-interface Tenant {
+interface TenantDomain {
+    id: string;
     tenant_id: string;
     domain: string;
     email: string | null;
-    company_name: string;
     match_type: string;
+    created_at: string;
+}
+
+interface Tenant {
+    tenant_id: string;
+    company_name: string;
     is_active: boolean;
     expires_at: string;
     created_at: string;
+    domains: TenantDomain[];
 }
 
 export default function TenantsPage() {
@@ -21,14 +28,20 @@ export default function TenantsPage() {
     const [tenants, setTenants] = useState<Tenant[]>([]);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-    // 入力フォーム
+    // 新規登録フォーム
     const [input, setInput] = useState("");
     const [companyName, setCompanyName] = useState("");
     const [days, setDays] = useState(30);
     const [saving, setSaving] = useState(false);
 
-    // 削除中のテナントID
+    // 既存テナントへのドメイン追加
+    const [addingDomainFor, setAddingDomainFor] = useState<string | null>(null);
+    const [newDomainInput, setNewDomainInput] = useState("");
+    const [addingDomain, setAddingDomain] = useState(false);
+
+    // 削除中
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [deletingDomainId, setDeletingDomainId] = useState<string | null>(null);
 
     useEffect(() => {
         fetchTenants();
@@ -50,6 +63,23 @@ export default function TenantsPage() {
         }
     };
 
+    // 入力内容からマッチ方式を判定
+    const getInputHint = (val: string) => {
+        const trimmed = val.trim();
+        if (!trimmed) return null;
+        if (trimmed.startsWith("*@")) {
+            return { type: "domain", label: `${trimmed.slice(2)} ドメインの全ユーザーを許可` };
+        }
+        if (trimmed.includes("@")) {
+            return { type: "email", label: `${trimmed} のみ許可` };
+        }
+        return { type: "error", label: "「*@ドメイン」または「メールアドレス」形式で入力" };
+    };
+
+    const hint = getInputHint(input);
+    const newDomainHint = getInputHint(newDomainInput);
+
+    // 新規テナント作成
     const handleAdd = async () => {
         if (!input.trim() || !companyName.trim()) return;
         setSaving(true);
@@ -80,8 +110,40 @@ export default function TenantsPage() {
         }
     };
 
+    // 既存テナントへのドメイン追加
+    const handleAddDomain = async (tenantId: string) => {
+        if (!newDomainInput.trim()) return;
+        setAddingDomain(true);
+        setMessage(null);
+
+        try {
+            const res = await fetch("/api/admin/tenants", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tenantId, input: newDomainInput.trim() }),
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                setMessage({ type: "success", text: "アドレスを追加しました" });
+                setNewDomainInput("");
+                setAddingDomainFor(null);
+                fetchTenants();
+            } else {
+                setMessage({ type: "error", text: data.error || "追加に失敗しました" });
+            }
+        } catch (err) {
+            setMessage({ type: "error", text: "追加に失敗しました" });
+        } finally {
+            setAddingDomain(false);
+            setTimeout(() => setMessage(null), 4000);
+        }
+    };
+
+    // テナント全体削除
     const handleDelete = async (tenantId: string, name: string) => {
-        if (!confirm(`${name} を削除しますか？`)) return;
+        if (!confirm(`${name} を削除しますか？\n紐づくすべてのアドレス/ドメインも削除されます。`)) return;
         setDeletingId(tenantId);
 
         try {
@@ -105,20 +167,36 @@ export default function TenantsPage() {
         }
     };
 
-    // 入力内容からマッチ方式を判定して表示
-    const getInputHint = () => {
-        const trimmed = input.trim();
-        if (!trimmed) return null;
-        if (trimmed.startsWith("*@")) {
-            return { type: "domain", label: `${trimmed.slice(2)} ドメインの全ユーザーを許可` };
+    // 個別ドメイン/メール削除
+    const handleDeleteDomain = async (domainId: string, domainCount: number) => {
+        if (domainCount <= 1) {
+            setMessage({ type: "error", text: "最後のアドレスは削除できません。企業ごと削除してください。" });
+            setTimeout(() => setMessage(null), 4000);
+            return;
         }
-        if (trimmed.includes("@")) {
-            return { type: "email", label: `${trimmed} のみ許可` };
-        }
-        return { type: "error", label: "「*@ドメイン」または「メールアドレス」形式で入力" };
-    };
+        if (!confirm("このアドレスを削除しますか？")) return;
+        setDeletingDomainId(domainId);
 
-    const hint = getInputHint();
+        try {
+            const res = await fetch("/api/admin/tenants", {
+                method: "DELETE",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ domainId }),
+            });
+
+            if (res.ok) {
+                setMessage({ type: "success", text: "アドレスを削除しました" });
+                fetchTenants();
+            } else {
+                setMessage({ type: "error", text: "削除に失敗しました" });
+            }
+        } catch (err) {
+            setMessage({ type: "error", text: "削除に失敗しました" });
+        } finally {
+            setDeletingDomainId(null);
+            setTimeout(() => setMessage(null), 4000);
+        }
+    };
 
     const isExpired = (expiresAt: string) => new Date(expiresAt) < new Date();
     const daysLeft = (expiresAt: string) => {
@@ -232,20 +310,17 @@ export default function TenantsPage() {
                             {tenants.map((t) => {
                                 const expired = isExpired(t.expires_at);
                                 const remaining = daysLeft(t.expires_at);
+                                const isAddingHere = addingDomainFor === t.tenant_id;
 
                                 return (
                                     <div
                                         key={t.tenant_id}
                                         className={`${styles.tenantCard} ${expired ? styles.tenantExpired : ""}`}
                                     >
+                                        {/* ヘッダー: 企業名 + ステータス + 削除 */}
                                         <div className={styles.tenantCardMain}>
                                             <div className={styles.tenantCardInfo}>
                                                 <span className={styles.tenantCompany}>{t.company_name}</span>
-                                                <span className={styles.tenantDomain}>
-                                                    {t.match_type === "email"
-                                                        ? `✉️ ${t.email}`
-                                                        : `🌐 *@${t.domain}`}
-                                                </span>
                                             </div>
                                             <div className={styles.tenantCardRight}>
                                                 <span className={`${styles.tenantStatus} ${expired ? styles.tenantStatusExpired : styles.tenantStatusActive}`}>
@@ -259,6 +334,83 @@ export default function TenantsPage() {
                                                     {deletingId === t.tenant_id ? "..." : "削除"}
                                                 </button>
                                             </div>
+                                        </div>
+
+                                        {/* ドメイン/メール一覧 */}
+                                        <div className={styles.tenantDomainList}>
+                                            {t.domains.map((d) => (
+                                                <div key={d.id} className={styles.tenantDomainItem}>
+                                                    <span className={styles.tenantDomainLabel}>
+                                                        {d.match_type === "email"
+                                                            ? `✉️ ${d.email}`
+                                                            : `🌐 *@${d.domain}`}
+                                                    </span>
+                                                    <button
+                                                        className={styles.tenantDomainDeleteBtn}
+                                                        onClick={() => handleDeleteDomain(d.id, t.domains.length)}
+                                                        disabled={deletingDomainId === d.id}
+                                                        title={t.domains.length <= 1 ? "最後のアドレスは削除できません" : "削除"}
+                                                    >
+                                                        {deletingDomainId === d.id ? "..." : "×"}
+                                                    </button>
+                                                </div>
+                                            ))}
+
+                                            {/* ドメイン追加ボタン / フォーム */}
+                                            {isAddingHere ? (
+                                                <div className={styles.tenantDomainAddForm}>
+                                                    <input
+                                                        className={styles.tenantDomainAddInput}
+                                                        type="text"
+                                                        placeholder="*@domain.com or user@email.com"
+                                                        value={newDomainInput}
+                                                        onChange={(e) => setNewDomainInput(e.target.value)}
+                                                        autoFocus
+                                                        onKeyDown={(e) => {
+                                                            if (e.key === "Enter" && newDomainHint?.type !== "error") {
+                                                                handleAddDomain(t.tenant_id);
+                                                            }
+                                                            if (e.key === "Escape") {
+                                                                setAddingDomainFor(null);
+                                                                setNewDomainInput("");
+                                                            }
+                                                        }}
+                                                    />
+                                                    {newDomainHint && (
+                                                        <span className={`${styles.tenantHint} ${newDomainHint.type === "error" ? styles.tenantHintError : ""}`} style={{ fontSize: "0.7rem" }}>
+                                                            {newDomainHint.type === "domain" ? "🌐" : newDomainHint.type === "email" ? "✉️" : "⚠️"} {newDomainHint.label}
+                                                        </span>
+                                                    )}
+                                                    <div className={styles.tenantDomainAddActions}>
+                                                        <button
+                                                            className={styles.tenantDomainAddBtn}
+                                                            onClick={() => handleAddDomain(t.tenant_id)}
+                                                            disabled={addingDomain || !newDomainInput.trim() || newDomainHint?.type === "error"}
+                                                        >
+                                                            {addingDomain ? "追加中..." : "追加"}
+                                                        </button>
+                                                        <button
+                                                            className={styles.tenantDomainCancelBtn}
+                                                            onClick={() => {
+                                                                setAddingDomainFor(null);
+                                                                setNewDomainInput("");
+                                                            }}
+                                                        >
+                                                            キャンセル
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    className={styles.tenantDomainAddTrigger}
+                                                    onClick={() => {
+                                                        setAddingDomainFor(t.tenant_id);
+                                                        setNewDomainInput("");
+                                                    }}
+                                                >
+                                                    ＋ アドレス/ドメインを追加
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 );

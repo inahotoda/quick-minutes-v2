@@ -10,7 +10,7 @@ function isAdminUser(email: string): boolean {
 }
 
 /**
- * GET: テナント一覧取得
+ * GET: テナント一覧取得（ドメイン情報付き）
  */
 export async function GET() {
     try {
@@ -27,14 +27,29 @@ export async function GET() {
             return NextResponse.json({ error: "Supabase未設定" }, { status: 500 });
         }
 
-        const { data, error } = await supabase
+        // テナント一覧取得
+        const { data: tenants, error: tenantError } = await supabase
             .from("allowed_tenants")
             .select("*")
             .order("created_at", { ascending: false });
 
-        if (error) throw error;
+        if (tenantError) throw tenantError;
 
-        return NextResponse.json({ tenants: data || [] });
+        // ドメイン一覧取得
+        const { data: domains, error: domainError } = await supabase
+            .from("tenant_domains")
+            .select("*")
+            .order("created_at", { ascending: true });
+
+        if (domainError) throw domainError;
+
+        // テナントにドメイン情報をマージ
+        const tenantsWithDomains = (tenants || []).map((t) => ({
+            ...t,
+            domains: (domains || []).filter((d) => d.tenant_id === t.tenant_id),
+        }));
+
+        return NextResponse.json({ tenants: tenantsWithDomains });
     } catch (error) {
         console.error("Tenant list error:", error);
         return NextResponse.json({ error: "テナント一覧の取得に失敗しました" }, { status: 500 });
@@ -42,8 +57,9 @@ export async function GET() {
 }
 
 /**
- * POST: テナント追加
- * Body: { input: "*@domain.com" or "email@gmail.com", companyName: "ABC商事", days: 30 }
+ * POST: テナント追加 or 既存テナントにドメイン追加
+ * Body (新規): { input: "*@domain.com" or "email@gmail.com", companyName: "ABC商事", days: 30 }
+ * Body (追加): { tenantId: "abc-corp", input: "*@domain.com" or "email@gmail.com" }
  */
 export async function POST(request: NextRequest) {
     try {
@@ -60,58 +76,109 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "Supabase未設定" }, { status: 500 });
         }
 
-        const { input, companyName, days = 30 } = await request.json();
+        const { input, companyName, days = 30, tenantId: existingTenantId } = await request.json();
 
-        if (!input || !companyName) {
-            return NextResponse.json({ error: "入力とテナント名は必須です" }, { status: 400 });
+        if (!input) {
+            return NextResponse.json({ error: "アドレス/ドメインは必須です" }, { status: 400 });
         }
 
         const trimmedInput = input.trim().toLowerCase();
         let matchType: string;
         let domain: string;
         let email: string | null = null;
-        let tenantId: string;
 
         if (trimmedInput.startsWith("*@")) {
-            // ドメインマッチ: *@abc-corp.com
             matchType = "domain";
             domain = trimmedInput.slice(2);
-            tenantId = domain.split(".")[0];
         } else if (trimmedInput.includes("@")) {
-            // 個別メール: user@gmail.com
             matchType = "email";
             domain = trimmedInput.split("@")[1];
             email = trimmedInput;
-            tenantId = `email-${trimmedInput.replace(/[@.]/g, "-")}`;
         } else {
             return NextResponse.json({ error: "「*@ドメイン」または「メールアドレス」形式で入力してください" }, { status: 400 });
         }
 
+        // 既存テナントへのドメイン追加
+        if (existingTenantId) {
+            // 重複チェック
+            const { data: existing } = await supabase
+                .from("tenant_domains")
+                .select("id")
+                .eq("tenant_id", existingTenantId)
+                .eq("domain", domain)
+                .eq("match_type", matchType);
+
+            if (matchType === "email" && existing) {
+                const dup = existing.find(() => true); // check any
+                if (dup) {
+                    // さらにemailで重複チェック
+                    const { data: emailDup } = await supabase
+                        .from("tenant_domains")
+                        .select("id")
+                        .eq("tenant_id", existingTenantId)
+                        .eq("email", email);
+                    if (emailDup && emailDup.length > 0) {
+                        return NextResponse.json({ error: "このアドレスは既に登録されています" }, { status: 409 });
+                    }
+                }
+            } else if (matchType === "domain" && existing && existing.length > 0) {
+                return NextResponse.json({ error: "このドメインは既に登録されています" }, { status: 409 });
+            }
+
+            const { error } = await supabase
+                .from("tenant_domains")
+                .insert({
+                    tenant_id: existingTenantId,
+                    domain,
+                    email,
+                    match_type: matchType,
+                });
+
+            if (error) throw error;
+
+            return NextResponse.json({ success: true });
+        }
+
+        // 新規テナント作成
+        if (!companyName) {
+            return NextResponse.json({ error: "企業名は必須です" }, { status: 400 });
+        }
+
+        const tenantId = `tenant-${Date.now()}`;
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + days);
 
-        const { error } = await supabase
+        const { error: tenantError } = await supabase
             .from("allowed_tenants")
             .insert({
                 tenant_id: tenantId,
-                domain,
                 company_name: companyName,
-                match_type: matchType,
-                email,
                 is_active: true,
                 expires_at: expiresAt.toISOString(),
             });
 
-        if (error) {
-            if (error.code === "23505") {
+        if (tenantError) {
+            if (tenantError.code === "23505") {
                 return NextResponse.json({ error: "このテナントは既に登録されています" }, { status: 409 });
             }
-            throw error;
+            throw tenantError;
         }
+
+        // ドメイン/メール登録
+        const { error: domainError } = await supabase
+            .from("tenant_domains")
+            .insert({
+                tenant_id: tenantId,
+                domain,
+                email,
+                match_type: matchType,
+            });
+
+        if (domainError) throw domainError;
 
         return NextResponse.json({
             success: true,
-            tenant: { tenantId, domain, email, companyName, matchType, expiresAt },
+            tenant: { tenantId, companyName, expiresAt },
         });
     } catch (error) {
         console.error("Tenant add error:", error);
@@ -120,7 +187,9 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * DELETE: テナント削除（無効化）
+ * DELETE: テナント削除 or 個別ドメイン削除
+ * Body: { tenantId: "abc-corp" } → テナント全体削除
+ * Body: { domainId: "uuid" } → 個別ドメイン削除
  */
 export async function DELETE(request: NextRequest) {
     try {
@@ -137,22 +206,33 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: "Supabase未設定" }, { status: 500 });
         }
 
-        const { tenantId } = await request.json();
+        const { tenantId, domainId } = await request.json();
 
-        if (!tenantId) {
-            return NextResponse.json({ error: "tenant_idは必須です" }, { status: 400 });
+        if (domainId) {
+            // 個別ドメイン削除
+            const { error } = await supabase
+                .from("tenant_domains")
+                .delete()
+                .eq("id", domainId);
+
+            if (error) throw error;
+            return NextResponse.json({ success: true });
         }
 
-        const { error } = await supabase
-            .from("allowed_tenants")
-            .delete()
-            .eq("tenant_id", tenantId);
+        if (tenantId) {
+            // テナント全体削除（CASCADE で tenant_domains も消える）
+            const { error } = await supabase
+                .from("allowed_tenants")
+                .delete()
+                .eq("tenant_id", tenantId);
 
-        if (error) throw error;
+            if (error) throw error;
+            return NextResponse.json({ success: true });
+        }
 
-        return NextResponse.json({ success: true });
+        return NextResponse.json({ error: "tenantId または domainId は必須です" }, { status: 400 });
     } catch (error) {
         console.error("Tenant delete error:", error);
-        return NextResponse.json({ error: "テナント削除に失敗しました" }, { status: 500 });
+        return NextResponse.json({ error: "削除に失敗しました" }, { status: 500 });
     }
 }
