@@ -8,6 +8,7 @@ import os from "os";
 
 import { resolveTenantPlan } from "@/lib/plan";
 import { getTenantConfig } from "@/lib/supabase";
+import { loadTerminologyText } from "@/lib/knowledge-terminology";
 import { logUsage } from "@/lib/usage-logger";
 
 // Vercel Pro: max 300s. Speech-to-Text + Gemini streaming needs sufficient time.
@@ -18,7 +19,10 @@ async function loadCustomPrompts() {
         const { tenant } = await resolveTenantPlan();
         if (tenant?.tenantId) {
             const config = await getTenantConfig(tenant.tenantId, "prompts");
-            if (config?.data) return config.data;
+            const promptData = config?.data || {};
+            // terminology は knowledge スキーマから取得
+            const terminology = await loadTerminologyText(tenant.tenantId);
+            return { ...promptData, terminology };
         }
         return {};
     } catch {

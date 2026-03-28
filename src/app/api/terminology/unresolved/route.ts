@@ -1,48 +1,39 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase, extractDomain } from "@/lib/supabase";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/lib/auth";
+import { knowledgeDb } from "@/lib/supabase";
+import { resolveTenantPlan } from "@/lib/plan";
 
 export async function GET(request: NextRequest) {
     try {
-        if (!supabase) {
-            return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+        if (!knowledgeDb) {
+            return NextResponse.json({ error: "DB not configured" }, { status: 500 });
         }
 
-        // セッションからテナントドメインを取得
-        const session = await getServerSession(authOptions);
-        const tenantDomain = session?.user?.email
-            ? extractDomain(session.user.email)
-            : null;
+        // テナント解決（tenant_id ベースでフィルタ）
+        const { tenant } = await resolveTenantPlan();
+        const tenantId = tenant?.tenantId || null;
 
         const { searchParams } = new URL(request.url);
         const countOnly = searchParams.get("count_only") === "true";
 
-        // テナント単位でフィルタリング
-        const addTenantFilter = (q: any) => {
-            if (tenantDomain) return q.eq("tenant_domain", tenantDomain);
-            return q.is("tenant_domain", null);
-        };
-
         if (countOnly) {
-            let q = supabase
+            let q = knowledgeDb
                 .from("terminology_unresolved")
                 .select("*", { count: "exact", head: true })
                 .eq("status", "pending");
-            q = addTenantFilter(q);
+            if (tenantId) q = q.eq("tenant_id", tenantId);
             const { count, error } = await q;
 
             if (error) throw error;
             return NextResponse.json({ count: count || 0 });
         }
 
-        let q = supabase
+        let q = knowledgeDb
             .from("terminology_unresolved")
             .select("*")
             .eq("status", "pending")
             .order("occurrence_count", { ascending: false })
             .order("last_seen_at", { ascending: false });
-        q = addTenantFilter(q);
+        if (tenantId) q = q.eq("tenant_id", tenantId);
         const { data, error } = await q;
 
         if (error) throw error;

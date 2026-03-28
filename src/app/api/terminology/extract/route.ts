@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { supabase, getTenantConfig, saveTenantConfig } from "@/lib/supabase";
+import { knowledgeDb } from "@/lib/supabase";
 import { resolveTenantPlan } from "@/lib/plan";
 import { logUsage } from "@/lib/usage-logger";
+import { loadTerminologyText, registerTerm } from "@/lib/knowledge-terminology";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
 
@@ -16,117 +17,7 @@ interface ExtractedTerm {
     confidence: number;
 }
 
-interface TermEntry {
-    term: string;
-    reading: string;
-    description: string;
-}
-
-interface TermCategories {
-    companyBrand: TermEntry[];
-    abbreviation: TermEntry[];
-    technical: TermEntry[];
-}
-
-const CATEGORY_KEY_MAP: Record<string, keyof TermCategories> = {
-    "略語・社内用語": "abbreviation",
-    "専門用語": "technical",
-    "社名・ブランド名": "companyBrand",
-};
-
 const AUTO_REGISTER_THRESHOLD = 0.8;
-
-async function loadExistingTerminology(tenantId: string): Promise<string> {
-    try {
-        const config = await getTenantConfig(tenantId, "prompts");
-        if (config?.data) {
-            const data = config.data as any;
-            return data.terminology || "";
-        }
-        return "";
-    } catch {
-        return "";
-    }
-}
-
-function parseTerminology(raw: string): TermCategories {
-    if (!raw || !raw.trim()) return { companyBrand: [], abbreviation: [], technical: [] };
-
-    const categories: TermCategories = { companyBrand: [], abbreviation: [], technical: [] };
-    const hasCategories = /^##\s/m.test(raw);
-
-    if (!hasCategories) {
-        const lines = raw.split("\n").filter(l => l.trim());
-        for (const line of lines) {
-            const cleaned = line.replace(/^[-・]\s*/, "").trim();
-            if (!cleaned) continue;
-            const entry = parseSingleTermLine(cleaned);
-            categories.technical.push(entry);
-        }
-        return categories;
-    }
-
-    let currentCategory: keyof TermCategories = "technical";
-    for (const line of raw.split("\n")) {
-        const trimmed = line.trim();
-        if (/^##\s/.test(trimmed)) {
-            if (/社名|ブランド/i.test(trimmed)) currentCategory = "companyBrand";
-            else if (/略語|社内/i.test(trimmed)) currentCategory = "abbreviation";
-            else if (/専門/i.test(trimmed)) currentCategory = "technical";
-            continue;
-        }
-        const cleaned = trimmed.replace(/^[-・]\s*/, "").trim();
-        if (!cleaned) continue;
-        const entry = parseSingleTermLine(cleaned);
-        categories[currentCategory].push(entry);
-    }
-    return categories;
-}
-
-/** 1行の用語テキストを TermEntry にパース（新旧フォーマット両対応） */
-function parseSingleTermLine(cleaned: string): TermEntry {
-    // 新フォーマット: "用語（読み）— 説明" or "用語（読み）- 説明"
-    const newFormatMatch = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])\s*[—\-]\s*(.+)$/);
-    if (newFormatMatch) {
-        return { term: newFormatMatch[1].trim(), reading: newFormatMatch[2].trim(), description: newFormatMatch[3].trim() };
-    }
-
-    // 旧フォーマット: "用語（読み）"
-    const readingMatch = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])$/);
-    if (readingMatch) {
-        return { term: readingMatch[1].trim(), reading: readingMatch[2].trim(), description: "" };
-    }
-
-    // 旧フォーマット: "用語 = 正式名称"
-    const eqMatch = cleaned.match(/^(.+?)\s*=\s*(.+)$/);
-    if (eqMatch) {
-        return { term: eqMatch[1].trim(), reading: "", description: eqMatch[2].trim() };
-    }
-
-    return { term: cleaned, reading: "", description: "" };
-}
-
-function serializeTerminology(categories: TermCategories): string {
-    const sections: string[] = [];
-
-    const formatEntry = (e: TermEntry) => {
-        let line = `- ${e.term}`;
-        if (e.reading) line += `（${e.reading}）`;
-        if (e.description) line += ` — ${e.description}`;
-        return line;
-    };
-
-    if (categories.companyBrand.length > 0) {
-        sections.push(`## 社名・ブランド名\n${categories.companyBrand.map(formatEntry).join("\n")}`);
-    }
-    if (categories.abbreviation.length > 0) {
-        sections.push(`## 略語・社内用語\n${categories.abbreviation.map(formatEntry).join("\n")}`);
-    }
-    if (categories.technical.length > 0) {
-        sections.push(`## 専門用語\n${categories.technical.map(formatEntry).join("\n")}`);
-    }
-    return sections.join("\n\n");
-}
 
 function buildExtractionPrompt(minutesText: string, existingTerms: string): string {
     return `あなたは日本語の議事録テキストから、AIが正確に認識・処理できない可能性のある
@@ -179,13 +70,12 @@ ${minutesText}`;
 export async function POST(request: NextRequest) {
     const startTime = Date.now();
     try {
-        if (!supabase) {
-            return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+        if (!knowledgeDb) {
+            return NextResponse.json({ error: "DB not configured" }, { status: 500 });
         }
 
         // テナント解決
         const { tenant } = await resolveTenantPlan();
-        const tenantDomain = tenant?.domain || null;
         const tenantId = tenant?.tenantId || null;
 
         // features チェック
@@ -198,8 +88,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "議事録テキストが短すぎます" }, { status: 400 });
         }
 
-        // 1. 既存辞書を取得
-        const existingTerms = await loadExistingTerminology(tenantId || "");
+        // 1. 既存辞書を knowledge.terminology から取得
+        const existingTerms = await loadTerminologyText(tenantId || "");
 
         // 2. Geminiで用語抽出（confidence付き）
         const model = genAI.getGenerativeModel({ model: "gemini-flash-latest" });
@@ -224,20 +114,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ extracted: 0, autoRegistered: 0, pendingReview: 0, message: "新しい用語は検出されませんでした" });
         }
 
-        // 4. 既存の未解決用語を取得（重複チェック用）
-        let query = supabase
+        // 4. 既存の未解決用語を knowledge.terminology_unresolved から取得
+        let query = knowledgeDb
             .from("terminology_unresolved")
             .select("id, term, status, occurrence_count")
             .in("term", extracted.map(e => e.term));
-        if (tenantDomain) {
-            query = query.eq("tenant_domain", tenantDomain);
-        } else {
-            query = query.is("tenant_domain", null);
+        if (tenantId) {
+            query = query.eq("tenant_id", tenantId);
         }
         const { data: existingUnresolved } = await query;
 
         const existingMap = new Map(
-            (existingUnresolved || []).map(r => [r.term, r])
+            (existingUnresolved || []).map((r: any) => [r.term, r])
         );
 
         // 5. 信頼度ベースで自動登録 or pending保存
@@ -248,31 +136,34 @@ export async function POST(request: NextRequest) {
         let pendingCount = 0;
         let updatedCount = 0;
 
-        // 5a. 高信頼度 → 辞書に自動登録
-        if (highConfidence.length > 0 && tenant) {
-            const configData = await getTenantConfig(tenant.tenantId, "prompts");
-            const config = (configData?.data as any) || { basePrompt: "", internalPrompt: "", businessPrompt: "", otherPrompt: "", terminology: "" };
-            const categories = parseTerminology(config.terminology || "");
-
+        // 5a. 高信頼度 → knowledge.terminology に自動登録
+        if (highConfidence.length > 0 && tenantId) {
             for (const item of highConfidence) {
                 const existing = existingMap.get(item.term);
                 if (existing && existing.status === "resolved") continue;
 
-                const categoryKey = CATEGORY_KEY_MAP[item.category_guess] || "technical";
-                // 重複チェック（既に辞書に登録済みか）
-                const alreadyRegistered = categories[categoryKey].some(e => e.term === item.term);
-                if (alreadyRegistered) continue;
+                // 既に辞書に登録済みかチェック
+                const { data: alreadyExists } = await knowledgeDb
+                    .from("terminology")
+                    .select("id")
+                    .eq("tenant_id", tenantId)
+                    .eq("term", item.term)
+                    .single();
 
-                categories[categoryKey].push({
-                    term: item.term,
-                    reading: item.reading_guess || "",
-                    description: item.description_guess || "",
-                });
+                if (alreadyExists) continue;
+
+                await registerTerm(
+                    tenantId,
+                    item.term,
+                    item.reading_guess || "",
+                    item.description_guess || "",
+                    item.category_guess
+                );
                 autoRegisteredCount++;
 
                 // unresolvedにあればresolvedに更新
                 if (existing) {
-                    await supabase
+                    await knowledgeDb
                         .from("terminology_unresolved")
                         .update({ status: "resolved", resolved_at: new Date().toISOString(), updated_at: new Date().toISOString() })
                         .eq("id", existing.id);
@@ -280,20 +171,17 @@ export async function POST(request: NextRequest) {
             }
 
             if (autoRegisteredCount > 0) {
-                const newTerminology = serializeTerminology(categories);
-                const updatedConfig = { ...config, terminology: newTerminology, updatedAt: new Date().toISOString() };
-                await saveTenantConfig(tenant.tenantId, "prompts", updatedConfig, tenant.userName);
                 console.log(`✅ [Terminology] Auto-registered ${autoRegisteredCount} high-confidence terms`);
             }
         }
 
-        // 5b. 低信頼度 → terminology_unresolved に保存
+        // 5b. 低信頼度 → knowledge.terminology_unresolved に保存
         for (const item of lowConfidence) {
             const existing = existingMap.get(item.term);
 
             if (existing) {
                 if (existing.status !== "pending") continue;
-                await supabase
+                await knowledgeDb
                     .from("terminology_unresolved")
                     .update({
                         occurrence_count: existing.occurrence_count + 1,
@@ -303,9 +191,10 @@ export async function POST(request: NextRequest) {
                     .eq("id", existing.id);
                 updatedCount++;
             } else {
-                await supabase
+                await knowledgeDb
                     .from("terminology_unresolved")
                     .insert({
+                        tenant_id: tenantId || "unknown",
                         term: item.term,
                         supplementary: item.reading_guess || item.description_guess,
                         reading_guess: item.reading_guess || null,
@@ -313,7 +202,6 @@ export async function POST(request: NextRequest) {
                         context: item.context,
                         category_guess: item.category_guess,
                         status: "pending",
-                        tenant_domain: tenantDomain,
                     });
                 pendingCount++;
             }

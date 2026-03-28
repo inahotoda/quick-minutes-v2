@@ -1,106 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabase, getTenantConfig, saveTenantConfig } from "@/lib/supabase";
+import { knowledgeDb } from "@/lib/supabase";
 import { resolveTenantPlan } from "@/lib/plan";
-
-interface TermEntry {
-    term: string;
-    reading: string;
-    description: string;
-}
-
-interface TermCategories {
-    companyBrand: TermEntry[];
-    abbreviation: TermEntry[];
-    technical: TermEntry[];
-}
-
-const CATEGORY_KEY_MAP: Record<string, keyof TermCategories> = {
-    "略語・社内用語": "abbreviation",
-    "専門用語": "technical",
-    "社名・ブランド名": "companyBrand",
-};
-
-/** 1行の用語テキストを TermEntry にパース（新旧フォーマット両対応） */
-function parseSingleTermLine(cleaned: string): TermEntry {
-    // 新フォーマット: "用語（読み）— 説明"
-    const newFormatMatch = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])\s*[—\-]\s*(.+)$/);
-    if (newFormatMatch) {
-        return { term: newFormatMatch[1].trim(), reading: newFormatMatch[2].trim(), description: newFormatMatch[3].trim() };
-    }
-
-    // 旧フォーマット: "用語（読み）"
-    const readingMatch = cleaned.match(/^(.+?)(?:[（(])(.+?)(?:[）)])$/);
-    if (readingMatch) {
-        return { term: readingMatch[1].trim(), reading: readingMatch[2].trim(), description: "" };
-    }
-
-    // 旧フォーマット: "用語 = 正式名称"
-    const eqMatch = cleaned.match(/^(.+?)\s*=\s*(.+)$/);
-    if (eqMatch) {
-        return { term: eqMatch[1].trim(), reading: "", description: eqMatch[2].trim() };
-    }
-
-    return { term: cleaned, reading: "", description: "" };
-}
-
-function parseTerminology(raw: string): TermCategories {
-    if (!raw || !raw.trim()) return { companyBrand: [], abbreviation: [], technical: [] };
-
-    const categories: TermCategories = { companyBrand: [], abbreviation: [], technical: [] };
-    const hasCategories = /^##\s/m.test(raw);
-
-    if (!hasCategories) {
-        const lines = raw.split("\n").filter(l => l.trim());
-        for (const line of lines) {
-            const cleaned = line.replace(/^[-・]\s*/, "").trim();
-            if (!cleaned) continue;
-            categories.technical.push(parseSingleTermLine(cleaned));
-        }
-        return categories;
-    }
-
-    let currentCategory: keyof TermCategories = "technical";
-    for (const line of raw.split("\n")) {
-        const trimmed = line.trim();
-        if (/^##\s/.test(trimmed)) {
-            if (/社名|ブランド/i.test(trimmed)) currentCategory = "companyBrand";
-            else if (/略語|社内/i.test(trimmed)) currentCategory = "abbreviation";
-            else if (/専門/i.test(trimmed)) currentCategory = "technical";
-            continue;
-        }
-        const cleaned = trimmed.replace(/^[-・]\s*/, "").trim();
-        if (!cleaned) continue;
-        categories[currentCategory].push(parseSingleTermLine(cleaned));
-    }
-    return categories;
-}
-
-function serializeTerminology(categories: TermCategories): string {
-    const sections: string[] = [];
-
-    const formatEntry = (e: TermEntry) => {
-        let line = `- ${e.term}`;
-        if (e.reading) line += `（${e.reading}）`;
-        if (e.description) line += ` — ${e.description}`;
-        return line;
-    };
-
-    if (categories.companyBrand.length > 0) {
-        sections.push(`## 社名・ブランド名\n${categories.companyBrand.map(formatEntry).join("\n")}`);
-    }
-    if (categories.abbreviation.length > 0) {
-        sections.push(`## 略語・社内用語\n${categories.abbreviation.map(formatEntry).join("\n")}`);
-    }
-    if (categories.technical.length > 0) {
-        sections.push(`## 専門用語\n${categories.technical.map(formatEntry).join("\n")}`);
-    }
-    return sections.join("\n\n");
-}
+import { registerTerm } from "@/lib/knowledge-terminology";
 
 export async function POST(request: NextRequest) {
     try {
-        if (!supabase) {
-            return NextResponse.json({ error: "Supabase not configured" }, { status: 500 });
+        if (!knowledgeDb) {
+            return NextResponse.json({ error: "DB not configured" }, { status: 500 });
         }
 
         const { tenant } = await resolveTenantPlan();
@@ -115,7 +21,7 @@ export async function POST(request: NextRequest) {
         }
 
         if (action === "ignore") {
-            const { error } = await supabase
+            const { error } = await knowledgeDb
                 .from("terminology_unresolved")
                 .update({ status: "ignored", updated_at: new Date().toISOString() })
                 .eq("id", id);
@@ -128,26 +34,18 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: "category と term は必須です" }, { status: 400 });
             }
 
-            const categoryKey = CATEGORY_KEY_MAP[category];
-            if (!categoryKey) {
-                return NextResponse.json({ error: "無効なカテゴリです" }, { status: 400 });
-            }
+            // knowledge.terminology に登録
+            await registerTerm(
+                tenant.tenantId,
+                term,
+                reading || "",
+                description || "",
+                category,
+                "manual"
+            );
 
-            // 1. Supabaseから既存辞書を読み込み
-            const configData = await getTenantConfig(tenant.tenantId, "prompts");
-            const config = (configData?.data as any) || { basePrompt: "", internalPrompt: "", businessPrompt: "", otherPrompt: "", terminology: "" };
-            const categories = parseTerminology(config.terminology || "");
-
-            // 2. 新しい用語を追加
-            categories[categoryKey].push({ term, reading: reading || "", description: description || "" });
-
-            // 3. シリアライズしてSupabaseに保存
-            const newTerminology = serializeTerminology(categories);
-            const updatedConfig = { ...config, terminology: newTerminology, updatedAt: new Date().toISOString() };
-            await saveTenantConfig(tenant.tenantId, "prompts", updatedConfig, tenant.userName);
-
-            // 4. 未解決ステータスを resolved に更新
-            const { error } = await supabase
+            // 未解決ステータスを resolved に更新
+            const { error } = await knowledgeDb
                 .from("terminology_unresolved")
                 .update({
                     status: "resolved",

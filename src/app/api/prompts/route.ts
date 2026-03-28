@@ -3,6 +3,13 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { resolveTenantPlan } from "@/lib/plan";
 import { getTenantConfig, saveTenantConfig } from "@/lib/supabase";
+import { loadTerminologyText, saveTerminologyFromText } from "@/lib/knowledge-terminology";
+import {
+    DEFAULT_BASE_PROMPT,
+    DEFAULT_INTERNAL_PROMPT,
+    DEFAULT_BUSINESS_PROMPT,
+    DEFAULT_OTHER_PROMPT,
+} from "@/lib/default-prompts";
 
 interface PromptConfig {
     basePrompt: string;
@@ -16,10 +23,10 @@ interface PromptConfig {
 }
 
 const DEFAULT_CONFIG: PromptConfig = {
-    basePrompt: "",
-    internalPrompt: "",
-    businessPrompt: "",
-    otherPrompt: "",
+    basePrompt: DEFAULT_BASE_PROMPT,
+    internalPrompt: DEFAULT_INTERNAL_PROMPT,
+    businessPrompt: DEFAULT_BUSINESS_PROMPT,
+    otherPrompt: DEFAULT_OTHER_PROMPT,
     terminology: "",
     history: []
 };
@@ -29,11 +36,28 @@ export async function GET() {
         const { tenant, error } = await resolveTenantPlan();
         if (error || !tenant || tenant.expired) return NextResponse.json(DEFAULT_CONFIG);
 
+        // プロンプト設定は tenant_configs から取得
         const config = await getTenantConfig(tenant.tenantId, "prompts");
-        if (config?.data) {
-            return NextResponse.json(config.data);
-        }
-        return NextResponse.json(DEFAULT_CONFIG);
+        const saved = config?.data as PromptConfig | undefined;
+
+        // DB に保存済みの値があればそれを使い、なければデフォルト
+        const promptData = {
+            basePrompt: saved?.basePrompt || DEFAULT_CONFIG.basePrompt,
+            internalPrompt: saved?.internalPrompt || DEFAULT_CONFIG.internalPrompt,
+            businessPrompt: saved?.businessPrompt || DEFAULT_CONFIG.businessPrompt,
+            otherPrompt: saved?.otherPrompt || DEFAULT_CONFIG.otherPrompt,
+            updatedBy: saved?.updatedBy,
+            updatedAt: saved?.updatedAt,
+            history: saved?.history || [],
+        };
+
+        // terminology は knowledge スキーマから取得
+        const terminology = await loadTerminologyText(tenant.tenantId);
+
+        return NextResponse.json({
+            ...promptData,
+            terminology,
+        });
     } catch (error) {
         return NextResponse.json(DEFAULT_CONFIG);
     }
@@ -53,24 +77,41 @@ export async function POST(request: NextRequest) {
 
         const newConfig = await request.json();
 
+        // terminology は knowledge スキーマに保存
+        if (newConfig.terminology !== undefined) {
+            await saveTerminologyFromText(tenant.tenantId, newConfig.terminology);
+        }
+
+        // プロンプト部分は tenant_configs に保存（terminology は除外）
         const currentConfigData = await getTenantConfig(tenant.tenantId, "prompts");
         const currentConfig: PromptConfig = (currentConfigData?.data as PromptConfig) || DEFAULT_CONFIG;
 
         const history = currentConfig.history || [];
-        const { history: _, ...oldStateWithoutHistory } = currentConfig;
+        const { history: _, terminology: _t, ...oldStateWithoutHistory } = currentConfig as any;
         if (oldStateWithoutHistory.basePrompt || oldStateWithoutHistory.internalPrompt) {
             history.unshift(oldStateWithoutHistory);
         }
 
-        const finalConfig: PromptConfig = {
-            ...newConfig,
+        const finalConfig = {
+            basePrompt: newConfig.basePrompt ?? currentConfig.basePrompt,
+            internalPrompt: newConfig.internalPrompt ?? currentConfig.internalPrompt,
+            businessPrompt: newConfig.businessPrompt ?? currentConfig.businessPrompt,
+            otherPrompt: newConfig.otherPrompt ?? currentConfig.otherPrompt,
+            terminology: "", // knowledge スキーマに移行済み
             updatedBy: tenant.userName,
             updatedAt: new Date().toISOString(),
             history: history.slice(0, 10),
         };
 
         await saveTenantConfig(tenant.tenantId, "prompts", finalConfig, tenant.userName);
-        return NextResponse.json({ success: true, config: finalConfig });
+
+        return NextResponse.json({
+            success: true,
+            config: {
+                ...finalConfig,
+                terminology: newConfig.terminology || "",
+            },
+        });
     } catch (error: any) {
         console.error("Save prompts error:", error);
         return NextResponse.json(

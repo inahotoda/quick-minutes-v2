@@ -7,6 +7,16 @@ export const supabase = supabaseUrl && supabaseKey
     ? createClient(supabaseUrl, supabaseKey)
     : null;
 
+/**
+ * knowledge スキーマ専用クライアント
+ * メンバー・プリセット・用語データの正規化テーブルにアクセス
+ */
+export const knowledgeDb = supabaseUrl && supabaseKey
+    ? createClient(supabaseUrl, supabaseKey, {
+        db: { schema: "knowledge" },
+      })
+    : null;
+
 export function isTrialMode(): boolean {
     return process.env.DEPLOYMENT_MODE === "trial";
 }
