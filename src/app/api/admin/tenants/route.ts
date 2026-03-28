@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin } from "@/lib/supabase";
 
 const ADMIN_EMAIL = process.env.ADMIN_USER_EMAIL || "";
 
@@ -23,12 +23,12 @@ export async function GET() {
             return NextResponse.json({ error: "管理者権限がありません" }, { status: 403 });
         }
 
-        if (!supabase) {
+        if (!supabaseAdmin) {
             return NextResponse.json({ error: "Supabase未設定" }, { status: 500 });
         }
 
         // テナント一覧取得
-        const { data: tenants, error: tenantError } = await supabase
+        const { data: tenants, error: tenantError } = await supabaseAdmin
             .from("allowed_tenants")
             .select("*")
             .order("created_at", { ascending: false });
@@ -36,7 +36,7 @@ export async function GET() {
         if (tenantError) throw tenantError;
 
         // ドメイン一覧取得
-        const { data: domains, error: domainError } = await supabase
+        const { data: domains, error: domainError } = await supabaseAdmin
             .from("tenant_domains")
             .select("*")
             .order("created_at", { ascending: true });
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "管理者権限がありません" }, { status: 403 });
         }
 
-        if (!supabase) {
+        if (!supabaseAdmin) {
             return NextResponse.json({ error: "Supabase未設定" }, { status: 500 });
         }
 
@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
         // 既存テナントへのドメイン追加
         if (existingTenantId) {
             // 重複チェック
-            const { data: existing } = await supabase
+            const { data: existing } = await supabaseAdmin
                 .from("tenant_domains")
                 .select("id")
                 .eq("tenant_id", existingTenantId)
@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
                 const dup = existing.find(() => true); // check any
                 if (dup) {
                     // さらにemailで重複チェック
-                    const { data: emailDup } = await supabase
+                    const { data: emailDup } = await supabaseAdmin
                         .from("tenant_domains")
                         .select("id")
                         .eq("tenant_id", existingTenantId)
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: "このドメインは既に登録されています" }, { status: 409 });
             }
 
-            const { error } = await supabase
+            const { error } = await supabaseAdmin
                 .from("tenant_domains")
                 .insert({
                     tenant_id: existingTenantId,
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
         const expiresAt = new Date();
         expiresAt.setDate(expiresAt.getDate() + days);
 
-        const { error: tenantError } = await supabase
+        const { error: tenantError } = await supabaseAdmin
             .from("allowed_tenants")
             .insert({
                 tenant_id: tenantId,
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
         }
 
         // ドメイン/メール登録
-        const { error: domainError } = await supabase
+        const { error: domainError } = await supabaseAdmin
             .from("tenant_domains")
             .insert({
                 tenant_id: tenantId,
@@ -202,7 +202,7 @@ export async function DELETE(request: NextRequest) {
             return NextResponse.json({ error: "管理者権限がありません" }, { status: 403 });
         }
 
-        if (!supabase) {
+        if (!supabaseAdmin) {
             return NextResponse.json({ error: "Supabase未設定" }, { status: 500 });
         }
 
@@ -210,7 +210,7 @@ export async function DELETE(request: NextRequest) {
 
         if (domainId) {
             // 個別ドメイン削除
-            const { error } = await supabase
+            const { error } = await supabaseAdmin
                 .from("tenant_domains")
                 .delete()
                 .eq("id", domainId);
@@ -221,7 +221,7 @@ export async function DELETE(request: NextRequest) {
 
         if (tenantId) {
             // テナント全体削除（CASCADE で tenant_domains も消える）
-            const { error } = await supabase
+            const { error } = await supabaseAdmin
                 .from("allowed_tenants")
                 .delete()
                 .eq("tenant_id", tenantId);
