@@ -293,8 +293,8 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
                                                         : member.id,
                                                 )
                                             }
-                                            onEdit={handleOpenEditModal}
-                                            onDelete={handleDelete}
+                                            onEdit={readOnly ? undefined : handleOpenEditModal}
+                                            onDelete={readOnly ? undefined : handleDelete}
                                         />
                                     ))}
                                 </div>
