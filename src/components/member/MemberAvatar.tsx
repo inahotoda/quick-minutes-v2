@@ -46,10 +46,14 @@ const SIZES = {
 };
 
 export default function MemberAvatar({ name, size = "md", memberType, showTypeDot = false }: MemberAvatarProps) {
-    const [color1, color2] = getGradientColors(name);
     const initial = getInitials(name);
     const s = SIZES[size];
     const typeColor = memberType ? MEMBER_TYPE_COLORS[memberType] : null;
+
+    // カテゴリ別カラー（IKP統一）。typeが未指定の場合のみ名前ハッシュにフォールバック
+    const [fallbackColor1] = getGradientColors(name);
+    const bgColor = typeColor ? typeColor.bg : `${fallbackColor1}30`;
+    const textColor = typeColor ? typeColor.text : fallbackColor1;
 
     return (
         <div
@@ -58,16 +62,15 @@ export default function MemberAvatar({ name, size = "md", memberType, showTypeDo
                 height: s.container,
                 minWidth: s.container,
                 borderRadius: "50%",
-                background: `linear-gradient(135deg, ${color1}, ${color2})`,
+                background: bgColor,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: "white",
+                color: textColor,
                 fontSize: s.font,
                 fontWeight: 600,
                 letterSpacing: "-0.02em",
                 position: "relative",
-                boxShadow: `0 2px 8px ${color1}40`,
             }}
         >
             {initial}
