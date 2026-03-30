@@ -1,11 +1,23 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import MemberManager from "@/components/member/MemberManager";
 import styles from "../settings.module.css";
 
 export default function MembersPage() {
     const router = useRouter();
+    const [isIkpManaged, setIsIkpManaged] = useState(false);
+
+    useEffect(() => {
+        fetch("/api/check-tenant")
+            .then(r => r.json())
+            .then(data => {
+                // INAHOテナントはIKPで管理するため読み取り専用
+                if (data.tenantId === "inaho") setIsIkpManaged(true);
+            })
+            .catch(() => {});
+    }, []);
 
     return (
         <div className={styles.main}>
@@ -22,7 +34,7 @@ export default function MembersPage() {
                     参加者の名前と自己紹介音声を登録すると、議事録生成時の話者識別精度が向上します。
                 </p>
 
-                <MemberManager />
+                <MemberManager readOnly={isIkpManaged} />
             </div>
         </div>
     );

@@ -277,6 +277,16 @@ export default function PromptsSettingsPage() {
     const [saving, setSaving] = useState(false);
     const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
     const [toast, setToast] = useState<string | null>(null);
+    const [isIkpManaged, setIsIkpManaged] = useState(false);
+
+    useEffect(() => {
+        fetch("/api/check-tenant")
+            .then(r => r.json())
+            .then(data => {
+                if (data.tenantId === "inaho") setIsIkpManaged(true);
+            })
+            .catch(() => {});
+    }, []);
 
     const [settings, setSettings] = useState<PromptConfig>({
         basePrompt: "", internalPrompt: "", businessPrompt: "", otherPrompt: "", terminology: "",
@@ -556,19 +566,36 @@ export default function PromptsSettingsPage() {
                 <section className={styles.section}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
                         <h2>📖 用語辞書 {totalTerms > 0 && <span style={{ fontSize: "0.85rem", color: "rgba(255,255,255,0.4)", fontWeight: 400 }}>({totalTerms}件)</span>}</h2>
-                        <button
-                            className={styles.termAddNewBtn}
-                            onClick={() => setShowAddForm(!showAddForm)}
-                        >
-                            {showAddForm ? "✕ 閉じる" : "+ 新規追加"}
-                        </button>
+                        {!isIkpManaged && (
+                            <button
+                                className={styles.termAddNewBtn}
+                                onClick={() => setShowAddForm(!showAddForm)}
+                            >
+                                {showAddForm ? "✕ 閉じる" : "+ 新規追加"}
+                            </button>
+                        )}
                     </div>
                     <p className={styles.help}>
                         音声で正しく認識されにくい固有名詞や専門用語を登録すると、議事録の精度が向上します。
                     </p>
+                    {isIkpManaged && (
+                        <div style={{
+                            padding: "0.75rem 1rem",
+                            background: "rgba(99,102,241,0.08)",
+                            border: "1px solid rgba(99,102,241,0.2)",
+                            borderRadius: 10,
+                            marginBottom: "1rem",
+                            fontSize: "0.82rem",
+                            color: "rgba(255,255,255,0.6)",
+                            lineHeight: 1.5,
+                        }}>
+                            用語辞書の追加・編集は <strong style={{ color: "#a5b4fc" }}>INAHO Knowledge Portal</strong> から行えます。
+                            会議から自動抽出された「確認待ち」用語はここから登録・不要の判断ができます。
+                        </div>
+                    )}
 
-                    {/* 新規追加フォーム */}
-                    {showAddForm && (
+                    {/* 新規追加フォーム（モニター企業のみ） */}
+                    {!isIkpManaged && showAddForm && (
                         <div className={styles.termAddForm}>
                             <div className={styles.termEditGrid}>
                                 <label className={styles.termEditLabel}>用語</label>
@@ -627,15 +654,43 @@ export default function PromptsSettingsPage() {
                                 登録済み ({totalTerms}件)
                             </span>
                             <div className={styles.termCardList} style={{ marginTop: 8 }}>
-                                {allRegisteredTerms.map(({ entry, catKey, index }) => (
-                                    <RegisteredTermCard
-                                        key={`${catKey}-${index}`}
-                                        entry={entry}
-                                        catKey={catKey}
-                                        onUpdate={(field, value) => updateTerm(catKey, index, field, value)}
-                                        onDelete={() => removeTerm(catKey, index)}
-                                    />
-                                ))}
+                                {isIkpManaged ? (
+                                    // INAHO: 読み取り専用表示
+                                    allRegisteredTerms.map(({ entry, catKey, index }) => {
+                                        const config = CATEGORY_CONFIG[catKey];
+                                        return (
+                                            <div
+                                                key={`${catKey}-${index}`}
+                                                className={styles.termCard}
+                                                style={{ borderLeftColor: config?.border || "rgba(255,255,255,0.1)" }}
+                                            >
+                                                <div className={styles.termCardHeader}>
+                                                    <span className={styles.termName}>{entry.term}</span>
+                                                    {entry.reading && <span className={styles.termReading}>{entry.reading}</span>}
+                                                    <span className={styles.termBadge} style={{ background: config?.bg, borderColor: config?.border, color: config?.color }}>
+                                                        {config?.label || catKey}
+                                                    </span>
+                                                </div>
+                                                {entry.description && (
+                                                    <div style={{ padding: "0 12px 8px", fontSize: "0.78rem", color: "rgba(255,255,255,0.4)" }}>
+                                                        {entry.description}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })
+                                ) : (
+                                    // モニター企業: 編集可能カード
+                                    allRegisteredTerms.map(({ entry, catKey, index }) => (
+                                        <RegisteredTermCard
+                                            key={`${catKey}-${index}`}
+                                            entry={entry}
+                                            catKey={catKey}
+                                            onUpdate={(field, value) => updateTerm(catKey, index, field, value)}
+                                            onDelete={() => removeTerm(catKey, index)}
+                                        />
+                                    ))
+                                )}
                             </div>
                         </div>
                     )}

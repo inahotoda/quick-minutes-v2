@@ -10,6 +10,10 @@ interface PresetData {
     mode: "internal" | "business" | "other";
     duration?: 30 | 60 | 0;
     memberIds: string[];
+    additionalPrompt?: string;
+    isArchived?: boolean;
+    lastUsedAt?: string;
+    usageCount?: number;
     createdAt: string;
     updatedAt: string;
 }
@@ -27,6 +31,10 @@ function toPresetData(row: any, memberExtIdMap: Map<string, string>): PresetData
         mode: row.mode || "internal",
         duration: row.duration_min || 0,
         memberIds,
+        additionalPrompt: row.additional_prompt || undefined,
+        isArchived: row.is_archived || false,
+        lastUsedAt: row.last_used_at || undefined,
+        usageCount: row.usage_count || 0,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
@@ -40,11 +48,11 @@ export async function GET() {
         if (error || !tenant || tenant.expired) return NextResponse.json({ presets: [] });
 
         // プリセット + メンバー紐付けを取得
+        // アーカイブ済みも含めて全件返す（フロントでタブ分離表示）
         const { data, error: dbError } = await knowledgeDb
             .from("meeting_presets")
             .select("*, preset_members(*)")
             .eq("tenant_id", tenant.tenantId)
-            .eq("is_archived", false)
             .order("name");
 
         if (dbError) {
@@ -135,7 +143,10 @@ export async function POST(request: NextRequest) {
                 external_id: preset.id,
                 mode: preset.mode || "internal",
                 duration_min: preset.duration || null,
+                additional_prompt: preset.additionalPrompt || null,
                 is_archived: false,
+                last_used_at: preset.lastUsedAt || null,
+                usage_count: preset.usageCount || 0,
                 updated_at: new Date().toISOString(),
             };
 

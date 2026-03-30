@@ -25,6 +25,16 @@ export default function PresetsPage() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingPreset, setEditingPreset] = useState<MeetingPreset | null>(null);
     const [activeTab, setActiveTab] = useState<PresetTab>("active");
+    const [isIkpManaged, setIsIkpManaged] = useState(false);
+
+    useEffect(() => {
+        fetch("/api/check-tenant")
+            .then(r => r.json())
+            .then(data => {
+                if (data.tenantId === "inaho") setIsIkpManaged(true);
+            })
+            .catch(() => {});
+    }, []);
 
     // Form state
     const [presetName, setPresetName] = useState("");
@@ -197,12 +207,30 @@ export default function PresetsPage() {
                     定例会議を登録しておくと、録音開始時に参加者が自動で設定されます。
                 </p>
 
+                {/* Read-only notice (INAHO only) */}
+                {isIkpManaged && (
+                    <div style={{
+                        padding: "0.75rem 1rem",
+                        background: "rgba(99,102,241,0.08)",
+                        border: "1px solid rgba(99,102,241,0.2)",
+                        borderRadius: 10,
+                        marginBottom: "1rem",
+                        fontSize: "0.82rem",
+                        color: "rgba(255,255,255,0.6)",
+                        lineHeight: 1.5,
+                    }}>
+                        プリセットの追加・編集は <strong style={{ color: "#a5b4fc" }}>INAHO Knowledge Portal</strong> から行えます。
+                    </div>
+                )}
+
                 {/* Header */}
                 <div className={presetStyles.header}>
                     <h3 className={presetStyles.title}>登録済みプリセット</h3>
-                    <button className={presetStyles.addButton} onClick={handleOpenAddModal}>
-                        <span>+</span> 新規追加
-                    </button>
+                    {!isIkpManaged && (
+                        <button className={presetStyles.addButton} onClick={handleOpenAddModal}>
+                            <span>+</span> 新規追加
+                        </button>
+                    )}
                 </div>
 
                 {/* Tabs: Active / Archived */}
@@ -304,45 +332,47 @@ export default function PresetsPage() {
                                         </div>
                                     )}
                                 </div>
-                                <div className={presetStyles.presetActions}>
-                                    {preset.isArchived ? (
-                                        <>
-                                            <button
-                                                className={presetStyles.actionButton}
-                                                onClick={() => handleRestore(preset)}
-                                                title="復元"
-                                                style={{ fontSize: "0.75rem", padding: "0.4rem 0.6rem" }}
-                                            >
-                                                復元
-                                            </button>
-                                            <button
-                                                className={`${presetStyles.actionButton} ${presetStyles.deleteButton}`}
-                                                onClick={() => handleDelete(preset)}
-                                                title="完全削除"
-                                            >
-                                                削除
-                                            </button>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <button
-                                                className={presetStyles.actionButton}
-                                                onClick={() => handleOpenEditModal(preset)}
-                                                title="編集"
-                                            >
-                                                編集
-                                            </button>
-                                            <button
-                                                className={presetStyles.actionButton}
-                                                onClick={() => handleArchive(preset)}
-                                                title="アーカイブ"
-                                                style={{ fontSize: "0.75rem", padding: "0.4rem 0.6rem" }}
-                                            >
-                                                📦
-                                            </button>
-                                        </>
-                                    )}
-                                </div>
+                                {!isIkpManaged && (
+                                    <div className={presetStyles.presetActions}>
+                                        {preset.isArchived ? (
+                                            <>
+                                                <button
+                                                    className={presetStyles.actionButton}
+                                                    onClick={() => handleRestore(preset)}
+                                                    title="復元"
+                                                    style={{ fontSize: "0.75rem", padding: "0.4rem 0.6rem" }}
+                                                >
+                                                    復元
+                                                </button>
+                                                <button
+                                                    className={`${presetStyles.actionButton} ${presetStyles.deleteButton}`}
+                                                    onClick={() => handleDelete(preset)}
+                                                    title="完全削除"
+                                                >
+                                                    削除
+                                                </button>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <button
+                                                    className={presetStyles.actionButton}
+                                                    onClick={() => handleOpenEditModal(preset)}
+                                                    title="編集"
+                                                >
+                                                    編集
+                                                </button>
+                                                <button
+                                                    className={presetStyles.actionButton}
+                                                    onClick={() => handleArchive(preset)}
+                                                    title="アーカイブ"
+                                                    style={{ fontSize: "0.75rem", padding: "0.4rem 0.6rem" }}
+                                                >
+                                                    📦
+                                                </button>
+                                            </>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -362,7 +392,7 @@ export default function PresetsPage() {
             </div>
 
             {/* Modal */}
-            {isModalOpen && (
+            {!isIkpManaged && isModalOpen && (
                 <div className={presetStyles.modalOverlay} onClick={handleCloseModal}>
                     <div className={presetStyles.modal} onClick={(e) => e.stopPropagation()}>
                         <h2 className={presetStyles.modalTitle}>

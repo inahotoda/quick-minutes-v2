@@ -233,10 +233,13 @@ async function fetchPresetsFromAPI(): Promise<MeetingPreset[]> {
 
 async function savePresetsToAPI(presets: MeetingPreset[]): Promise<void> {
     try {
+        // アーカイブ済みプリセットを除外して送信
+        // POST APIは受信リストに含まれないプリセットをアーカイブ扱いにする
+        const activePresets = presets.filter(p => !p.isArchived);
         await fetch("/api/presets", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ presets }),
+            body: JSON.stringify({ presets: activePresets }),
         });
     } catch (error) {
         console.error("Failed to save presets to API:", error);

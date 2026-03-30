@@ -16,6 +16,7 @@ import styles from "./member.module.css";
 
 interface MemberManagerProps {
     onMembersChange?: (members: Member[]) => void;
+    readOnly?: boolean;
 }
 
 function groupBy<T>(items: T[], keyFn: (item: T) => string): Record<string, T[]> {
@@ -37,7 +38,7 @@ function classifyMemberType(member: Member): MemberType {
     return "internal";
 }
 
-export default function MemberManager({ onMembersChange }: MemberManagerProps) {
+export default function MemberManager({ onMembersChange, readOnly = true }: MemberManagerProps) {
     const [members, setMembers] = useState<Member[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<MemberType>("internal");
@@ -236,8 +237,8 @@ export default function MemberManager({ onMembersChange }: MemberManagerProps) {
                                     expandedMemberId === member.id ? null : member.id,
                                 )
                             }
-                            onEdit={handleOpenEditModal}
-                            onDelete={handleDelete}
+                            onEdit={readOnly ? undefined : handleOpenEditModal}
+                            onDelete={readOnly ? undefined : handleDelete}
                         />
                     ))}
                 </div>
@@ -315,12 +316,30 @@ export default function MemberManager({ onMembersChange }: MemberManagerProps) {
 
     return (
         <div className={styles.container}>
+            {/* Read-only notice */}
+            {readOnly && (
+                <div style={{
+                    padding: "0.75rem 1rem",
+                    background: "rgba(99,102,241,0.08)",
+                    border: "1px solid rgba(99,102,241,0.2)",
+                    borderRadius: 10,
+                    marginBottom: "1rem",
+                    fontSize: "0.82rem",
+                    color: "rgba(255,255,255,0.6)",
+                    lineHeight: 1.5,
+                }}>
+                    メンバーの追加・編集は <strong style={{ color: "#a5b4fc" }}>INAHO Knowledge Portal</strong> から行えます。
+                </div>
+            )}
+
             {/* Header */}
             <div className={styles.header}>
                 <h3 className={styles.title}>メンバー一覧</h3>
-                <button className={styles.addButton} onClick={handleOpenAddModal}>
-                    <span>+</span> メンバー追加
-                </button>
+                {!readOnly && (
+                    <button className={styles.addButton} onClick={handleOpenAddModal}>
+                        <span>+</span> メンバー追加
+                    </button>
+                )}
             </div>
 
             {/* Search bar */}
@@ -365,14 +384,16 @@ export default function MemberManager({ onMembersChange }: MemberManagerProps) {
                 renderGroupedList()
             )}
 
-            {/* Edit / Add Modal */}
-            <MemberEditModal
-                isOpen={isModalOpen}
-                editingMember={editingMember}
-                members={members}
-                onSave={handleSave}
-                onClose={handleCloseModal}
-            />
+            {/* Edit / Add Modal (read-only mode ではモーダルなし) */}
+            {!readOnly && (
+                <MemberEditModal
+                    isOpen={isModalOpen}
+                    editingMember={editingMember}
+                    members={members}
+                    onSave={handleSave}
+                    onClose={handleCloseModal}
+                />
+            )}
         </div>
     );
 }

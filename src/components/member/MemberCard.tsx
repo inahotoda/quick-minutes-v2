@@ -14,8 +14,8 @@ interface MemberCardProps {
     member: Member;
     isExpanded: boolean;
     onToggleExpand: () => void;
-    onEdit: (member: Member) => void;
-    onDelete: (member: Member) => void;
+    onEdit?: (member: Member) => void;
+    onDelete?: (member: Member) => void;
 }
 
 /** Format seconds to a human-readable Japanese duration string */
@@ -262,28 +262,34 @@ export default function MemberCard({
                 </div>
 
                 {/* Action buttons */}
-                <div className={styles.memberActions} style={{ paddingTop: 12 }}>
-                    <button
-                        className={styles.actionButton}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(member);
-                        }}
-                        title="編集"
-                    >
-                        編集
-                    </button>
-                    <button
-                        className={`${styles.actionButton} ${styles.deleteButton}`}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(member);
-                        }}
-                        title="削除"
-                    >
-                        削除
-                    </button>
-                </div>
+                {(onEdit || onDelete) && (
+                    <div className={styles.memberActions} style={{ paddingTop: 12 }}>
+                        {onEdit && (
+                            <button
+                                className={styles.actionButton}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onEdit(member);
+                                }}
+                                title="編集"
+                            >
+                                編集
+                            </button>
+                        )}
+                        {onDelete && (
+                            <button
+                                className={`${styles.actionButton} ${styles.deleteButton}`}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onDelete(member);
+                                }}
+                                title="削除"
+                            >
+                                削除
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     );

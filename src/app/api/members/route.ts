@@ -13,16 +13,28 @@ interface VoiceSampleData {
 interface MemberData {
     id: string;
     name: string;
+    nameVariants?: string[];
+    email?: string | null;
+    company?: string | null;
+    department?: string | null;
+    role?: string | null;
+    type?: string;
     voiceSample?: VoiceSampleData;
     createdAt: string;
     updatedAt: string;
 }
 
 /** knowledge.members → フロント互換の MemberData に変換 */
-function toMemberData(row: any): MemberData {
+function toMemberData(row: any, nameVariantsMap?: Map<string, string[]>): MemberData {
     const member: MemberData = {
         id: row.external_id || row.id,
         name: row.name,
+        nameVariants: nameVariantsMap?.get(row.id) || undefined,
+        email: row.email || null,
+        company: row.company_name || null,
+        department: row.department || null,
+        role: row.role || null,
+        type: row.type || "internal",
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
@@ -55,7 +67,24 @@ export async function GET() {
             return NextResponse.json({ members: [] });
         }
 
-        return NextResponse.json({ members: (data || []).map(toMemberData) });
+        // name_variants を取得
+        const memberIds = (data || []).map((m: any) => m.id);
+        const nameVariantsMap = new Map<string, string[]>();
+        if (memberIds.length > 0) {
+            const { data: variants } = await knowledgeDb
+                .from("member_name_variants")
+                .select("member_id, name")
+                .in("member_id", memberIds);
+            for (const v of variants || []) {
+                const list = nameVariantsMap.get(v.member_id) || [];
+                list.push(v.name);
+                nameVariantsMap.set(v.member_id, list);
+            }
+        }
+
+        return NextResponse.json({
+            members: (data || []).map((row: any) => toMemberData(row, nameVariantsMap)),
+        });
     } catch (error) {
         console.error("GET /api/members error:", error);
         return NextResponse.json({ members: [] });
@@ -110,6 +139,11 @@ export async function POST(request: NextRequest) {
                 tenant_id: tenant.tenantId,
                 name: member.name,
                 external_id: member.id,
+                email: member.email || null,
+                type: member.type || "internal",
+                company_name: member.company || null,
+                department: member.department || null,
+                role: member.role || null,
                 is_active: true,
                 updated_at: new Date().toISOString(),
             };
@@ -121,16 +155,38 @@ export async function POST(request: NextRequest) {
             }
 
             const existingRow = existingByExtId.get(member.id);
+            let memberUuid: string;
+
             if (existingRow) {
                 await knowledgeDb
                     .from("members")
                     .update(row)
                     .eq("id", existingRow.id);
+                memberUuid = existingRow.id;
             } else {
                 row.created_at = member.createdAt || new Date().toISOString();
-                await knowledgeDb
+                const { data: inserted } = await knowledgeDb
                     .from("members")
-                    .insert(row);
+                    .insert(row)
+                    .select("id")
+                    .single();
+                memberUuid = inserted?.id;
+            }
+
+            // name_variants を同期
+            if (memberUuid && member.nameVariants && member.nameVariants.length > 0) {
+                await knowledgeDb
+                    .from("member_name_variants")
+                    .delete()
+                    .eq("member_id", memberUuid);
+                await knowledgeDb
+                    .from("member_name_variants")
+                    .insert(
+                        member.nameVariants.map((name: string) => ({
+                            member_id: memberUuid,
+                            name,
+                        }))
+                    );
             }
         }
 
