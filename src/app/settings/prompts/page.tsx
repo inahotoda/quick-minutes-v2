@@ -589,7 +589,7 @@ export default function PromptsSettingsPage() {
                             color: "rgba(255,255,255,0.6)",
                             lineHeight: 1.5,
                         }}>
-                            用語辞書の追加・編集は <strong style={{ color: "#a5b4fc" }}>INAHO Knowledge Portal</strong> から行えます。
+                            用語辞書の追加・編集は <strong style={{ color: "#a5b4fc" }}><a href="https://inaho-knowledge-portal.vercel.app/terminology" target="_blank" rel="noopener noreferrer" style={{ color: "#a5b4fc", textDecoration: "underline" }}>INAHO Knowledge Portal</a></strong> から行えます。
                             会議から自動抽出された「確認待ち」用語はここから登録・不要の判断ができます。
                         </div>
                     )}
