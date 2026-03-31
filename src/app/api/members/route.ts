@@ -67,8 +67,27 @@ export async function GET() {
             return NextResponse.json({ members: [] });
         }
 
+        // Deduplicate by external_id: if duplicate rows exist (from past race conditions),
+        // keep only the most recently updated one per external_id
+        const seen = new Map<string, any>();
+        const deduped: any[] = [];
+        for (const row of data || []) {
+            const key = row.external_id || row.id;
+            const existing = seen.get(key);
+            if (existing) {
+                // Keep the one with the later updated_at
+                if (row.updated_at > existing.updated_at) {
+                    deduped[deduped.indexOf(existing)] = row;
+                    seen.set(key, row);
+                }
+            } else {
+                seen.set(key, row);
+                deduped.push(row);
+            }
+        }
+
         // name_variants を取得
-        const memberIds = (data || []).map((m: any) => m.id);
+        const memberIds = deduped.map((m: any) => m.id);
         const nameVariantsMap = new Map<string, string[]>();
         if (memberIds.length > 0) {
             const { data: variants } = await knowledgeDb
@@ -83,7 +102,7 @@ export async function GET() {
         }
 
         return NextResponse.json({
-            members: (data || []).map((row: any) => toMemberData(row, nameVariantsMap)),
+            members: deduped.map((row: any) => toMemberData(row, nameVariantsMap)),
         });
     } catch (error) {
         console.error("GET /api/members error:", error);
@@ -115,22 +134,33 @@ export async function POST(request: NextRequest) {
             .select("id, external_id, name")
             .eq("tenant_id", tenant.tenantId);
 
-        const existingByExtId = new Map(
-            (existing || [])
-                .filter((m: any) => m.external_id)
-                .map((m: any) => [m.external_id, m])
-        );
+        // Build a map of external_id → primary row, and collect duplicate row IDs
+        const existingByExtId = new Map<string, any>();
+        const duplicateRowIds: string[] = [];
+        for (const m of (existing || []).filter((m: any) => m.external_id)) {
+            if (existingByExtId.has(m.external_id)) {
+                // Duplicate: mark for deactivation
+                duplicateRowIds.push(m.id);
+            } else {
+                existingByExtId.set(m.external_id, m);
+            }
+        }
         const incomingExtIds = new Set(members.map(m => m.id));
 
         // 削除されたメンバーを is_active=false に
         const removedRows = (existing || []).filter(
             (m: any) => m.external_id && !incomingExtIds.has(m.external_id)
         );
-        if (removedRows.length > 0) {
+        // Also deactivate duplicate rows
+        const deactivateIds = [
+            ...removedRows.map((m: any) => m.id),
+            ...duplicateRowIds,
+        ];
+        if (deactivateIds.length > 0) {
             await knowledgeDb
                 .from("members")
                 .update({ is_active: false, updated_at: new Date().toISOString() })
-                .in("id", removedRows.map((m: any) => m.id));
+                .in("id", deactivateIds);
         }
 
         // 各メンバーを upsert

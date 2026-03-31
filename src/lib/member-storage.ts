@@ -315,7 +315,7 @@ export async function getMember(id: string): Promise<Member | undefined> {
     });
 }
 
-export async function addMember(name: string, voiceBlob?: Blob, voiceDuration?: number): Promise<Member> {
+export async function addMember(name: string, voiceBlob?: Blob, voiceDuration?: number, skipSync: boolean = false): Promise<Member> {
     const db = await openDB();
     const now = new Date().toISOString();
     const member: Member = {
@@ -340,9 +340,11 @@ export async function addMember(name: string, voiceBlob?: Blob, voiceDuration?: 
 
         request.onerror = () => reject(request.error);
         request.onsuccess = async () => {
-            // Sync to Google Drive (non-blocking)
-            const allMembers = await getAllMembersLocal();
-            saveMembersToAPI(allMembers).catch(console.error);
+            if (!skipSync) {
+                // Sync to Google Drive (non-blocking)
+                const allMembers = await getAllMembersLocal();
+                saveMembersToAPI(allMembers).catch(console.error);
+            }
             resolve(member);
         };
     });

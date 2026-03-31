@@ -169,11 +169,14 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
                 }
                 await updateMember(editingMember.id, updates);
             } else {
-                // New member: addMember then updateMember with extra fields
+                // New member: addMember (skip sync) then updateMember with extra fields
+                // skipSync=true prevents a race condition where both addMember and
+                // updateMember fire concurrent API calls that each INSERT the same member
                 const newMember = await addMember(
                     data.name,
                     data.voiceBlob || undefined,
                     data.voiceBlob ? data.voiceDuration : undefined,
+                    true, // skipSync: updateMember below will trigger the single API sync
                 );
                 await updateMember(newMember.id, {
                     nameVariants: data.nameVariants,
