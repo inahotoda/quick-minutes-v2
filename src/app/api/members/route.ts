@@ -71,19 +71,37 @@ export async function GET() {
         // keep only the most recently updated one per external_id
         const seen = new Map<string, any>();
         const deduped: any[] = [];
+        const duplicateIds: string[] = [];
         for (const row of data || []) {
             const key = row.external_id || row.id;
             const existing = seen.get(key);
             if (existing) {
-                // Keep the one with the later updated_at
+                // Keep the one with the later updated_at, mark the other for cleanup
                 if (row.updated_at > existing.updated_at) {
+                    duplicateIds.push(existing.id);
                     deduped[deduped.indexOf(existing)] = row;
                     seen.set(key, row);
+                } else {
+                    duplicateIds.push(row.id);
                 }
             } else {
                 seen.set(key, row);
                 deduped.push(row);
             }
+        }
+
+        // Auto-cleanup: deactivate duplicate rows in the DB (non-blocking)
+        if (duplicateIds.length > 0) {
+            knowledgeDb
+                .from("members")
+                .update({ is_active: false, updated_at: new Date().toISOString() })
+                .in("id", duplicateIds)
+                .then(() => {
+                    console.log(`Cleaned up ${duplicateIds.length} duplicate member row(s)`);
+                })
+                .catch((err: any) => {
+                    console.error("Failed to cleanup duplicate members:", err);
+                });
         }
 
         // name_variants を取得
