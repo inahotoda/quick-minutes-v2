@@ -965,23 +965,37 @@ export default function Home() {
         const fileName = pdfFileNameRef.current;
         const pdfBlob = pdfBlobRef.current;
 
-        // navigator.share でPDFを共有
-        // textを指定しないとiOSの共有シートでLINEが候補に出ないため、
-        // ファイル名をtextとして渡す（「ファイルに保存」時にテキストファイルも生成されるが許容）
-        const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
-          try {
-            await navigator.share({ files: [pdfFile], text: fileName });
-          } catch (shareErr: any) {
-            // ユーザーが共有シートをキャンセルした場合はエラーにしない
-            if (shareErr?.name === 'AbortError') {
-              console.log("PDF共有がキャンセルされました");
-              return;
+        // モバイル判定: スマホ/タブレットのみ navigator.share を使用
+        // PC版は直接ダウンロードでローカルフォルダに保存
+        const isMobileDevice = /iphone|ipad|ipod|android/i.test(navigator.userAgent)
+          || (navigator.maxTouchPoints > 0 && /Macintosh/i.test(navigator.userAgent)); // iPad on Safari
+
+        if (isMobileDevice) {
+          // スマホ/タブレット → navigator.share で共有シートを表示
+          const pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+            try {
+              await navigator.share({ files: [pdfFile], text: fileName });
+            } catch (shareErr: any) {
+              if (shareErr?.name === 'AbortError') {
+                console.log("PDF共有がキャンセルされました");
+                return;
+              }
+              throw shareErr;
             }
-            throw shareErr;
+          } else {
+            // share非対応のモバイルブラウザ → フォールバック
+            const url = URL.createObjectURL(pdfBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
           }
         } else {
-          // PC/Android → Blobダウンロード
+          // PC → 直接ダウンロード（ブラウザのダウンロードフォルダに保存）
           const url = URL.createObjectURL(pdfBlob);
           const a = document.createElement('a');
           a.href = url;
