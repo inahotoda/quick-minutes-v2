@@ -4,29 +4,9 @@ import { authOptions } from "@/lib/auth";
 import { resolveTenantPlan } from "@/lib/plan";
 import { knowledgeDb } from "@/lib/supabase";
 
-interface VoiceSampleData {
-    blobBase64: string;
-    duration: number;
-    recordedAt: string;
-}
-
-interface MemberData {
-    id: string;
-    name: string;
-    nameVariants?: string[];
-    email?: string | null;
-    company?: string | null;
-    department?: string | null;
-    role?: string | null;
-    type?: string;
-    voiceSample?: VoiceSampleData;
-    createdAt: string;
-    updatedAt: string;
-}
-
 /** knowledge.members → フロント互換の MemberData に変換 */
-function toMemberData(row: any, nameVariantsMap?: Map<string, string[]>): MemberData {
-    const member: MemberData = {
+function toMemberData(row: any, nameVariantsMap?: Map<string, string[]>) {
+    const member: any = {
         id: row.external_id || row.id,
         name: row.name,
         nameVariants: nameVariantsMap?.get(row.id) || undefined,
@@ -48,6 +28,7 @@ function toMemberData(row: any, nameVariantsMap?: Map<string, string[]>): Member
     return member;
 }
 
+/** GET /api/members - 全メンバー取得（重複排除付き） */
 export async function GET() {
     try {
         if (!knowledgeDb) return NextResponse.json({ members: [] });
@@ -67,14 +48,10 @@ export async function GET() {
             return NextResponse.json({ members: [] });
         }
 
-        // ============================================================
         // 重複排除（2段階）
-        // Step 1: external_id が同一の重複行を排除（レースコンディション由来）
-        // Step 2: name が同一の重複行を排除（IKP登録とモニター音声登録の二重登録）
-        // ============================================================
         const duplicateIds: string[] = [];
 
-        // Step 1: external_id ベースの重複排除
+        // Step 1: external_id ベース
         const seenByExtId = new Map<string, any>();
         const afterExtIdDedup: any[] = [];
         for (const row of data || []) {
@@ -82,7 +59,6 @@ export async function GET() {
             if (extId) {
                 const existing = seenByExtId.get(extId);
                 if (existing) {
-                    // updated_at が新しい方を残す
                     if (row.updated_at > existing.updated_at) {
                         duplicateIds.push(existing.id);
                         afterExtIdDedup[afterExtIdDedup.indexOf(existing)] = row;
@@ -99,27 +75,21 @@ export async function GET() {
             }
         }
 
-        // Step 2: name ベースの重複排除（同名メンバーの統合）
-        // データが充実している方（company, voice_sample 等）を優先し、
-        // 同等なら updated_at が新しい方を残す
+        // Step 2: name ベース
         const seenByName = new Map<string, any>();
         const deduped: any[] = [];
         for (const row of afterExtIdDedup) {
             const nameKey = row.name.trim().toLowerCase();
             const existing = seenByName.get(nameKey);
             if (existing) {
-                // データの充実度を比較: company, voice_sample, email があるものを優先
                 const scoreRow = (r: any) =>
                     (r.company_name ? 1 : 0) +
                     (r.voice_sample_base64 ? 1 : 0) +
                     (r.email ? 1 : 0) +
                     (r.department ? 1 : 0) +
                     (r.role ? 1 : 0);
-                const existingScore = scoreRow(existing);
-                const newScore = scoreRow(row);
-                const keepNew = newScore > existingScore ||
-                    (newScore === existingScore && row.updated_at > existing.updated_at);
-
+                const keepNew = scoreRow(row) > scoreRow(existing) ||
+                    (scoreRow(row) === scoreRow(existing) && row.updated_at > existing.updated_at);
                 if (keepNew) {
                     duplicateIds.push(existing.id);
                     deduped[deduped.indexOf(existing)] = row;
@@ -133,18 +103,14 @@ export async function GET() {
             }
         }
 
-        // Auto-cleanup: 重複行をDBから非同期で無効化
+        // 重複行を非同期でクリーンアップ
         if (duplicateIds.length > 0) {
             knowledgeDb
                 .from("members")
                 .update({ is_active: false, updated_at: new Date().toISOString() })
                 .in("id", duplicateIds)
-                .then(() => {
-                    console.log(`Cleaned up ${duplicateIds.length} duplicate member row(s)`);
-                })
-                .catch((err: any) => {
-                    console.error("Failed to cleanup duplicate members:", err);
-                });
+                .then(() => console.log(`Cleaned up ${duplicateIds.length} duplicate member row(s)`))
+                .catch((err: any) => console.error("Failed to cleanup duplicate members:", err));
         }
 
         // name_variants を取得
@@ -171,6 +137,7 @@ export async function GET() {
     }
 }
 
+/** POST /api/members - 単一メンバー作成（同名メンバーが存在する場合は既存を返却） */
 export async function POST(request: NextRequest) {
     try {
         if (!knowledgeDb) {
@@ -187,106 +154,91 @@ export async function POST(request: NextRequest) {
         if (!tenant) return NextResponse.json({ error: "テナントが見つかりません" }, { status: 403 });
         if (tenant.expired) return NextResponse.json({ error: "利用期間が終了しています" }, { status: 403 });
 
-        const { members } = await request.json() as { members: MemberData[] };
+        const body = await request.json();
+        const name = (body.name || "").trim();
+        if (!name) {
+            return NextResponse.json({ error: "名前は必須です" }, { status: 400 });
+        }
 
-        // 現在のメンバーを取得（external_id でマッチ）
+        // 同名の既存メンバーを検索（重複防止）
         const { data: existing } = await knowledgeDb
             .from("members")
-            .select("id, external_id, name")
-            .eq("tenant_id", tenant.tenantId);
+            .select("*")
+            .eq("tenant_id", tenant.tenantId)
+            .eq("is_active", true)
+            .eq("name", name);
 
-        // Build a map of external_id → primary row, and collect duplicate row IDs
-        const existingByExtId = new Map<string, any>();
-        const duplicateRowIds: string[] = [];
-        for (const m of (existing || []).filter((m: any) => m.external_id)) {
-            if (existingByExtId.has(m.external_id)) {
-                // Duplicate: mark for deactivation
-                duplicateRowIds.push(m.id);
-            } else {
-                existingByExtId.set(m.external_id, m);
+        let memberRow: any;
+
+        if (existing && existing.length > 0) {
+            // 既存メンバーが見つかった → 音声データがあれば更新して返却
+            memberRow = existing[0];
+            if (body.voiceSample) {
+                await knowledgeDb
+                    .from("members")
+                    .update({
+                        voice_sample_base64: body.voiceSample.blobBase64,
+                        voice_sample_duration: body.voiceSample.duration,
+                        voice_sample_recorded_at: body.voiceSample.recordedAt,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq("id", memberRow.id);
+
+                // 更新後を再取得
+                const { data: updated } = await knowledgeDb
+                    .from("members").select("*").eq("id", memberRow.id).single();
+                memberRow = updated || memberRow;
             }
-        }
-        const incomingExtIds = new Set(members.map(m => m.id));
-
-        // 削除されたメンバーを is_active=false に
-        const removedRows = (existing || []).filter(
-            (m: any) => m.external_id && !incomingExtIds.has(m.external_id)
-        );
-        // Also deactivate duplicate rows
-        const deactivateIds = [
-            ...removedRows.map((m: any) => m.id),
-            ...duplicateRowIds,
-        ];
-        if (deactivateIds.length > 0) {
-            await knowledgeDb
-                .from("members")
-                .update({ is_active: false, updated_at: new Date().toISOString() })
-                .in("id", deactivateIds);
-        }
-
-        // 各メンバーを upsert
-        for (const member of members) {
+        } else {
+            // 新規メンバー作成
+            const now = new Date().toISOString();
             const row: any = {
                 tenant_id: tenant.tenantId,
-                name: member.name,
-                external_id: member.id,
-                email: member.email || null,
-                type: member.type || "internal",
-                company_name: member.company || null,
-                department: member.department || null,
-                role: member.role || null,
+                name,
+                email: body.email || null,
+                type: body.type || "internal",
+                company_name: body.company || null,
+                department: body.department || null,
+                role: body.role || null,
                 is_active: true,
-                updated_at: new Date().toISOString(),
+                created_at: now,
+                updated_at: now,
             };
 
-            if (member.voiceSample) {
-                row.voice_sample_base64 = member.voiceSample.blobBase64;
-                row.voice_sample_duration = member.voiceSample.duration;
-                row.voice_sample_recorded_at = member.voiceSample.recordedAt;
+            if (body.voiceSample) {
+                row.voice_sample_base64 = body.voiceSample.blobBase64;
+                row.voice_sample_duration = body.voiceSample.duration;
+                row.voice_sample_recorded_at = body.voiceSample.recordedAt;
             }
 
-            const existingRow = existingByExtId.get(member.id);
-            let memberUuid: string;
+            const { data: inserted, error: insertError } = await knowledgeDb
+                .from("members")
+                .insert(row)
+                .select("*")
+                .single();
 
-            if (existingRow) {
-                await knowledgeDb
-                    .from("members")
-                    .update(row)
-                    .eq("id", existingRow.id);
-                memberUuid = existingRow.id;
-            } else {
-                row.created_at = member.createdAt || new Date().toISOString();
-                const { data: inserted } = await knowledgeDb
-                    .from("members")
-                    .insert(row)
-                    .select("id")
-                    .single();
-                memberUuid = inserted?.id;
+            if (insertError) {
+                console.error("POST /api/members insert error:", insertError);
+                return NextResponse.json({ error: "メンバーの作成に失敗しました" }, { status: 500 });
             }
 
-            // name_variants を同期
-            if (memberUuid && member.nameVariants && member.nameVariants.length > 0) {
-                await knowledgeDb
-                    .from("member_name_variants")
-                    .delete()
-                    .eq("member_id", memberUuid);
-                await knowledgeDb
-                    .from("member_name_variants")
-                    .insert(
-                        member.nameVariants.map((name: string) => ({
-                            member_id: memberUuid,
-                            name,
-                        }))
-                    );
-            }
+            memberRow = inserted;
         }
 
-        return NextResponse.json({ success: true });
+        // name_variants
+        const { data: variants } = await knowledgeDb
+            .from("member_name_variants")
+            .select("name")
+            .eq("member_id", memberRow.id);
+
+        return NextResponse.json({
+            member: toMemberData(memberRow, new Map([[memberRow.id, (variants || []).map((v: any) => v.name)]])),
+        });
     } catch (error: any) {
         console.error("POST /api/members error:", error);
         return NextResponse.json(
-            { error: error.message || "保存に失敗しました" },
-            { status: 500 }
+            { error: error.message || "メンバーの作成に失敗しました" },
+            { status: 500 },
         );
     }
 }

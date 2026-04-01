@@ -50,9 +50,9 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
 
     // Load members
     const loadMembers = useCallback(
-        async (forceLocal: boolean = false) => {
+        async () => {
             try {
-                const data = await getAllMembers(forceLocal);
+                const data = await getAllMembers();
                 setMembers(data);
                 onMembersChange?.(data);
             } catch (error) {
@@ -169,14 +169,11 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
                 }
                 await updateMember(editingMember.id, updates);
             } else {
-                // New member: addMember (skip sync) then updateMember with extra fields
-                // skipSync=true prevents a race condition where both addMember and
-                // updateMember fire concurrent API calls that each INSERT the same member
+                // New member: addMember then updateMember with extra fields
                 const newMember = await addMember(
                     data.name,
                     data.voiceBlob || undefined,
                     data.voiceBlob ? data.voiceDuration : undefined,
-                    true, // skipSync: updateMember below will trigger the single API sync
                 );
                 await updateMember(newMember.id, {
                     nameVariants: data.nameVariants,
@@ -188,7 +185,7 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
                 });
             }
 
-            await loadMembers(true);
+            await loadMembers();
             handleCloseModal();
         } catch (error) {
             console.error("Failed to save member:", error);
@@ -205,7 +202,7 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
             if (expandedMemberId === member.id) {
                 setExpandedMemberId(null);
             }
-            await loadMembers(true);
+            await loadMembers();
         } catch (error) {
             console.error("Failed to delete member:", error);
             alert("削除に失敗しました");

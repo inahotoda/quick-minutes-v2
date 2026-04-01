@@ -121,10 +121,8 @@ export default function PresetsPage() {
                     additionalPrompt: presetPrompt.trim() || undefined,
                 });
             } else {
-                // skipSync=true: 直後のupdatePresetで1回だけAPI同期する（レースコンディション防止）
-                const hasPrompt = !!presetPrompt.trim();
-                const newPreset = await addPreset(presetName.trim(), presetMode, selectedMemberIds, presetDuration, hasPrompt);
-                if (hasPrompt && newPreset) {
+                const newPreset = await addPreset(presetName.trim(), presetMode, selectedMemberIds, presetDuration);
+                if (presetPrompt.trim() && newPreset) {
                     await updatePreset(newPreset.id, { additionalPrompt: presetPrompt.trim() });
                 }
             }
