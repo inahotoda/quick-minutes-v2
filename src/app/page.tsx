@@ -996,7 +996,8 @@ export default function Home() {
           }
         } else {
           // PC → 「名前を付けて保存」ダイアログで保存先を選択
-          if ('showSaveFilePicker' in window) {
+          let saved = false;
+          if (typeof (window as any).showSaveFilePicker === 'function') {
             try {
               const handle = await (window as any).showSaveFilePicker({
                 suggestedName: fileName,
@@ -1008,15 +1009,17 @@ export default function Home() {
               const writable = await handle.createWritable();
               await writable.write(pdfBlob);
               await writable.close();
+              saved = true;
             } catch (pickerErr: any) {
               if (pickerErr?.name === 'AbortError') {
                 console.log("PDF保存がキャンセルされました");
                 return;
               }
-              throw pickerErr;
+              console.warn("showSaveFilePicker failed, falling back to download:", pickerErr);
             }
-          } else {
-            // showSaveFilePicker 非対応ブラウザ → ダウンロードフォルダに保存
+          }
+          if (!saved) {
+            // showSaveFilePicker 非対応 or 失敗 → ダウンロードフォルダに保存
             const url = URL.createObjectURL(pdfBlob);
             const a = document.createElement('a');
             a.href = url;
