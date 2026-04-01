@@ -995,15 +995,37 @@ export default function Home() {
             URL.revokeObjectURL(url);
           }
         } else {
-          // PC → 直接ダウンロード（ブラウザのダウンロードフォルダに保存）
-          const url = URL.createObjectURL(pdfBlob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = fileName;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
+          // PC → 「名前を付けて保存」ダイアログで保存先を選択
+          if ('showSaveFilePicker' in window) {
+            try {
+              const handle = await (window as any).showSaveFilePicker({
+                suggestedName: fileName,
+                types: [{
+                  description: 'PDF ファイル',
+                  accept: { 'application/pdf': ['.pdf'] },
+                }],
+              });
+              const writable = await handle.createWritable();
+              await writable.write(pdfBlob);
+              await writable.close();
+            } catch (pickerErr: any) {
+              if (pickerErr?.name === 'AbortError') {
+                console.log("PDF保存がキャンセルされました");
+                return;
+              }
+              throw pickerErr;
+            }
+          } else {
+            // showSaveFilePicker 非対応ブラウザ → ダウンロードフォルダに保存
+            const url = URL.createObjectURL(pdfBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+          }
         }
 
         setIsSaved(true);
