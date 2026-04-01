@@ -21,9 +21,12 @@ interface PresetData {
 /** knowledge.meeting_presets → フロント互換の PresetData に変換 */
 function toPresetData(row: any, memberExtIdMap: Map<string, string>): PresetData {
     // preset_members の source_id (UUID) → external_id (QM形式) に変換
-    const memberIds = (row.preset_members || [])
-        .filter((pm: any) => pm.source === "member")
-        .map((pm: any) => memberExtIdMap.get(pm.source_id) || pm.source_id);
+    // 重複メンバー（同じexternal_idを指す複数UUID）を排除
+    const memberIds = [...new Set(
+        (row.preset_members || [])
+            .filter((pm: any) => pm.source === "member")
+            .map((pm: any) => memberExtIdMap.get(pm.source_id) || pm.source_id)
+    )];
 
     return {
         id: row.external_id || row.id,
@@ -60,6 +63,75 @@ export async function GET() {
             return NextResponse.json({ presets: [] });
         }
 
+        // ============================================================
+        // プリセット重複排除（2段階）
+        // Step 1: external_id が同一の重複を排除
+        // Step 2: name が同一の重複を排除（同名プリセット）
+        // ============================================================
+        const duplicatePresetIds: string[] = [];
+
+        // Step 1: external_id ベースの重複排除
+        const seenByExtId = new Map<string, any>();
+        const afterExtIdDedup: any[] = [];
+        for (const row of data || []) {
+            const extId = row.external_id;
+            if (extId) {
+                const existing = seenByExtId.get(extId);
+                if (existing) {
+                    if (row.updated_at > existing.updated_at) {
+                        duplicatePresetIds.push(existing.id);
+                        afterExtIdDedup[afterExtIdDedup.indexOf(existing)] = row;
+                        seenByExtId.set(extId, row);
+                    } else {
+                        duplicatePresetIds.push(row.id);
+                    }
+                } else {
+                    seenByExtId.set(extId, row);
+                    afterExtIdDedup.push(row);
+                }
+            } else {
+                afterExtIdDedup.push(row);
+            }
+        }
+
+        // Step 2: name + is_archived ベースの重複排除
+        // 同名プリセット（同じアーカイブ状態）は1つに統合
+        const seenByName = new Map<string, any>();
+        const dedupedPresets: any[] = [];
+        for (const row of afterExtIdDedup) {
+            const nameKey = `${row.name.trim().toLowerCase()}__${row.is_archived ? 'archived' : 'active'}`;
+            const existing = seenByName.get(nameKey);
+            if (existing) {
+                // usage_count が多い方を優先、同等なら updated_at が新しい方
+                const keepNew = (row.usage_count || 0) > (existing.usage_count || 0) ||
+                    ((row.usage_count || 0) === (existing.usage_count || 0) && row.updated_at > existing.updated_at);
+                if (keepNew) {
+                    duplicatePresetIds.push(existing.id);
+                    dedupedPresets[dedupedPresets.indexOf(existing)] = row;
+                    seenByName.set(nameKey, row);
+                } else {
+                    duplicatePresetIds.push(row.id);
+                }
+            } else {
+                seenByName.set(nameKey, row);
+                dedupedPresets.push(row);
+            }
+        }
+
+        // Auto-cleanup: 重複プリセットをDBから非同期でアーカイブ
+        if (duplicatePresetIds.length > 0) {
+            knowledgeDb
+                .from("meeting_presets")
+                .update({ is_archived: true, updated_at: new Date().toISOString() })
+                .in("id", duplicatePresetIds)
+                .then(() => {
+                    console.log(`Cleaned up ${duplicatePresetIds.length} duplicate preset row(s)`);
+                })
+                .catch((err: any) => {
+                    console.error("Failed to cleanup duplicate presets:", err);
+                });
+        }
+
         // メンバーの UUID → external_id マッピング取得
         const { data: members } = await knowledgeDb
             .from("members")
@@ -73,7 +145,7 @@ export async function GET() {
         );
 
         return NextResponse.json({
-            presets: (data || []).map(row => toPresetData(row, memberExtIdMap)),
+            presets: dedupedPresets.map(row => toPresetData(row, memberExtIdMap)),
         });
     } catch (error) {
         console.error("GET /api/presets error:", error);
@@ -105,11 +177,13 @@ export async function POST(request: NextRequest) {
             .select("id, external_id")
             .eq("tenant_id", tenant.tenantId);
 
-        const memberUuidMap = new Map(
-            (members || [])
-                .filter((m: any) => m.external_id)
-                .map((m: any) => [m.external_id, m.id])
-        );
+        // external_id → UUID マッピング（重複がある場合は最初のものを使用）
+        const memberUuidMap = new Map<string, string>();
+        for (const m of (members || []).filter((m: any) => m.external_id)) {
+            if (!memberUuidMap.has(m.external_id)) {
+                memberUuidMap.set(m.external_id, m.id);
+            }
+        }
 
         // 既存プリセット取得
         const { data: existingPresets } = await knowledgeDb
@@ -117,22 +191,31 @@ export async function POST(request: NextRequest) {
             .select("id, external_id")
             .eq("tenant_id", tenant.tenantId);
 
-        const existingByExtId = new Map(
-            (existingPresets || [])
-                .filter((p: any) => p.external_id)
-                .map((p: any) => [p.external_id, p])
-        );
+        // Build a map of external_id → primary row, and collect duplicate row IDs
+        const existingByExtId = new Map<string, any>();
+        const duplicatePresetRowIds: string[] = [];
+        for (const p of (existingPresets || []).filter((p: any) => p.external_id)) {
+            if (existingByExtId.has(p.external_id)) {
+                duplicatePresetRowIds.push(p.id);
+            } else {
+                existingByExtId.set(p.external_id, p);
+            }
+        }
         const incomingExtIds = new Set(presets.map(p => p.id));
 
-        // 削除されたプリセットを archive
+        // 削除されたプリセットを archive + 重複行もアーカイブ
         const removedRows = (existingPresets || []).filter(
             (p: any) => p.external_id && !incomingExtIds.has(p.external_id)
         );
-        if (removedRows.length > 0) {
+        const archiveIds = [
+            ...removedRows.map((p: any) => p.id),
+            ...duplicatePresetRowIds,
+        ];
+        if (archiveIds.length > 0) {
             await knowledgeDb
                 .from("meeting_presets")
                 .update({ is_archived: true, updated_at: new Date().toISOString() })
-                .in("id", removedRows.map((p: any) => p.id));
+                .in("id", archiveIds);
         }
 
         // 各プリセットを upsert

@@ -480,7 +480,8 @@ export async function addPreset(
     name: string,
     mode: MeetingPreset["mode"],
     memberIds: string[],
-    duration?: MeetingDuration
+    duration?: MeetingDuration,
+    skipSync: boolean = false
 ): Promise<MeetingPreset> {
     const db = await openDB();
     const now = new Date().toISOString();
@@ -501,9 +502,11 @@ export async function addPreset(
 
         request.onerror = () => reject(request.error);
         request.onsuccess = async () => {
-            // Sync to Google Drive (non-blocking)
-            const allPresets = await getAllPresetsLocal();
-            savePresetsToAPI(allPresets).catch(console.error);
+            if (!skipSync) {
+                // Sync to Google Drive (non-blocking)
+                const allPresets = await getAllPresetsLocal();
+                savePresetsToAPI(allPresets).catch(console.error);
+            }
             resolve(preset);
         };
     });

@@ -67,30 +67,73 @@ export async function GET() {
             return NextResponse.json({ members: [] });
         }
 
-        // Deduplicate by external_id: if duplicate rows exist (from past race conditions),
-        // keep only the most recently updated one per external_id
-        const seen = new Map<string, any>();
-        const deduped: any[] = [];
+        // ============================================================
+        // 重複排除（2段階）
+        // Step 1: external_id が同一の重複行を排除（レースコンディション由来）
+        // Step 2: name が同一の重複行を排除（IKP登録とモニター音声登録の二重登録）
+        // ============================================================
         const duplicateIds: string[] = [];
+
+        // Step 1: external_id ベースの重複排除
+        const seenByExtId = new Map<string, any>();
+        const afterExtIdDedup: any[] = [];
         for (const row of data || []) {
-            const key = row.external_id || row.id;
-            const existing = seen.get(key);
+            const extId = row.external_id;
+            if (extId) {
+                const existing = seenByExtId.get(extId);
+                if (existing) {
+                    // updated_at が新しい方を残す
+                    if (row.updated_at > existing.updated_at) {
+                        duplicateIds.push(existing.id);
+                        afterExtIdDedup[afterExtIdDedup.indexOf(existing)] = row;
+                        seenByExtId.set(extId, row);
+                    } else {
+                        duplicateIds.push(row.id);
+                    }
+                } else {
+                    seenByExtId.set(extId, row);
+                    afterExtIdDedup.push(row);
+                }
+            } else {
+                afterExtIdDedup.push(row);
+            }
+        }
+
+        // Step 2: name ベースの重複排除（同名メンバーの統合）
+        // データが充実している方（company, voice_sample 等）を優先し、
+        // 同等なら updated_at が新しい方を残す
+        const seenByName = new Map<string, any>();
+        const deduped: any[] = [];
+        for (const row of afterExtIdDedup) {
+            const nameKey = row.name.trim().toLowerCase();
+            const existing = seenByName.get(nameKey);
             if (existing) {
-                // Keep the one with the later updated_at, mark the other for cleanup
-                if (row.updated_at > existing.updated_at) {
+                // データの充実度を比較: company, voice_sample, email があるものを優先
+                const scoreRow = (r: any) =>
+                    (r.company_name ? 1 : 0) +
+                    (r.voice_sample_base64 ? 1 : 0) +
+                    (r.email ? 1 : 0) +
+                    (r.department ? 1 : 0) +
+                    (r.role ? 1 : 0);
+                const existingScore = scoreRow(existing);
+                const newScore = scoreRow(row);
+                const keepNew = newScore > existingScore ||
+                    (newScore === existingScore && row.updated_at > existing.updated_at);
+
+                if (keepNew) {
                     duplicateIds.push(existing.id);
                     deduped[deduped.indexOf(existing)] = row;
-                    seen.set(key, row);
+                    seenByName.set(nameKey, row);
                 } else {
                     duplicateIds.push(row.id);
                 }
             } else {
-                seen.set(key, row);
+                seenByName.set(nameKey, row);
                 deduped.push(row);
             }
         }
 
-        // Auto-cleanup: deactivate duplicate rows in the DB (non-blocking)
+        // Auto-cleanup: 重複行をDBから非同期で無効化
         if (duplicateIds.length > 0) {
             knowledgeDb
                 .from("members")
