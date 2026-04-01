@@ -50,9 +50,9 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
 
     // Load members
     const loadMembers = useCallback(
-        async (forceLocal: boolean = false) => {
+        async () => {
             try {
-                const data = await getAllMembers(forceLocal);
+                const data = await getAllMembers();
                 setMembers(data);
                 onMembersChange?.(data);
             } catch (error) {
@@ -185,7 +185,7 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
                 });
             }
 
-            await loadMembers(true);
+            await loadMembers();
             handleCloseModal();
         } catch (error) {
             console.error("Failed to save member:", error);
@@ -202,7 +202,7 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
             if (expandedMemberId === member.id) {
                 setExpandedMemberId(null);
             }
-            await loadMembers(true);
+            await loadMembers();
         } catch (error) {
             console.error("Failed to delete member:", error);
             alert("削除に失敗しました");

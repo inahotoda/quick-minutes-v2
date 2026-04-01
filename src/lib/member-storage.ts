@@ -1,18 +1,21 @@
 /**
- * メンバー管理 - IndexedDB ストレージ + Google Drive 同期
- * 「私は〇〇です」の音声サンプルを保存
+ * メンバー・プリセット管理
+ * Supabase（knowledge DB）をSingle Source of Truthとし、API経由で直接CRUD
  */
 
-// メンバー型定義
+// ===============================
+// 型定義・定数（変更なし）
+// ===============================
+
 export interface Member {
     id: string;
-    name: string;                    // フルネーム
-    nameVariants?: string[];         // ニックネーム・呼び名
-    email?: string | null;           // Google アカウント（Calendar/Chat 配信用）
-    company?: string | null;         // 会社名
-    department?: string | null;      // 部署
-    role?: string | null;            // 役職
-    type?: MemberType;              // 区分
+    name: string;
+    nameVariants?: string[];
+    email?: string | null;
+    company?: string | null;
+    department?: string | null;
+    role?: string | null;
+    type?: MemberType;
     voiceSample?: {
         blob: Blob;
         duration: number;
@@ -22,10 +25,8 @@ export interface Member {
     updatedAt: string;
 }
 
-// メンバー区分型
 export type MemberType = "internal" | "client" | "supplier" | "other";
 
-// 区分ラベル
 export const MEMBER_TYPE_LABELS: Record<MemberType, string> = {
     internal: "社内",
     client: "顧客",
@@ -33,7 +34,6 @@ export const MEMBER_TYPE_LABELS: Record<MemberType, string> = {
     other: "その他",
 };
 
-// 区分カラー (CSS用)
 export const MEMBER_TYPE_COLORS: Record<MemberType, { bg: string; border: string; text: string }> = {
     internal: { bg: "rgba(99,102,241,0.15)", border: "rgba(99,102,241,0.4)", text: "#a5b4fc" },
     client: { bg: "rgba(16,185,129,0.15)", border: "rgba(16,185,129,0.4)", text: "#6ee7b7" },
@@ -41,7 +41,53 @@ export const MEMBER_TYPE_COLORS: Record<MemberType, { bg: string; border: string
     other: { bg: "rgba(156,163,175,0.2)", border: "rgba(156,163,175,0.5)", text: "#e5e7eb" },
 };
 
-// API用のメンバー型（BlobはBase64として保存）
+export type MeetingDuration = 30 | 60 | 0; // 0 = 無制限
+
+export interface MeetingPreset {
+    id: string;
+    name: string;
+    mode: "internal" | "business" | "other";
+    duration?: MeetingDuration;
+    memberIds: string[];
+    additionalPrompt?: string;
+    isArchived?: boolean;
+    lastUsedAt?: string;
+    usageCount?: number;
+    createdAt: string;
+    updatedAt: string;
+}
+
+// ===============================
+// Blob ↔ Base64 ユーティリティ
+// ===============================
+
+async function blobToBase64(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            const base64 = reader.result as string;
+            const base64Data = base64.split(",")[1];
+            resolve(base64Data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
+}
+
+function base64ToBlob(base64: string, mimeType: string): Blob {
+    const byteCharacters = atob(base64);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+}
+
+// ===============================
+// API レスポンス → Member 変換
+// ===============================
+
 interface MemberData {
     id: string;
     name: string;
@@ -60,110 +106,7 @@ interface MemberData {
     updatedAt: string;
 }
 
-// 会議プリセット型定義
-export type MeetingDuration = 30 | 60 | 0; // 0 = 無制限
-
-export interface MeetingPreset {
-    id: string;
-    name: string;
-    mode: "internal" | "business" | "other";
-    duration?: MeetingDuration;
-    memberIds: string[];
-    additionalPrompt?: string;
-    isArchived?: boolean;
-    lastUsedAt?: string;    // ISO 8601
-    usageCount?: number;
-    createdAt: string;
-    updatedAt: string;
-}
-
-const DB_NAME = "quick-minutes-db";
-const DB_VERSION = 1;
-const MEMBERS_STORE = "members";
-const PRESETS_STORE = "presets";
-
-// データベースを開く
-function openDB(): Promise<IDBDatabase> {
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
-
-        request.onupgradeneeded = (event) => {
-            const db = (event.target as IDBOpenDBRequest).result;
-
-            // メンバーストア
-            if (!db.objectStoreNames.contains(MEMBERS_STORE)) {
-                const memberStore = db.createObjectStore(MEMBERS_STORE, { keyPath: "id" });
-                memberStore.createIndex("name", "name", { unique: false });
-            }
-
-            // プリセットストア
-            if (!db.objectStoreNames.contains(PRESETS_STORE)) {
-                const presetStore = db.createObjectStore(PRESETS_STORE, { keyPath: "id" });
-                presetStore.createIndex("name", "name", { unique: false });
-            }
-        };
-    });
-}
-
-// ===============================
-// ユーティリティ関数
-// ===============================
-
-// Blob to Base64
-async function blobToBase64(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            const base64 = reader.result as string;
-            const base64Data = base64.split(",")[1];
-            resolve(base64Data);
-        };
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-    });
-}
-
-// Base64 to Blob
-function base64ToBlob(base64: string, mimeType: string): Blob {
-    const byteCharacters = atob(base64);
-    const byteNumbers = new Array(byteCharacters.length);
-    for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-    }
-    const byteArray = new Uint8Array(byteNumbers);
-    return new Blob([byteArray], { type: mimeType });
-}
-
-// Member to MemberData (for API)
-async function memberToData(member: Member): Promise<MemberData> {
-    const data: MemberData = {
-        id: member.id,
-        name: member.name,
-        nameVariants: member.nameVariants,
-        email: member.email,
-        company: member.company,
-        department: member.department,
-        role: member.role,
-        type: member.type,
-        createdAt: member.createdAt,
-        updatedAt: member.updatedAt,
-    };
-    if (member.voiceSample) {
-        data.voiceSample = {
-            blobBase64: await blobToBase64(member.voiceSample.blob),
-            duration: member.voiceSample.duration,
-            recordedAt: member.voiceSample.recordedAt,
-        };
-    }
-    return data;
-}
-
-// MemberData to Member (from API) - includes migration from "external" to "client"
 function dataToMember(data: MemberData): Member {
-    // Migrate legacy "external" type to "client"
     let migratedType = data.type;
     if (migratedType === ("external" as any)) {
         migratedType = "client";
@@ -191,377 +134,188 @@ function dataToMember(data: MemberData): Member {
 }
 
 // ===============================
-// Google Drive API呼び出し
+// メンバー操作（API直接呼び出し）
 // ===============================
 
-async function fetchMembersFromAPI(): Promise<Member[]> {
+export async function getAllMembers(): Promise<Member[]> {
     try {
         const response = await fetch("/api/members");
         if (!response.ok) return [];
         const { members } = await response.json();
         return (members || []).map(dataToMember);
     } catch (error) {
-        console.warn("Failed to fetch members from API:", error);
+        console.warn("Failed to fetch members:", error);
         return [];
     }
 }
 
-async function saveMembersToAPI(members: Member[]): Promise<void> {
+export async function getMember(id: string): Promise<Member | undefined> {
     try {
-        const membersData = await Promise.all(members.map(memberToData));
-        await fetch("/api/members", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ members: membersData }),
-        });
+        const response = await fetch(`/api/members/${encodeURIComponent(id)}`);
+        if (!response.ok) return undefined;
+        const { member } = await response.json();
+        return member ? dataToMember(member) : undefined;
     } catch (error) {
-        console.error("Failed to save members to API:", error);
+        console.warn("Failed to fetch member:", error);
+        return undefined;
     }
 }
 
-async function fetchPresetsFromAPI(): Promise<MeetingPreset[]> {
+export async function addMember(
+    name: string,
+    voiceBlob?: Blob,
+    voiceDuration?: number,
+): Promise<Member> {
+    const body: any = { name: name.trim() };
+
+    if (voiceBlob && voiceDuration) {
+        body.voiceSample = {
+            blobBase64: await blobToBase64(voiceBlob),
+            duration: voiceDuration,
+            recordedAt: new Date().toISOString(),
+        };
+    }
+
+    const response = await fetch("/api/members", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "メンバーの追加に失敗しました");
+    }
+
+    const { member } = await response.json();
+    return dataToMember(member);
+}
+
+export async function updateMember(
+    id: string,
+    updates: Partial<Pick<Member, "name" | "nameVariants" | "email" | "company" | "department" | "role" | "type" | "voiceSample">>,
+): Promise<void> {
+    const body: any = {};
+
+    if (updates.name !== undefined) body.name = updates.name;
+    if (updates.nameVariants !== undefined) body.nameVariants = updates.nameVariants;
+    if (updates.email !== undefined) body.email = updates.email;
+    if (updates.company !== undefined) body.company = updates.company;
+    if (updates.department !== undefined) body.department = updates.department;
+    if (updates.role !== undefined) body.role = updates.role;
+    if (updates.type !== undefined) body.type = updates.type;
+
+    if (updates.voiceSample?.blob) {
+        body.voiceSample = {
+            blobBase64: await blobToBase64(updates.voiceSample.blob),
+            duration: updates.voiceSample.duration,
+            recordedAt: updates.voiceSample.recordedAt,
+        };
+    }
+
+    const response = await fetch(`/api/members/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "メンバーの更新に失敗しました");
+    }
+}
+
+export async function deleteMember(id: string): Promise<void> {
+    const response = await fetch(`/api/members/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+    });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "メンバーの削除に失敗しました");
+    }
+}
+
+// ===============================
+// プリセット操作（API直接呼び出し）
+// ===============================
+
+export async function getAllPresets(): Promise<MeetingPreset[]> {
     try {
         const response = await fetch("/api/presets");
         if (!response.ok) return [];
         const { presets } = await response.json();
         return presets || [];
     } catch (error) {
-        console.warn("Failed to fetch presets from API:", error);
+        console.warn("Failed to fetch presets:", error);
         return [];
     }
 }
 
-async function savePresetsToAPI(presets: MeetingPreset[]): Promise<void> {
-    try {
-        // アーカイブ済みプリセットを除外して送信
-        // POST APIは受信リストに含まれないプリセットをアーカイブ扱いにする
-        const activePresets = presets.filter(p => !p.isArchived);
-        await fetch("/api/presets", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ presets: activePresets }),
-        });
-    } catch (error) {
-        console.error("Failed to save presets to API:", error);
-    }
-}
-
-// ===============================
-// メンバー操作
-// ===============================
-
-export async function getAllMembers(forceLocal: boolean = false): Promise<Member[]> {
-    // forceLocal が true の場合はローカルDBから直接取得（更新直後など）
-    if (forceLocal) {
-        const db = await openDB();
-        return new Promise((resolve, reject) => {
-            const transaction = db.transaction(MEMBERS_STORE, "readonly");
-            const store = transaction.objectStore(MEMBERS_STORE);
-            const request = store.getAll();
-            request.onerror = () => reject(request.error);
-            request.onsuccess = () => resolve(request.result || []);
-        });
-    }
-
-    try {
-        // 1. まずGoogle Drive APIから取得を試みる（クラウド優先）
-        const cloudMembers = await fetchMembersFromAPI();
-
-        // クラウドにデータがある場合、ローカルを完全にクラウドデータで置換
-        // これにより、他デバイスで削除されたメンバーも正しく反映される
-        const db = await openDB();
-        const transaction = db.transaction(MEMBERS_STORE, "readwrite");
-        const store = transaction.objectStore(MEMBERS_STORE);
-
-        // ローカルデータをクリアしてからクラウドデータを同期
-        await new Promise<void>((resolve, reject) => {
-            const clearRequest = store.clear();
-            clearRequest.onerror = () => reject(clearRequest.error);
-            clearRequest.onsuccess = () => {
-                // クラウドデータを追加
-                for (const member of cloudMembers) {
-                    store.put(member);
-                }
-                resolve();
-            };
-        });
-
-        return cloudMembers;
-    } catch (error) {
-        console.warn("Cloud fetch failed, falling back to local:", error);
-    }
-
-    // 2. クラウドから取得できなければローカルから取得
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(MEMBERS_STORE, "readonly");
-        const store = transaction.objectStore(MEMBERS_STORE);
-        const request = store.getAll();
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result || []);
-    });
-}
-
-export async function getMember(id: string): Promise<Member | undefined> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(MEMBERS_STORE, "readonly");
-        const store = transaction.objectStore(MEMBERS_STORE);
-        const request = store.get(id);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
-    });
-}
-
-export async function addMember(name: string, voiceBlob?: Blob, voiceDuration?: number): Promise<Member> {
-    const db = await openDB();
-    const now = new Date().toISOString();
-    const member: Member = {
-        id: `member-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name,
-        createdAt: now,
-        updatedAt: now,
-    };
-
-    if (voiceBlob && voiceDuration) {
-        member.voiceSample = {
-            blob: voiceBlob,
-            duration: voiceDuration,
-            recordedAt: now,
-        };
-    }
-
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(MEMBERS_STORE, "readwrite");
-        const store = transaction.objectStore(MEMBERS_STORE);
-        const request = store.add(member);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = async () => {
-            // Sync to Google Drive (non-blocking)
-            const allMembers = await getAllMembersLocal();
-            saveMembersToAPI(allMembers).catch(console.error);
-            resolve(member);
-        };
-    });
-}
-
-// ローカルのみから取得（同期用）
-async function getAllMembersLocal(): Promise<Member[]> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(MEMBERS_STORE, "readonly");
-        const store = transaction.objectStore(MEMBERS_STORE);
-        const request = store.getAll();
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result || []);
-    });
-}
-
-export async function updateMember(id: string, updates: Partial<Pick<Member, "name" | "nameVariants" | "email" | "company" | "department" | "role" | "type" | "voiceSample">>): Promise<void> {
-    const db = await openDB();
-    const member = await getMember(id);
-    if (!member) throw new Error("Member not found");
-
-    const updatedMember = {
-        ...member,
-        ...updates,
-        updatedAt: new Date().toISOString(),
-    };
-
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(MEMBERS_STORE, "readwrite");
-        const store = transaction.objectStore(MEMBERS_STORE);
-        const request = store.put(updatedMember);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = async () => {
-            // Sync to Google Drive (non-blocking)
-            const allMembers = await getAllMembersLocal();
-            saveMembersToAPI(allMembers).catch(console.error);
-            resolve();
-        };
-    });
-}
-
-export async function deleteMember(id: string): Promise<void> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(MEMBERS_STORE, "readwrite");
-        const store = transaction.objectStore(MEMBERS_STORE);
-        const request = store.delete(id);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = async () => {
-            // Sync to Google Drive (blocking - 同期完了を待つ)
-            try {
-                const allMembers = await getAllMembersLocal();
-                await saveMembersToAPI(allMembers);
-            } catch (error) {
-                console.error("Failed to sync member deletion to cloud:", error);
-            }
-            resolve();
-        };
-    });
-}
-
-// ===============================
-// プリセット操作
-// ===============================
-
-export async function getAllPresets(): Promise<MeetingPreset[]> {
-    try {
-        // 1. まずGoogle Drive APIから取得を試みる（クラウド優先）
-        const cloudPresets = await fetchPresetsFromAPI();
-
-        // クラウドにデータがある場合、ローカルを完全にクラウドデータで置換
-        const db = await openDB();
-        const transaction = db.transaction(PRESETS_STORE, "readwrite");
-        const store = transaction.objectStore(PRESETS_STORE);
-
-        // ローカルデータをクリアしてからクラウドデータを同期
-        await new Promise<void>((resolve, reject) => {
-            const clearRequest = store.clear();
-            clearRequest.onerror = () => reject(clearRequest.error);
-            clearRequest.onsuccess = () => {
-                for (const preset of cloudPresets) {
-                    store.put(preset);
-                }
-                resolve();
-            };
-        });
-
-        return cloudPresets;
-    } catch (error) {
-        console.warn("Cloud fetch failed, falling back to local:", error);
-    }
-
-    // 2. クラウドから取得できなければローカルから取得
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(PRESETS_STORE, "readonly");
-        const store = transaction.objectStore(PRESETS_STORE);
-        const request = store.getAll();
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result || []);
-    });
-}
-
 export async function getPreset(id: string): Promise<MeetingPreset | undefined> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(PRESETS_STORE, "readonly");
-        const store = transaction.objectStore(PRESETS_STORE);
-        const request = store.get(id);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result);
-    });
-}
-
-// ローカルのみから取得（同期用）
-async function getAllPresetsLocal(): Promise<MeetingPreset[]> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(PRESETS_STORE, "readonly");
-        const store = transaction.objectStore(PRESETS_STORE);
-        const request = store.getAll();
-        request.onerror = () => reject(request.error);
-        request.onsuccess = () => resolve(request.result || []);
-    });
+    try {
+        const response = await fetch(`/api/presets/${encodeURIComponent(id)}`);
+        if (!response.ok) return undefined;
+        const { preset } = await response.json();
+        return preset || undefined;
+    } catch (error) {
+        console.warn("Failed to fetch preset:", error);
+        return undefined;
+    }
 }
 
 export async function addPreset(
     name: string,
     mode: MeetingPreset["mode"],
     memberIds: string[],
-    duration?: MeetingDuration
+    duration?: MeetingDuration,
 ): Promise<MeetingPreset> {
-    const db = await openDB();
-    const now = new Date().toISOString();
-    const preset: MeetingPreset = {
-        id: `preset-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name,
-        mode,
-        duration,
-        memberIds,
-        createdAt: now,
-        updatedAt: now,
-    };
-
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(PRESETS_STORE, "readwrite");
-        const store = transaction.objectStore(PRESETS_STORE);
-        const request = store.add(preset);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = async () => {
-            // Sync to Google Drive (non-blocking)
-            const allPresets = await getAllPresetsLocal();
-            savePresetsToAPI(allPresets).catch(console.error);
-            resolve(preset);
-        };
+    const response = await fetch("/api/presets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, mode, memberIds, duration }),
     });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "プリセットの追加に失敗しました");
+    }
+
+    const { preset } = await response.json();
+    return preset;
 }
 
 export async function updatePreset(
     id: string,
-    updates: Partial<Pick<MeetingPreset, "name" | "mode" | "duration" | "memberIds" | "additionalPrompt" | "isArchived" | "lastUsedAt" | "usageCount">>
+    updates: Partial<Pick<MeetingPreset, "name" | "mode" | "duration" | "memberIds" | "additionalPrompt" | "isArchived" | "lastUsedAt" | "usageCount">>,
 ): Promise<void> {
-    const db = await openDB();
-    const preset = await getPreset(id);
-    if (!preset) throw new Error("Preset not found");
-
-    const updatedPreset = {
-        ...preset,
-        ...updates,
-        updatedAt: new Date().toISOString(),
-    };
-
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(PRESETS_STORE, "readwrite");
-        const store = transaction.objectStore(PRESETS_STORE);
-        const request = store.put(updatedPreset);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = async () => {
-            // Sync to Google Drive (non-blocking)
-            const allPresets = await getAllPresetsLocal();
-            savePresetsToAPI(allPresets).catch(console.error);
-            resolve();
-        };
+    const response = await fetch(`/api/presets/${encodeURIComponent(id)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
     });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "プリセットの更新に失敗しました");
+    }
 }
 
 export async function deletePreset(id: string): Promise<void> {
-    const db = await openDB();
-    return new Promise((resolve, reject) => {
-        const transaction = db.transaction(PRESETS_STORE, "readwrite");
-        const store = transaction.objectStore(PRESETS_STORE);
-        const request = store.delete(id);
-
-        request.onerror = () => reject(request.error);
-        request.onsuccess = async () => {
-            // Sync to Google Drive (blocking - 同期完了を待つ)
-            try {
-                const allPresets = await getAllPresetsLocal();
-                await savePresetsToAPI(allPresets);
-            } catch (error) {
-                console.error("Failed to sync preset deletion to cloud:", error);
-            }
-            resolve();
-        };
+    const response = await fetch(`/api/presets/${encodeURIComponent(id)}`, {
+        method: "DELETE",
     });
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || "プリセットの削除に失敗しました");
+    }
 }
 
 // ===============================
 // ユーティリティ
 // ===============================
 
-// メンバーの音声サンプルを結合して1つのBlobにする
 export async function combineVoiceSamples(memberIds: string[]): Promise<Blob | null> {
     const members = await Promise.all(memberIds.map(id => getMember(id)));
     const blobs: Blob[] = [];
@@ -573,7 +327,5 @@ export async function combineVoiceSamples(memberIds: string[]): Promise<Blob | n
     }
 
     if (blobs.length === 0) return null;
-
-    // 音声Blobを結合（簡易版 - 実際には適切な音声結合が必要）
     return new Blob(blobs, { type: "audio/webm" });
 }
