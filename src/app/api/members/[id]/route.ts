@@ -57,17 +57,18 @@ async function findMember(tenantId: string, id: string) {
 /** GET /api/members/[id] - 単一メンバー取得 */
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } },
+    { params }: { params: Promise<{ id: string }> },
 ) {
     try {
         if (!knowledgeDb) return NextResponse.json({ member: null }, { status: 404 });
 
+        const { id } = await params;
         const { tenant, error } = await resolveTenantPlan();
         if (error || !tenant || tenant.expired) {
             return NextResponse.json({ member: null }, { status: 404 });
         }
 
-        const row = await findMember(tenant.tenantId, params.id);
+        const row = await findMember(tenant.tenantId, id);
         if (!row) return NextResponse.json({ member: null }, { status: 404 });
 
         const { data: variants } = await knowledgeDb
@@ -87,13 +88,14 @@ export async function GET(
 /** PUT /api/members/[id] - メンバー更新 */
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } },
+    { params }: { params: Promise<{ id: string }> },
 ) {
     try {
         if (!knowledgeDb) {
             return NextResponse.json({ error: "DB not configured" }, { status: 500 });
         }
 
+        const { id } = await params;
         const session = await getServerSession(authOptions);
         if (!session) {
             return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -103,7 +105,7 @@ export async function PUT(
         if (error) return NextResponse.json({ error }, { status: statusCode || 403 });
         if (!tenant) return NextResponse.json({ error: "テナントが見つかりません" }, { status: 403 });
 
-        const row = await findMember(tenant.tenantId, params.id);
+        const row = await findMember(tenant.tenantId, id);
         if (!row) return NextResponse.json({ error: "メンバーが見つかりません" }, { status: 404 });
 
         const body = await request.json();
@@ -156,13 +158,14 @@ export async function PUT(
 /** DELETE /api/members/[id] - メンバー削除（論理削除） */
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } },
+    { params }: { params: Promise<{ id: string }> },
 ) {
     try {
         if (!knowledgeDb) {
             return NextResponse.json({ error: "DB not configured" }, { status: 500 });
         }
 
+        const { id } = await params;
         const session = await getServerSession(authOptions);
         if (!session) {
             return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -172,7 +175,7 @@ export async function DELETE(
         if (error) return NextResponse.json({ error }, { status: statusCode || 403 });
         if (!tenant) return NextResponse.json({ error: "テナントが見つかりません" }, { status: 403 });
 
-        const row = await findMember(tenant.tenantId, params.id);
+        const row = await findMember(tenant.tenantId, id);
         if (!row) return NextResponse.json({ error: "メンバーが見つかりません" }, { status: 404 });
 
         await knowledgeDb

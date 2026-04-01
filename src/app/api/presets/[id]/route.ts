@@ -85,17 +85,18 @@ function toPresetData(row: any, memberIdMap: Map<string, string>) {
 /** GET /api/presets/[id] - 単一プリセット取得 */
 export async function GET(
     request: NextRequest,
-    { params }: { params: { id: string } },
+    { params }: { params: Promise<{ id: string }> },
 ) {
     try {
         if (!knowledgeDb) return NextResponse.json({ preset: null }, { status: 404 });
 
+        const { id } = await params;
         const { tenant, error } = await resolveTenantPlan();
         if (error || !tenant || tenant.expired) {
             return NextResponse.json({ preset: null }, { status: 404 });
         }
 
-        const row = await findPreset(tenant.tenantId, params.id);
+        const row = await findPreset(tenant.tenantId, id);
         if (!row) return NextResponse.json({ preset: null }, { status: 404 });
 
         const memberIdMap = await getMemberIdMap(tenant.tenantId);
@@ -110,13 +111,14 @@ export async function GET(
 /** PUT /api/presets/[id] - プリセット更新 */
 export async function PUT(
     request: NextRequest,
-    { params }: { params: { id: string } },
+    { params }: { params: Promise<{ id: string }> },
 ) {
     try {
         if (!knowledgeDb) {
             return NextResponse.json({ error: "DB not configured" }, { status: 500 });
         }
 
+        const { id } = await params;
         const session = await getServerSession(authOptions);
         if (!session) {
             return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -126,7 +128,7 @@ export async function PUT(
         if (error) return NextResponse.json({ error }, { status: statusCode || 403 });
         if (!tenant) return NextResponse.json({ error: "テナントが見つかりません" }, { status: 403 });
 
-        const row = await findPreset(tenant.tenantId, params.id);
+        const row = await findPreset(tenant.tenantId, id);
         if (!row) return NextResponse.json({ error: "プリセットが見つかりません" }, { status: 404 });
 
         const body = await request.json();
@@ -166,7 +168,7 @@ export async function PUT(
         }
 
         // 更新後のデータを返却
-        const updated = await findPreset(tenant.tenantId, params.id);
+        const updated = await findPreset(tenant.tenantId, id);
         const memberIdMap = await getMemberIdMap(tenant.tenantId);
 
         return NextResponse.json({ preset: toPresetData(updated, memberIdMap) });
@@ -182,13 +184,14 @@ export async function PUT(
 /** DELETE /api/presets/[id] - プリセット削除 */
 export async function DELETE(
     request: NextRequest,
-    { params }: { params: { id: string } },
+    { params }: { params: Promise<{ id: string }> },
 ) {
     try {
         if (!knowledgeDb) {
             return NextResponse.json({ error: "DB not configured" }, { status: 500 });
         }
 
+        const { id } = await params;
         const session = await getServerSession(authOptions);
         if (!session) {
             return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
@@ -204,7 +207,7 @@ export async function DELETE(
             .from("meeting_presets")
             .select("id")
             .eq("tenant_id", tenant.tenantId)
-            .eq("external_id", params.id)
+            .eq("external_id", id)
             .limit(1);
 
         if (byExtId && byExtId.length > 0) {
@@ -214,7 +217,7 @@ export async function DELETE(
                 .from("meeting_presets")
                 .select("id")
                 .eq("tenant_id", tenant.tenantId)
-                .eq("id", params.id)
+                .eq("id", id)
                 .limit(1);
             row = byUuid && byUuid.length > 0 ? byUuid[0] : null;
         }
