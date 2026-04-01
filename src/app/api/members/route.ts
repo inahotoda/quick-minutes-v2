@@ -105,12 +105,17 @@ export async function GET() {
 
         // 重複行を非同期でクリーンアップ
         if (duplicateIds.length > 0) {
-            knowledgeDb
-                .from("members")
-                .update({ is_active: false, updated_at: new Date().toISOString() })
-                .in("id", duplicateIds)
-                .then(() => console.log(`Cleaned up ${duplicateIds.length} duplicate member row(s)`))
-                .catch((err: any) => console.error("Failed to cleanup duplicate members:", err));
+            (async () => {
+                try {
+                    await knowledgeDb
+                        .from("members")
+                        .update({ is_active: false, updated_at: new Date().toISOString() })
+                        .in("id", duplicateIds);
+                    console.log(`Cleaned up ${duplicateIds.length} duplicate member row(s)`);
+                } catch (err) {
+                    console.error("Failed to cleanup duplicate members:", err);
+                }
+            })();
         }
 
         // name_variants を取得

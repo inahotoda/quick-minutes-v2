@@ -111,12 +111,17 @@ export async function GET() {
 
         // 重複行を非同期でクリーンアップ
         if (duplicateIds.length > 0) {
-            knowledgeDb
-                .from("meeting_presets")
-                .update({ is_archived: true, updated_at: new Date().toISOString() })
-                .in("id", duplicateIds)
-                .then(() => console.log(`Cleaned up ${duplicateIds.length} duplicate preset row(s)`))
-                .catch((err: any) => console.error("Failed to cleanup duplicate presets:", err));
+            (async () => {
+                try {
+                    await knowledgeDb
+                        .from("meeting_presets")
+                        .update({ is_archived: true, updated_at: new Date().toISOString() })
+                        .in("id", duplicateIds);
+                    console.log(`Cleaned up ${duplicateIds.length} duplicate preset row(s)`);
+                } catch (err) {
+                    console.error("Failed to cleanup duplicate presets:", err);
+                }
+            })();
         }
 
         // メンバー UUID → フロントID マッピング
