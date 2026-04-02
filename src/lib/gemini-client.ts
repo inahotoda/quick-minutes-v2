@@ -33,7 +33,13 @@ export async function uploadToGemini(file: File | Blob, displayName: string): Pr
         throw new Error("NEXT_PUBLIC_GEMINI_API_KEY が設定されていません。");
     }
 
-    const mimeType = file.type || "application/octet-stream";
+    // video/webm → audio/webm に補正（音声ファイルが video/* として検出されるケース対応）
+    let mimeType = file.type || "application/octet-stream";
+    if (mimeType.startsWith("video/")) {
+        const audioMime = mimeType.replace("video/", "audio/");
+        console.log(`📤 [Upload] MIME type corrected: ${mimeType} → ${audioMime}`);
+        mimeType = audioMime;
+    }
     const fileSizeMB = (file.size / (1024 * 1024)).toFixed(1);
     console.log(`📤 [Upload] Starting: "${displayName}" (${mimeType}, ${fileSizeMB}MB)`);
 

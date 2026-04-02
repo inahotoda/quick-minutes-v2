@@ -27,13 +27,21 @@ export default function FileUpload({
     const handleFileSelect = (selectedFiles: FileList | null) => {
         if (!selectedFiles) return;
 
+        const audioExtensions = [".mp3", ".m4a", ".aac", ".wav", ".ogg", ".webm", ".mp4", ".flac", ".opus"];
+
         const newFiles: UploadedFile[] = [];
 
         for (let i = 0; i < selectedFiles.length; i++) {
             const file = selectedFiles[i];
             let type: UploadedFile["type"] = "image";
 
-            if (file.type.startsWith("audio/")) {
+            // 拡張子も含めて音声ファイルかどうか判定
+            // (.m4a.webm のような二重拡張子や、video/webm として検出されるケースに対応)
+            const fileName = file.name.toLowerCase();
+            const isAudioByExtension = audioExtensions.some(ext => fileName.endsWith(ext));
+            const isAudioByMime = file.type.startsWith("audio/") || file.type.startsWith("video/");
+
+            if (isAudioByMime || isAudioByExtension) {
                 type = "audio";
             } else if (file.type === "application/pdf" || file.type === "text/plain") {
                 type = "pdf";

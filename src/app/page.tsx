@@ -521,16 +521,20 @@ export default function Home() {
             const uploadResult = await uploadToGemini(f.file, f.name);
 
             // 録音がなく、まだaudioData未設定の場合、最初の音声ファイルをメイン音声として扱う
+            // video/* → audio/* に補正（.webm等が video/ として検出されるケース対応）
+            const fileMimeType = f.file.type.startsWith("video/")
+              ? f.file.type.replace("video/", "audio/")
+              : f.file.type;
             if (f.type === "audio" && !audioBlob && !requestBody.audioData) {
               requestBody.audioData = {
-                mimeType: f.file.type,
+                mimeType: fileMimeType,
                 fileUri: uploadResult.file.uri,
                 fileId: uploadResult.file.name,
               };
             } else {
               uploadedGeminiFiles.push({
                 name: f.name,
-                mimeType: f.file.type,
+                mimeType: fileMimeType,
                 fileUri: uploadResult.file.uri,
                 fileId: uploadResult.file.name,
               });
