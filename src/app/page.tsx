@@ -22,7 +22,7 @@ import TaskPanel from "@/components/TaskPanel";
 import PresetGrid from "@/components/PresetGrid";
 import Image from "next/image";
 import styles from "./page.module.css";
-import { uploadToGemini } from "@/lib/gemini-client";
+import { uploadToGemini, waitForFileActiveClient } from "@/lib/gemini-client";
 import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile, uploadPdfFile } from "@/lib/drive-client";
 
 // FileをBase64に変換
@@ -39,7 +39,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.26.0";
+const APP_VERSION = "v4.26.1";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -471,49 +471,6 @@ export default function Home() {
         requestBody.notes = meetingNotes.trim();
       }
 
-      // 1. Gemini File API へ直接アップロード (ブラウザから)
-
-      // Handle live recording audio
-      if (audioBlob) {
-        setUploadProgress("音声をアップロード中...");
-        const uploadResult = await uploadToGemini(audioBlob, "Meeting Recording");
-        requestBody.audioData = {
-          mimeType: audioBlob.type,
-          fileUri: uploadResult.file.uri,
-          fileId: uploadResult.file.name,
-        };
-      }
-
-      // Handle uploaded files
-      if (files.length > 0) {
-        setUploadProgress(`資料をアップロード中 (0/${files.length})...`);
-        const uploadedGeminiFiles = [];
-        for (let i = 0; i < files.length; i++) {
-          const f = files[i];
-          setUploadProgress(`資料をアップロード中 (${i + 1}/${files.length}): ${f.name}`);
-          const uploadResult = await uploadToGemini(f.file, f.name);
-
-          // 録音がなく、まだaudioData未設定の場合、最初の音声ファイルをメイン音声として扱う
-          if (f.type === "audio" && !audioBlob && !requestBody.audioData) {
-            requestBody.audioData = {
-              mimeType: f.file.type,
-              fileUri: uploadResult.file.uri,
-              fileId: uploadResult.file.name,
-            };
-          } else {
-            uploadedGeminiFiles.push({
-              name: f.name,
-              mimeType: f.file.type,
-              fileUri: uploadResult.file.uri,
-              fileId: uploadResult.file.name,
-            });
-          }
-        }
-        if (uploadedGeminiFiles.length > 0) {
-          requestBody.uploadedFiles = uploadedGeminiFiles;
-        }
-      }
-
       // Check if we have any input
       if (!audioBlob && !transcript && files.length === 0) {
         setError("録音データ、文字起こしテキスト、またはファイルが必要です");
@@ -521,31 +478,135 @@ export default function Home() {
         return;
       }
 
-      // 2. サーバーサイドで議事録を生成 (URIのみ渡す)
-      if (transcript) {
-        requestBody.transcript = transcript;
-      }
+      // アップロード＋生成をリトライ付きで実行
+      const MAX_RETRIES = 2;
+      let lastError: Error | null = null;
 
-      setAppState("processing");
-      setUploadProgress("");
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        if (attempt > 0) {
+          console.log(`🔄 [Retry] Attempt ${attempt + 1}/${MAX_RETRIES + 1} - Re-uploading files...`);
+          setUploadProgress(`ファイル処理に失敗しました。リトライ中 (${attempt}/${MAX_RETRIES})...`);
+          setAppState("uploading");
+          // リトライ前に少し待機（Gemini側の一時的な問題に対応）
+          await new Promise(resolve => setTimeout(resolve, 3_000));
+        }
 
-      // 再生成用にパラメータを保存
-      setLastGenerationParams({
-        audioData: requestBody.audioData as { fileUri?: string; fileId?: string; base64?: string } | undefined,
-        uploadedFiles: requestBody.uploadedFiles as any[] | undefined,
-        participants: participantsToUse.map(p => p.name),
-      });
+        // 1. Gemini File API へ直接アップロード (ブラウザから)
+        // リトライ時は再アップロードが必要（前回のファイルはFAILED状態のため）
+        delete requestBody.audioData;
+        delete requestBody.uploadedFiles;
 
-      const response = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestBody),
-      });
+        // Handle live recording audio
+        if (audioBlob) {
+          setUploadProgress(attempt > 0 ? `リトライ中: 音声を再アップロード中...` : "音声をアップロード中...");
+          const uploadResult = await uploadToGemini(audioBlob, "Meeting Recording");
+          requestBody.audioData = {
+            mimeType: audioBlob.type,
+            fileUri: uploadResult.file.uri,
+            fileId: uploadResult.file.name,
+          };
+        }
 
-      if (!response.ok) {
-        const data = await response.json().catch(() => ({}));
-        throw new Error(data.error || "議事録の生成に失敗しました");
-      }
+        // Handle uploaded files
+        if (files.length > 0) {
+          setUploadProgress(attempt > 0
+            ? `リトライ中: 資料を再アップロード中 (0/${files.length})...`
+            : `資料をアップロード中 (0/${files.length})...`);
+          const uploadedGeminiFiles = [];
+          for (let i = 0; i < files.length; i++) {
+            const f = files[i];
+            setUploadProgress(attempt > 0
+              ? `リトライ中: 資料を再アップロード中 (${i + 1}/${files.length}): ${f.name}`
+              : `資料をアップロード中 (${i + 1}/${files.length}): ${f.name}`);
+            const uploadResult = await uploadToGemini(f.file, f.name);
+
+            // 録音がなく、まだaudioData未設定の場合、最初の音声ファイルをメイン音声として扱う
+            // video/* → audio/* に補正（.webm等が video/ として検出されるケース対応）
+            const fileMimeType = f.file.type.startsWith("video/")
+              ? f.file.type.replace("video/", "audio/")
+              : f.file.type;
+            if (f.type === "audio" && !audioBlob && !requestBody.audioData) {
+              requestBody.audioData = {
+                mimeType: fileMimeType,
+                fileUri: uploadResult.file.uri,
+                fileId: uploadResult.file.name,
+              };
+            } else {
+              uploadedGeminiFiles.push({
+                name: f.name,
+                mimeType: fileMimeType,
+                fileUri: uploadResult.file.uri,
+                fileId: uploadResult.file.name,
+              });
+            }
+          }
+          if (uploadedGeminiFiles.length > 0) {
+            requestBody.uploadedFiles = uploadedGeminiFiles;
+          }
+        }
+
+        // 1.5. クライアント側でファイルがACTIVEになるまで待機
+        // （サーバー側とAPIキーが異なる可能性があるため、同じキーで確認）
+        const geminiFileIds: string[] = [];
+        if (requestBody.audioData && (requestBody.audioData as any).fileId) {
+          geminiFileIds.push((requestBody.audioData as any).fileId);
+        }
+        if (requestBody.uploadedFiles) {
+          (requestBody.uploadedFiles as any[]).forEach((f: any) => {
+            if (f.fileId) geminiFileIds.push(f.fileId);
+          });
+        }
+        if (geminiFileIds.length > 0) {
+          try {
+            setUploadProgress("ファイルの処理を確認中...");
+            await waitForFileActiveClient(geminiFileIds, (status) => {
+              setUploadProgress(status);
+            });
+          } catch (fileErr) {
+            // ファイル処理失敗 → リトライ可能ならリトライ
+            if (attempt < MAX_RETRIES) {
+              console.warn(`⚠️ [Gemini] File processing failed at client check, will retry (attempt ${attempt + 1}/${MAX_RETRIES}):`, fileErr);
+              lastError = fileErr instanceof Error ? fileErr : new Error("ファイル処理に失敗しました");
+              continue; // 次のリトライへ
+            }
+            throw fileErr; // リトライ上限 → 外側のcatchへ
+          }
+        }
+
+        // 2. サーバーサイドで議事録を生成 (URIのみ渡す)
+        if (transcript) {
+          requestBody.transcript = transcript;
+        }
+
+        setAppState("processing");
+        setUploadProgress("");
+
+        // 再生成用にパラメータを保存
+        setLastGenerationParams({
+          audioData: requestBody.audioData as { fileUri?: string; fileId?: string; base64?: string } | undefined,
+          uploadedFiles: requestBody.uploadedFiles as any[] | undefined,
+          participants: participantsToUse.map(p => p.name),
+        });
+
+        const response = await fetch("/api/generate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(requestBody),
+        });
+
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          // ファイル処理失敗の場合はリトライ
+          if (data.code === "FILE_PROCESSING_FAILED" && attempt < MAX_RETRIES) {
+            console.warn(`⚠️ [Gemini] File processing failed, will retry (attempt ${attempt + 1}/${MAX_RETRIES})`);
+            lastError = new Error(data.error || "ファイル処理に失敗しました");
+            continue; // 次のリトライへ
+          }
+          throw new Error(data.error || "議事録の生成に失敗しました");
+        }
+
+        // 成功 - リトライループを抜ける
+        lastError = null;
 
       // モデルバージョンをヘッダーから取得
       const ver = response.headers.get("X-Model-Version");
@@ -657,6 +718,10 @@ export default function Home() {
           }, 800); // 800ms待ってからパース → 「抽出中」表示が見える
         }
       }
+
+      // 成功 - リトライループを抜ける
+      break;
+      } // end of retry for loop
     } catch (err) {
       // ネットワークエラーかどうかを判定
       const isNetworkError = !navigator.onLine ||

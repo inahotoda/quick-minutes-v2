@@ -168,6 +168,13 @@ export async function POST(request: NextRequest) {
         });
     } catch (error) {
         console.error("POST /api/generate: Generate error:", error);
-        return NextResponse.json({ error: error instanceof Error ? error.message : "生成エラー" }, { status: 500 });
+        const isFileProcessingFailed = (error as any)?.code === "FILE_PROCESSING_FAILED";
+        return NextResponse.json(
+            {
+                error: error instanceof Error ? error.message : "生成エラー",
+                code: isFileProcessingFailed ? "FILE_PROCESSING_FAILED" : undefined,
+            },
+            { status: isFileProcessingFailed ? 503 : 500 }
+        );
     }
 }

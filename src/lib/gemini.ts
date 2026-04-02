@@ -72,7 +72,7 @@ export async function waitForFileActive(fileNames: string[]) {
 
         while (file.state === FileState.PROCESSING) {
             if (Date.now() - startTime > MAX_WAIT) {
-                console.warn(`⚠️ [Gemini] Timeout waiting for file: ${name}`);
+                console.warn(`⚠️ [Gemini] Timeout waiting for file: ${name} (waited ${MAX_WAIT / 1000}s)`);
                 break;
             }
             await new Promise((resolve) => setTimeout(resolve, 2_000));
@@ -80,7 +80,23 @@ export async function waitForFileActive(fileNames: string[]) {
         }
 
         if (file.state === FileState.FAILED) {
-            throw Error(`File ${file.name} failed to process (FAILED state)`);
+            // ファイルオブジェクト全体をログ出力（エラー原因特定のため）
+            console.error(`❌ [Gemini] File FAILED:`, JSON.stringify({
+                name: file.name,
+                displayName: file.displayName,
+                mimeType: file.mimeType,
+                sizeBytes: file.sizeBytes,
+                state: file.state,
+                error: (file as any).error,
+                uri: file.uri,
+            }, null, 2));
+            const geminiError = (file as any).error?.message || "不明なエラー";
+            const error = new Error(
+                `ファイル "${file.displayName || file.name}" の処理に失敗しました: ${geminiError}`
+            );
+            (error as any).code = "FILE_PROCESSING_FAILED";
+            (error as any).failedFileName = file.name;
+            throw error;
         }
         console.log(`✅ [Gemini] File is now ACTIVE: ${name}`);
     };
