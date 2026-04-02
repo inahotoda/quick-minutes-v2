@@ -22,7 +22,7 @@ import TaskPanel from "@/components/TaskPanel";
 import PresetGrid from "@/components/PresetGrid";
 import Image from "next/image";
 import styles from "./page.module.css";
-import { uploadToGemini } from "@/lib/gemini-client";
+import { uploadToGemini, waitForFileActiveClient } from "@/lib/gemini-client";
 import { findFolderByName, createFolder, uploadMarkdownAsDoc, uploadAudioFile, uploadPdfFile } from "@/lib/drive-client";
 
 // FileをBase64に変換
@@ -538,6 +538,34 @@ export default function Home() {
           }
           if (uploadedGeminiFiles.length > 0) {
             requestBody.uploadedFiles = uploadedGeminiFiles;
+          }
+        }
+
+        // 1.5. クライアント側でファイルがACTIVEになるまで待機
+        // （サーバー側とAPIキーが異なる可能性があるため、同じキーで確認）
+        const geminiFileIds: string[] = [];
+        if (requestBody.audioData && (requestBody.audioData as any).fileId) {
+          geminiFileIds.push((requestBody.audioData as any).fileId);
+        }
+        if (requestBody.uploadedFiles) {
+          (requestBody.uploadedFiles as any[]).forEach((f: any) => {
+            if (f.fileId) geminiFileIds.push(f.fileId);
+          });
+        }
+        if (geminiFileIds.length > 0) {
+          try {
+            setUploadProgress("ファイルの処理を確認中...");
+            await waitForFileActiveClient(geminiFileIds, (status) => {
+              setUploadProgress(status);
+            });
+          } catch (fileErr) {
+            // ファイル処理失敗 → リトライ可能ならリトライ
+            if (attempt < MAX_RETRIES) {
+              console.warn(`⚠️ [Gemini] File processing failed at client check, will retry (attempt ${attempt + 1}/${MAX_RETRIES}):`, fileErr);
+              lastError = fileErr instanceof Error ? fileErr : new Error("ファイル処理に失敗しました");
+              continue; // 次のリトライへ
+            }
+            throw fileErr; // リトライ上限 → 外側のcatchへ
           }
         }
 

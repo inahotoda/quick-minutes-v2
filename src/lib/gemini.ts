@@ -80,9 +80,19 @@ export async function waitForFileActive(fileNames: string[]) {
         }
 
         if (file.state === FileState.FAILED) {
-            console.error(`❌ [Gemini] File FAILED: name=${file.name}, displayName=${file.displayName}, mimeType=${file.mimeType}, size=${file.sizeBytes}`);
+            // ファイルオブジェクト全体をログ出力（エラー原因特定のため）
+            console.error(`❌ [Gemini] File FAILED:`, JSON.stringify({
+                name: file.name,
+                displayName: file.displayName,
+                mimeType: file.mimeType,
+                sizeBytes: file.sizeBytes,
+                state: file.state,
+                error: (file as any).error,
+                uri: file.uri,
+            }, null, 2));
+            const geminiError = (file as any).error?.message || "不明なエラー";
             const error = new Error(
-                `ファイル "${file.displayName || file.name}" の処理に失敗しました（Gemini側エラー）。ファイルを再アップロードしてリトライします...`
+                `ファイル "${file.displayName || file.name}" の処理に失敗しました: ${geminiError}`
             );
             (error as any).code = "FILE_PROCESSING_FAILED";
             (error as any).failedFileName = file.name;
