@@ -86,7 +86,7 @@ export default function PresetsPage() {
         setEditingPreset(preset);
         setPresetName(preset.name);
         setPresetMode(preset.mode);
-        setPresetDuration(preset.duration || 30);
+        setPresetDuration(preset.duration ?? 30);
         setSelectedMemberIds(preset.memberIds);
         setPresetPrompt(preset.additionalPrompt || "");
         setIsModalOpen(true);

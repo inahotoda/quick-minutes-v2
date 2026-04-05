@@ -39,7 +39,7 @@ const fileToBase64 = (file: File): Promise<string> => {
   });
 };
 
-const APP_VERSION = "v4.26.1";
+const APP_VERSION = "v4.26.2";
 type AppState = "idle" | "confirming" | "uploadConfirming" | "introduction" | "recording" | "uploading" | "processing" | "editing";
 
 // Markdownからプレーンテキストを抽出
@@ -1825,7 +1825,7 @@ export default function Home() {
                   setIsAdhocMode(false);
                   if (preset) {
                     setMode(preset.mode as MeetingMode);
-                    if (preset.duration) setSelectedDuration(preset.duration);
+                    if (preset.duration != null) setSelectedDuration(preset.duration);
                     setAdditionalPrompt(preset.additionalPrompt || "");
                   } else {
                     setAdditionalPrompt("");
