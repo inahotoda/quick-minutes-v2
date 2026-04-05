@@ -1825,7 +1825,7 @@ export default function Home() {
                   setIsAdhocMode(false);
                   if (preset) {
                     setMode(preset.mode as MeetingMode);
-                    if (preset.duration) setSelectedDuration(preset.duration);
+                    if (preset.duration != null) setSelectedDuration(preset.duration);
                     setAdditionalPrompt(preset.additionalPrompt || "");
                   } else {
                     setAdditionalPrompt("");
