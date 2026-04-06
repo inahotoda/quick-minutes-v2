@@ -441,8 +441,8 @@ export default function Home() {
     try {
       console.log("🔍 [DEBUG] participantsToUse:", participantsToUse);
       // メンバープロファイルを構築（Gemini 注入用）
+      // 全参加者を含める（名前だけでもGeminiの名前特定精度向上に寄与）
       const memberProfiles = participantsToUse
-        .filter(p => p.company || p.email || p.role || p.nameVariants?.length)
         .map(p => ({
           name: p.name,
           nameVariants: p.nameVariants,
@@ -458,7 +458,7 @@ export default function Home() {
         mode,
         date: new Date().toLocaleDateString("ja-JP"),
         participants: participantsToUse.map(p => p.name),
-        ...(memberProfiles.length > 0 && { memberProfiles }),
+        memberProfiles,
       };
 
       // 追加プロンプト（初回生成時の追加指示）

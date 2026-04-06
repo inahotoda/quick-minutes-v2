@@ -11,13 +11,19 @@ function toMemberData(row: any, nameVariantsMap?: Map<string, string[]>) {
         name: row.name,
         nameVariants: nameVariantsMap?.get(row.id) || undefined,
         email: row.email || null,
-        company: row.company_name || null,
+        company: row.company_name || row.company || null,
         department: row.department || null,
         role: row.role || null,
-        type: row.type || "internal",
+        type: row.type || row.member_type || "internal",
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
+    // member_name_variants JOIN結果があればそちらを優先
+    const variants = (row.member_name_variants || [])
+        .map((v: any) => v.name)
+        .filter(Boolean);
+    if (variants.length > 0) member.nameVariants = variants;
+    // 音声サンプル
     if (row.voice_sample_base64) {
         member.voiceSample = {
             blobBase64: row.voice_sample_base64,
@@ -38,7 +44,7 @@ export async function GET() {
 
         const { data, error: dbError } = await knowledgeDb
             .from("members")
-            .select("*")
+            .select("*, member_name_variants(name)")
             .eq("tenant_id", tenant.tenantId)
             .eq("is_active", true)
             .order("name");
@@ -118,7 +124,7 @@ export async function GET() {
             })();
         }
 
-        // name_variants を取得
+        // name_variants を取得（JOIN結果がない場合のフォールバック）
         const memberIds = deduped.map((m: any) => m.id);
         const nameVariantsMap = new Map<string, string[]>();
         if (memberIds.length > 0) {
@@ -178,22 +184,28 @@ export async function POST(request: NextRequest) {
         if (existing && existing.length > 0) {
             // 既存メンバーが見つかった → 音声データがあれば更新して返却
             memberRow = existing[0];
+            const updates: any = { updated_at: new Date().toISOString() };
             if (body.voiceSample) {
-                await knowledgeDb
-                    .from("members")
-                    .update({
-                        voice_sample_base64: body.voiceSample.blobBase64,
-                        voice_sample_duration: body.voiceSample.duration,
-                        voice_sample_recorded_at: body.voiceSample.recordedAt,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq("id", memberRow.id);
-
-                // 更新後を再取得
-                const { data: updated } = await knowledgeDb
-                    .from("members").select("*").eq("id", memberRow.id).single();
-                memberRow = updated || memberRow;
+                updates.voice_sample_base64 = body.voiceSample.blobBase64;
+                updates.voice_sample_duration = body.voiceSample.duration;
+                updates.voice_sample_recorded_at = body.voiceSample.recordedAt;
             }
+            // プロファイルフィールドも更新
+            if (body.email !== undefined) updates.email = body.email || null;
+            if (body.company !== undefined) updates.company_name = body.company || null;
+            if (body.department !== undefined) updates.department = body.department || null;
+            if (body.role !== undefined) updates.role = body.role || null;
+            if (body.type !== undefined) updates.type = body.type || "internal";
+
+            await knowledgeDb
+                .from("members")
+                .update(updates)
+                .eq("id", memberRow.id);
+
+            // 更新後を再取得
+            const { data: updated } = await knowledgeDb
+                .from("members").select("*").eq("id", memberRow.id).single();
+            memberRow = updated || memberRow;
         } else {
             // 新規メンバー作成
             const now = new Date().toISOString();
@@ -228,6 +240,23 @@ export async function POST(request: NextRequest) {
             }
 
             memberRow = inserted;
+        }
+
+        // nameVariants を member_name_variants テーブルに同期
+        if (memberRow && body.nameVariants && Array.isArray(body.nameVariants)) {
+            await knowledgeDb
+                .from("member_name_variants")
+                .delete()
+                .eq("member_id", memberRow.id);
+
+            const variantRows = body.nameVariants
+                .filter(Boolean)
+                .map((n: string) => ({ member_id: memberRow.id, name: n }));
+            if (variantRows.length > 0) {
+                await knowledgeDb
+                    .from("member_name_variants")
+                    .insert(variantRows);
+            }
         }
 
         // name_variants
