@@ -1,6 +1,6 @@
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
-import { extractDomain, getTenantByDomainOrEmail, isTenantExpired } from "@/lib/supabase";
+import { extractDomain, getTenantByDomainOrEmail, isTenantExpired, isTrialMode } from "@/lib/supabase";
 
 export interface FeatureFlags {
     drive_save: boolean;
@@ -64,7 +64,7 @@ export async function resolveTenantPlan(): Promise<{
         };
     }
 
-    const expired = isTenantExpired(tenantData.expires_at);
+    const expired = isTrialMode() && isTenantExpired(tenantData.expires_at);
     const plan = tenantData.plan || "trial";
     const features = resolveFeatures(plan, tenantData.features || {});
 
