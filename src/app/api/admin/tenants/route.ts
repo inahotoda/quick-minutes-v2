@@ -187,6 +187,83 @@ export async function POST(request: NextRequest) {
 }
 
 /**
+ * PATCH: テナントの有効期限を更新（延長/短縮）
+ * Body (延長): { tenantId: "abc-corp", extendDays: 30 } → 現在の期限または今日のどちらか後の日付から延長
+ * Body (直接指定): { tenantId: "abc-corp", expiresAt: "2026-12-31T00:00:00.000Z" }
+ */
+export async function PATCH(request: NextRequest) {
+    try {
+        const session = await getServerSession(authOptions);
+        if (!session?.user?.email) {
+            return NextResponse.json({ error: "認証が必要です" }, { status: 401 });
+        }
+
+        if (!isAdminUser(session.user.email || "")) {
+            return NextResponse.json({ error: "管理者権限がありません" }, { status: 403 });
+        }
+
+        if (!supabaseAdmin) {
+            return NextResponse.json({ error: "Supabase未設定" }, { status: 500 });
+        }
+
+        const { tenantId, extendDays, expiresAt } = await request.json();
+
+        if (!tenantId) {
+            return NextResponse.json({ error: "tenantId は必須です" }, { status: 400 });
+        }
+
+        let newExpiresAt: Date;
+
+        if (typeof expiresAt === "string") {
+            const parsed = new Date(expiresAt);
+            if (isNaN(parsed.getTime())) {
+                return NextResponse.json({ error: "expiresAt の形式が不正です" }, { status: 400 });
+            }
+            newExpiresAt = parsed;
+        } else if (typeof extendDays === "number" && extendDays > 0) {
+            // 現在のテナント情報を取得
+            const { data: current, error: fetchError } = await supabaseAdmin
+                .from("allowed_tenants")
+                .select("expires_at")
+                .eq("tenant_id", tenantId)
+                .single();
+
+            if (fetchError) throw fetchError;
+            if (!current) {
+                return NextResponse.json({ error: "テナントが見つかりません" }, { status: 404 });
+            }
+
+            // 期限切れなら今日から、有効期間内なら現在の期限から延長
+            const currentExpiry = new Date(current.expires_at);
+            const now = new Date();
+            const base = currentExpiry > now ? currentExpiry : now;
+            newExpiresAt = new Date(base);
+            newExpiresAt.setDate(newExpiresAt.getDate() + extendDays);
+        } else {
+            return NextResponse.json({ error: "extendDays (正の数) または expiresAt が必要です" }, { status: 400 });
+        }
+
+        const { error: updateError } = await supabaseAdmin
+            .from("allowed_tenants")
+            .update({
+                expires_at: newExpiresAt.toISOString(),
+                is_active: true,
+            })
+            .eq("tenant_id", tenantId);
+
+        if (updateError) throw updateError;
+
+        return NextResponse.json({
+            success: true,
+            expiresAt: newExpiresAt.toISOString(),
+        });
+    } catch (error) {
+        console.error("Tenant update error:", error);
+        return NextResponse.json({ error: "有効期限の更新に失敗しました" }, { status: 500 });
+    }
+}
+
+/**
  * DELETE: テナント削除 or 個別ドメイン削除
  * Body: { tenantId: "abc-corp" } → テナント全体削除
  * Body: { domainId: "uuid" } → 個別ドメイン削除

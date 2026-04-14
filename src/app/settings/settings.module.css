@@ -945,6 +945,28 @@
     color: #fca5a5;
 }
 
+.tenantExtendBtn {
+    padding: 0.35rem 0.7rem;
+    background: rgba(99, 102, 241, 0.12);
+    border: 1px solid rgba(99, 102, 241, 0.28);
+    border-radius: 6px;
+    color: #a5b4fc;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+
+.tenantExtendBtn:hover:not(:disabled) {
+    background: rgba(99, 102, 241, 0.25);
+    color: #c7d2fe;
+}
+
+.tenantExtendBtn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 .tenantDeleteBtn {
     padding: 0.35rem 0.7rem;
     background: rgba(239, 68, 68, 0.1);
