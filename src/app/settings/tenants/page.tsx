@@ -43,6 +43,9 @@ export default function TenantsPage() {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [deletingDomainId, setDeletingDomainId] = useState<string | null>(null);
 
+    // 期限延長中
+    const [extendingId, setExtendingId] = useState<string | null>(null);
+
     useEffect(() => {
         fetchTenants();
     }, []);
@@ -163,6 +166,43 @@ export default function TenantsPage() {
             setMessage({ type: "error", text: "削除に失敗しました" });
         } finally {
             setDeletingId(null);
+            setTimeout(() => setMessage(null), 4000);
+        }
+    };
+
+    // テナント有効期限の延長
+    const handleExtend = async (tenantId: string, name: string) => {
+        const input = prompt(`${name} の有効期限を何日延長しますか？\n(例: 30, 60, 90, 365)`, "30");
+        if (input === null) return;
+        const extendDays = parseInt(input, 10);
+        if (!Number.isFinite(extendDays) || extendDays <= 0) {
+            setMessage({ type: "error", text: "1以上の日数を入力してください" });
+            setTimeout(() => setMessage(null), 4000);
+            return;
+        }
+
+        setExtendingId(tenantId);
+        setMessage(null);
+
+        try {
+            const res = await fetch("/api/admin/tenants", {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ tenantId, extendDays }),
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                setMessage({ type: "success", text: `${name} の有効期限を${extendDays}日延長しました` });
+                fetchTenants();
+            } else {
+                setMessage({ type: "error", text: data.error || "延長に失敗しました" });
+            }
+        } catch (err) {
+            setMessage({ type: "error", text: "延長に失敗しました" });
+        } finally {
+            setExtendingId(null);
             setTimeout(() => setMessage(null), 4000);
         }
     };
@@ -326,6 +366,14 @@ export default function TenantsPage() {
                                                 <span className={`${styles.tenantStatus} ${expired ? styles.tenantStatusExpired : styles.tenantStatusActive}`}>
                                                     {expired ? "期限切れ" : `残り${remaining}日`}
                                                 </span>
+                                                <button
+                                                    className={styles.tenantExtendBtn}
+                                                    onClick={() => handleExtend(t.tenant_id, t.company_name)}
+                                                    disabled={extendingId === t.tenant_id}
+                                                    title="有効期限を延長"
+                                                >
+                                                    {extendingId === t.tenant_id ? "..." : "期限延長"}
+                                                </button>
                                                 <button
                                                     className={styles.tenantDeleteBtn}
                                                     onClick={() => handleDelete(t.tenant_id, t.company_name)}
