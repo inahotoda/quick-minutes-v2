@@ -73,6 +73,11 @@ export default function Home() {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [minutes, setMinutes] = useState("");
   const [modelVersion, setModelVersion] = useState<string | undefined>();
+  // Phase 2 (Claude refinement) state
+  const [draftMinutes, setDraftMinutes] = useState("");          // Phase 1 (Gemini) output, kept as fallback
+  const [isRefining, setIsRefining] = useState(false);            // Phase 2 in progress
+  const [refineCompleted, setRefineCompleted] = useState(false);  // Phase 2 done at least once
+  const [showDraft, setShowDraft] = useState(false);              // user toggled back to draft
   const [isSaving, setIsSaving] = useState(false);
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -646,30 +651,23 @@ export default function Home() {
         }
       }
 
-      // 非同期で後処理パイプラインを起動（fire-and-forget、features に応じて）
+      // Phase 1 完了 → 後処理パイプライン
       const extractedMinutes = fullText.match(/\[MINUTES_START\]([\s\S]*?)\[MINUTES_END\]/);
       console.log("🔍 [DEBUG-GEN] extractedMinutes found:", !!extractedMinutes?.[1]);
       console.log("🔍 [DEBUG-GEN] tenantFeatures:", JSON.stringify(tenantFeatures));
       if (extractedMinutes?.[1]?.trim()) {
         const minutesBody = extractedMinutes[1].trim();
         console.log("🔍 [DEBUG-GEN] minutesBody length:", minutesBody.length);
-        console.log("🔍 [DEBUG-GEN] contains ネクストアクション:", minutesBody.includes("ネクストアクション"));
-        // パイプライン1: 用語抽出（terminology_pipeline が有効な場合のみ）
+
+        // 用語抽出（背景で実行）
         if (tenantFeatures?.terminology_pipeline) {
           fetch("/api/terminology/extract", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ minutesText: minutesBody }),
-          }).then(res => res.json()).then(data => {
-            if (data.autoRegistered > 0 || data.pendingReview > 0) {
-              const parts = [];
-              if (data.autoRegistered > 0) parts.push(`✅ ${data.autoRegistered}件自動登録`);
-              if (data.pendingReview > 0) parts.push(`❓ ${data.pendingReview}件確認待ち`);
-              console.log(`📖 [用語辞書] ${parts.join(" / ")}`);
-            }
           }).catch(() => {});
         }
-        // パイプライン2: 人物分析（profile_analysis が有効な場合のみ）
+        // 人物分析（背景で実行）
         if (tenantFeatures?.profile_analysis) {
           fetch("/api/profile/analyze", {
             method: "POST",
@@ -677,46 +675,115 @@ export default function Home() {
             body: JSON.stringify({ minutesText: minutesBody }),
           }).catch(() => {});
         }
-        // パイプライン3: タスク抽出（Gemini 出力から直接パース — Sonnet 廃止）
-        console.log("🔍 [DEBUG-GEN] task_extraction enabled:", tenantFeatures?.task_extraction);
-        if (tenantFeatures?.task_extraction) {
-          // 抽出中フラグを先にセット → UIに「抽出中...」アニメーションを表示
-          setIsExtractingTasks(true);
 
-          // 少し遅延してUIが描画されてからパース結果を反映
-          setTimeout(() => {
-            const parsedTasks = parseNextActions(minutesBody, {
-              meetingDate: new Date().toISOString().split("T")[0],
-              participants: confirmedParticipants.map(p => p.name),
+        // Phase 2: Claude Opus 4.7 による推敲 → 完了後にタスク抽出
+        // タスク抽出は推敲後のクオリティで行うため、refine 完了を待つ
+        const draftBody = minutesBody;
+        setDraftMinutes(draftBody);
+        const phase1ToPhase2 = async () => {
+          setIsRefining(true);
+          let refinedBody = draftBody;
+          try {
+            const refineRes = await fetch("/api/refine", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                mode,
+                draftMarkdown: draftBody,
+                participants: confirmedParticipants.map(p => p.name),
+                notes: meetingNotes || undefined,
+                date: new Date().toLocaleDateString("ja-JP"),
+              }),
             });
-            if (parsedTasks.length > 0) {
-              setExtractedTasks(parsedTasks);
-              const byAssignee: Record<string, number> = {};
-              parsedTasks.forEach(t => {
-                const key = t.assignee || "未定";
-                byAssignee[key] = (byAssignee[key] || 0) + 1;
-              });
-              setTaskSummary({ total: parsedTasks.length, by_assignee: byAssignee });
-              // Supabase に保存
-              fetch("/api/tasks/save", {
+            if (refineRes.ok) {
+              const ver = refineRes.headers.get("X-Model-Version");
+              if (ver) setModelVersion(decodeURIComponent(ver));
+              const refReader = refineRes.body?.getReader();
+              if (refReader) {
+                const refDecoder = new TextDecoder();
+                let refFull = "";
+                while (true) {
+                  const { done, value } = await refReader.read();
+                  if (done) break;
+                  refFull += refDecoder.decode(value, { stream: true });
+                  const m = refFull.match(/\[MINUTES_START\]([\s\S]*?)(\[MINUTES_END\]|$)/);
+                  if (m) {
+                    const cur = m[1].trim();
+                    if (cur) setMinutes(cur);
+                  }
+                }
+                const finalMatch = refFull.match(/\[MINUTES_START\]([\s\S]*?)\[MINUTES_END\]/);
+                if (finalMatch?.[1]?.trim()) {
+                  refinedBody = finalMatch[1].trim();
+                  setMinutes(refinedBody);
+                }
+              }
+              setRefineCompleted(true);
+            } else {
+              console.warn("⚠️ [Refine] Failed, keeping Phase 1 output");
+            }
+          } catch (err) {
+            console.warn("⚠️ [Refine] Error, keeping Phase 1 output:", err);
+          } finally {
+            setIsRefining(false);
+          }
+
+          // 推敲後のテキストでタスク抽出
+          if (tenantFeatures?.task_extraction) {
+            setIsExtractingTasks(true);
+            try {
+              const tasksRes = await fetch("/api/tasks/extract", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ tasks: parsedTasks }),
-              })
-                .then(res => res.json())
-                .then((data) => {
-                  if (data.batchId) setTaskBatchId(data.batchId);
-                  if (data.tasks?.length > 0) {
-                    setExtractedTasks(data.tasks);
-                  }
-                })
-                .catch(() => {})
-                .finally(() => setIsExtractingTasks(false));
-            } else {
+                body: JSON.stringify({
+                  minutesText: refinedBody,
+                  meetingDate: new Date().toISOString().split("T")[0],
+                  participants: confirmedParticipants.map(p => p.name),
+                }),
+              });
+              const data = await tasksRes.json();
+              if (data.tasks?.length > 0) {
+                setExtractedTasks(data.tasks);
+                if (data.summary) setTaskSummary(data.summary);
+                if (data.batchId) setTaskBatchId(data.batchId);
+              } else {
+                // フォールバック: Claude が0件返した場合は正規表現パーサで補完
+                const parsed = parseNextActions(refinedBody, {
+                  meetingDate: new Date().toISOString().split("T")[0],
+                  participants: confirmedParticipants.map(p => p.name),
+                });
+                if (parsed.length > 0) {
+                  setExtractedTasks(parsed);
+                  const byAssignee: Record<string, number> = {};
+                  parsed.forEach(t => {
+                    const key = t.assignee || "未定";
+                    byAssignee[key] = (byAssignee[key] || 0) + 1;
+                  });
+                  setTaskSummary({ total: parsed.length, by_assignee: byAssignee });
+                }
+              }
+            } catch (err) {
+              console.warn("⚠️ [Tasks] Claude extraction failed, falling back to regex:", err);
+              const parsed = parseNextActions(refinedBody, {
+                meetingDate: new Date().toISOString().split("T")[0],
+                participants: confirmedParticipants.map(p => p.name),
+              });
+              if (parsed.length > 0) {
+                setExtractedTasks(parsed);
+                const byAssignee: Record<string, number> = {};
+                parsed.forEach(t => {
+                  const key = t.assignee || "未定";
+                  byAssignee[key] = (byAssignee[key] || 0) + 1;
+                });
+                setTaskSummary({ total: parsed.length, by_assignee: byAssignee });
+              }
+            } finally {
               setIsExtractingTasks(false);
             }
-          }, 800); // 800ms待ってからパース → 「抽出中」表示が見える
-        }
+          }
+        };
+        // fire-and-forget; 画面はすでに editing 状態なのでユーザーは下書きを見ながら推敲を待てる
+        phase1ToPhase2();
       }
 
       // 成功 - リトライループを抜ける
@@ -813,26 +880,16 @@ export default function Home() {
         }
       }
 
-      // 非同期で後処理パイプラインを起動（fire-and-forget、features に応じて）
+      // Phase 1 完了 → 後処理 (再生成時)
       const extractedMinutes = fullText.match(/\[MINUTES_START\]([\s\S]*?)\[MINUTES_END\]/);
-      console.log("🔍 [DEBUG-REGEN] extractedMinutes found:", !!extractedMinutes?.[1]);
-      console.log("🔍 [DEBUG-REGEN] tenantFeatures:", JSON.stringify(tenantFeatures));
       if (extractedMinutes?.[1]?.trim()) {
         const minutesBody = extractedMinutes[1].trim();
-        console.log("🔍 [DEBUG-REGEN] minutesBody length:", minutesBody.length);
-        console.log("🔍 [DEBUG-REGEN] contains ネクストアクション:", minutesBody.includes("ネクストアクション"));
+
         if (tenantFeatures?.terminology_pipeline) {
           fetch("/api/terminology/extract", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ minutesText: minutesBody }),
-          }).then(res => res.json()).then(data => {
-            if (data.autoRegistered > 0 || data.pendingReview > 0) {
-              const parts = [];
-              if (data.autoRegistered > 0) parts.push(`✅ ${data.autoRegistered}件自動登録`);
-              if (data.pendingReview > 0) parts.push(`❓ ${data.pendingReview}件確認待ち`);
-              console.log(`📖 [用語辞書] ${parts.join(" / ")}`);
-            }
           }).catch(() => {});
         }
         if (tenantFeatures?.profile_analysis) {
@@ -842,40 +899,97 @@ export default function Home() {
             body: JSON.stringify({ minutesText: minutesBody }),
           }).catch(() => {});
         }
-        // パイプライン3: タスク抽出（再生成時も実行 — Gemini 出力から直接パース）
-        console.log("🔍 [DEBUG-REGEN] task_extraction enabled:", tenantFeatures?.task_extraction);
-        if (tenantFeatures?.task_extraction) {
-          setExtractedTasks([]);
-          setTaskBatchId(null);
-          const parsedTasks = parseNextActions(minutesBody, {
-            meetingDate: new Date().toISOString().split("T")[0],
-            participants: confirmedParticipants.map(p => p.name),
-          });
-          console.log("🔍 [DEBUG-REGEN] parsedTasks:", parsedTasks.length);
-          if (parsedTasks.length > 0) {
-            setExtractedTasks(parsedTasks);
-            const byAssignee: Record<string, number> = {};
-            parsedTasks.forEach(t => {
-              const key = t.assignee || "未定";
-              byAssignee[key] = (byAssignee[key] || 0) + 1;
-            });
-            setTaskSummary({ total: parsedTasks.length, by_assignee: byAssignee });
-            // Supabase に保存（fire-and-forget）
-            fetch("/api/tasks/save", {
+
+        // Phase 2 (Claude refinement) + tasks (再生成時もClaude経路)
+        setDraftMinutes(minutesBody);
+        setExtractedTasks([]);
+        setTaskBatchId(null);
+        const phase1ToPhase2Regen = async () => {
+          setIsRefining(true);
+          let refinedBody = minutesBody;
+          try {
+            const refineRes = await fetch("/api/refine", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ tasks: parsedTasks }),
-            })
-              .then(res => res.json())
-              .then((data) => {
-                if (data.batchId) setTaskBatchId(data.batchId);
-                if (data.tasks?.length > 0) {
-                  setExtractedTasks(data.tasks);
+              body: JSON.stringify({
+                mode,
+                draftMarkdown: minutesBody,
+                participants: confirmedParticipants.map(p => p.name),
+                notes: meetingNotes || undefined,
+                feedback: feedback,
+                date: new Date().toLocaleDateString("ja-JP"),
+              }),
+            });
+            if (refineRes.ok) {
+              const ver = refineRes.headers.get("X-Model-Version");
+              if (ver) setModelVersion(decodeURIComponent(ver));
+              const refReader = refineRes.body?.getReader();
+              if (refReader) {
+                const refDecoder = new TextDecoder();
+                let refFull = "";
+                while (true) {
+                  const { done, value } = await refReader.read();
+                  if (done) break;
+                  refFull += refDecoder.decode(value, { stream: true });
+                  const m = refFull.match(/\[MINUTES_START\]([\s\S]*?)(\[MINUTES_END\]|$)/);
+                  if (m) {
+                    const cur = m[1].trim();
+                    if (cur) setMinutes(cur);
+                  }
                 }
-              })
-              .catch(() => {});
+                const finalMatch = refFull.match(/\[MINUTES_START\]([\s\S]*?)\[MINUTES_END\]/);
+                if (finalMatch?.[1]?.trim()) {
+                  refinedBody = finalMatch[1].trim();
+                  setMinutes(refinedBody);
+                }
+              }
+              setRefineCompleted(true);
+            }
+          } catch (err) {
+            console.warn("⚠️ [Refine-Regen] Error, keeping Phase 1 output:", err);
+          } finally {
+            setIsRefining(false);
           }
-        }
+
+          if (tenantFeatures?.task_extraction) {
+            setIsExtractingTasks(true);
+            try {
+              const tasksRes = await fetch("/api/tasks/extract", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  minutesText: refinedBody,
+                  meetingDate: new Date().toISOString().split("T")[0],
+                  participants: confirmedParticipants.map(p => p.name),
+                }),
+              });
+              const data = await tasksRes.json();
+              if (data.tasks?.length > 0) {
+                setExtractedTasks(data.tasks);
+                if (data.summary) setTaskSummary(data.summary);
+                if (data.batchId) setTaskBatchId(data.batchId);
+              }
+            } catch {
+              // フォールバックで正規表現
+              const parsed = parseNextActions(refinedBody, {
+                meetingDate: new Date().toISOString().split("T")[0],
+                participants: confirmedParticipants.map(p => p.name),
+              });
+              if (parsed.length > 0) {
+                setExtractedTasks(parsed);
+                const byAssignee: Record<string, number> = {};
+                parsed.forEach(t => {
+                  const key = t.assignee || "未定";
+                  byAssignee[key] = (byAssignee[key] || 0) + 1;
+                });
+                setTaskSummary({ total: parsed.length, by_assignee: byAssignee });
+              }
+            } finally {
+              setIsExtractingTasks(false);
+            }
+          }
+        };
+        phase1ToPhase2Regen();
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "再生成エラー";
@@ -2256,9 +2370,9 @@ export default function Home() {
         {appState === "editing" && (
           <div className={styles.editingScreen}>
             <MinutesEditor
-              content={minutes}
+              content={showDraft ? draftMinutes : minutes}
               mode={mode}
-              onChange={setMinutes}
+              onChange={showDraft ? setDraftMinutes : setMinutes}
               onSave={handleSave}
               onRegenerate={lastGenerationParams ? handleRegenerate : undefined}
               onDownloadAudio={recorder.audioBlob ? handleDownloadAudio : undefined}
@@ -2266,6 +2380,11 @@ export default function Home() {
               isSaving={isSaving}
               isSaved={isSaved}
               isRegenerating={isRegenerating}
+              isRefining={isRefining}
+              refineCompleted={refineCompleted}
+              hasDraftAvailable={!!draftMinutes && draftMinutes !== minutes && refineCompleted}
+              showingDraft={showDraft}
+              onToggleDraft={() => setShowDraft(v => !v)}
               isSendingEmail={isSendingEmail}
               modelVersion={modelVersion}
               isTrialMode={isTrialDeployment}

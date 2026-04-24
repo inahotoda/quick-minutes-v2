@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 interface UsageLogParams {
     tenantDomain: string;
     userEmail: string;
-    eventType: "generate" | "regenerate" | "stt" | "task_extract" | "terminology" | "profile";
+    eventType: "generate" | "regenerate" | "stt" | "task_extract" | "terminology" | "profile" | "refine" | "refine_regenerate" | "ask";
     durationMs?: number;
     audioDurationSec?: number;
     model?: string;
