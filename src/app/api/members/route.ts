@@ -15,6 +15,7 @@ function toMemberData(row: any, nameVariantsMap?: Map<string, string[]>) {
         department: row.department || null,
         role: row.role || null,
         type: row.type || row.member_type || "internal",
+        isExternal: !!row.external_id,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
@@ -81,11 +82,12 @@ export async function GET() {
             }
         }
 
-        // Step 2: name ベース
+        // Step 2: name + company ベース（商談時の同姓同名でも別人として保持）
         const seenByName = new Map<string, any>();
         const deduped: any[] = [];
         for (const row of afterExtIdDedup) {
-            const nameKey = row.name.trim().toLowerCase();
+            const companyKey = ((row.company_name || row.company || "") as string).trim().toLowerCase();
+            const nameKey = `${row.name.trim().toLowerCase()}::${companyKey}`;
             const existing = seenByName.get(nameKey);
             if (existing) {
                 const scoreRow = (r: any) =>
@@ -171,18 +173,27 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: "名前は必須です" }, { status: 400 });
         }
 
-        // 同名の既存メンバーを検索（重複防止）
-        const { data: existing } = await knowledgeDb
+        // 同名 + 同一会社の既存メンバーを検索（重複防止）。
+        // 会社名が異なる場合は別人として新規作成する（商談時の同姓同名対策）。
+        const bodyCompany = (body.company ?? "").trim() || null;
+        const { data: sameName } = await knowledgeDb
             .from("members")
             .select("*")
             .eq("tenant_id", tenant.tenantId)
             .eq("is_active", true)
             .eq("name", name);
 
+        // 両方 null（未設定）なら社内同姓同名と見なしてマージ。
+        // どちらかに会社名がある場合は完全一致のみマージ。
+        const existing = (sameName || []).filter((row) => {
+            const rowCompany = ((row.company_name ?? row.company ?? "") as string) || null;
+            return (rowCompany || null) === bodyCompany;
+        });
+
         let memberRow: any;
 
-        if (existing && existing.length > 0) {
-            // 既存メンバーが見つかった → 音声データがあれば更新して返却
+        if (existing.length > 0) {
+            // 既存メンバーが見つかった → 属性/音声を更新して返却
             memberRow = existing[0];
             const updates: any = { updated_at: new Date().toISOString() };
             if (body.voiceSample) {
