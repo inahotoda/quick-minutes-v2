@@ -16,6 +16,8 @@ export interface Member {
     department?: string | null;
     role?: string | null;
     type?: MemberType;
+    /** IKP等の外部システムに同期されているメンバーか。設定画面で編集不可 */
+    isExternal?: boolean;
     voiceSample?: {
         blob: Blob;
         duration: number;
@@ -97,6 +99,7 @@ interface MemberData {
     department?: string | null;
     role?: string | null;
     type?: MemberType;
+    isExternal?: boolean;
     voiceSample?: {
         blobBase64: string;
         duration: number;
@@ -120,6 +123,7 @@ function dataToMember(data: MemberData): Member {
         department: data.department,
         role: data.role,
         type: migratedType,
+        isExternal: !!data.isExternal,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt,
     };
@@ -161,20 +165,42 @@ export async function getMember(id: string): Promise<Member | undefined> {
     }
 }
 
+export interface AddMemberOptions {
+    voiceBlob?: Blob;
+    voiceDuration?: number;
+    company?: string | null;
+    department?: string | null;
+    role?: string | null;
+    email?: string | null;
+    type?: MemberType;
+}
+
 export async function addMember(
     name: string,
-    voiceBlob?: Blob,
-    voiceDuration?: number,
+    optionsOrVoiceBlob?: AddMemberOptions | Blob,
+    voiceDurationLegacy?: number,
 ): Promise<Member> {
+    // Backward-compat: (name, voiceBlob, voiceDuration) form
+    const options: AddMemberOptions =
+        optionsOrVoiceBlob instanceof Blob || optionsOrVoiceBlob === undefined
+            ? { voiceBlob: optionsOrVoiceBlob as Blob | undefined, voiceDuration: voiceDurationLegacy }
+            : optionsOrVoiceBlob;
+
     const body: any = { name: name.trim() };
 
-    if (voiceBlob && voiceDuration) {
+    if (options.voiceBlob && options.voiceDuration) {
         body.voiceSample = {
-            blobBase64: await blobToBase64(voiceBlob),
-            duration: voiceDuration,
+            blobBase64: await blobToBase64(options.voiceBlob),
+            duration: options.voiceDuration,
             recordedAt: new Date().toISOString(),
         };
     }
+
+    if (options.company !== undefined) body.company = options.company;
+    if (options.department !== undefined) body.department = options.department;
+    if (options.role !== undefined) body.role = options.role;
+    if (options.email !== undefined) body.email = options.email;
+    if (options.type !== undefined) body.type = options.type;
 
     const response = await fetch("/api/members", {
         method: "POST",

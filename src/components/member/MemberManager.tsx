@@ -16,6 +16,10 @@ import styles from "./member.module.css";
 
 interface MemberManagerProps {
     onMembersChange?: (members: Member[]) => void;
+    /**
+     * 従来互換: true の場合でも IKP同期されていない（isExternal=false の）メンバーは編集可能。
+     * IKP同期メンバー（isExternal=true）は常に編集不可。
+     */
     readOnly?: boolean;
 }
 
@@ -39,6 +43,9 @@ function classifyMemberType(member: Member): MemberType {
 }
 
 export default function MemberManager({ onMembersChange, readOnly = true }: MemberManagerProps) {
+    // IKP同期メンバー（isExternal=true）のみ編集不可にする per-member gate。
+    // 従来の readOnly プロップは情報バナー表示の制御にのみ使う。
+    const canEditMember = (m: Member) => !m.isExternal;
     const [members, setMembers] = useState<Member[]>([]);
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState<MemberType>("internal");
@@ -237,8 +244,8 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
                                     expandedMemberId === member.id ? null : member.id,
                                 )
                             }
-                            onEdit={readOnly ? undefined : handleOpenEditModal}
-                            onDelete={readOnly ? undefined : handleDelete}
+                            onEdit={canEditMember(member) ? handleOpenEditModal : undefined}
+                            onDelete={canEditMember(member) ? handleDelete : undefined}
                         />
                     ))}
                 </div>
@@ -316,7 +323,7 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
 
     return (
         <div className={styles.container}>
-            {/* Read-only notice */}
+            {/* IKP notice (社内版): 社員は IKP が正。商談相手等の臨時メンバーはここで管理 */}
             {readOnly && (
                 <div style={{
                     padding: "0.75rem 1rem",
@@ -328,18 +335,16 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
                     color: "rgba(255,255,255,0.6)",
                     lineHeight: 1.5,
                 }}>
-                    メンバーの追加・編集は <strong style={{ color: "#a5b4fc" }}><a href="https://inaho-knowledge-portal.vercel.app/members" target="_blank" rel="noopener noreferrer" style={{ color: "#a5b4fc", textDecoration: "underline" }}>INAHO Knowledge Portal</a></strong> から行えます。
+                    社員メンバーは <strong style={{ color: "#a5b4fc" }}><a href="https://inaho-knowledge-portal.vercel.app/members" target="_blank" rel="noopener noreferrer" style={{ color: "#a5b4fc", textDecoration: "underline" }}>INAHO Knowledge Portal</a></strong> で管理しています。こちらでは商談相手など会議用メンバーを追加・編集できます。
                 </div>
             )}
 
             {/* Header */}
             <div className={styles.header}>
                 <h3 className={styles.title}>メンバー一覧</h3>
-                {!readOnly && (
-                    <button className={styles.addButton} onClick={handleOpenAddModal}>
-                        <span>+</span> メンバー追加
-                    </button>
-                )}
+                <button className={styles.addButton} onClick={handleOpenAddModal}>
+                    <span>+</span> メンバー追加
+                </button>
             </div>
 
             {/* Search bar */}
@@ -384,16 +389,14 @@ export default function MemberManager({ onMembersChange, readOnly = true }: Memb
                 renderGroupedList()
             )}
 
-            {/* Edit / Add Modal (read-only mode ではモーダルなし) */}
-            {!readOnly && (
-                <MemberEditModal
-                    isOpen={isModalOpen}
-                    editingMember={editingMember}
-                    members={members}
-                    onSave={handleSave}
-                    onClose={handleCloseModal}
-                />
-            )}
+            {/* Edit / Add Modal — IKP同期メンバーは onEdit が渡らないため実質読み取り */}
+            <MemberEditModal
+                isOpen={isModalOpen}
+                editingMember={editingMember}
+                members={members}
+                onSave={handleSave}
+                onClose={handleCloseModal}
+            />
         </div>
     );
 }

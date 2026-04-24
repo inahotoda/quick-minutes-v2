@@ -2169,13 +2169,11 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Floating participant edit button (hidden when inline display is shown) */}
-            {confirmedParticipants.length === 0 && (
-              <ParticipantEditButton
-                onClick={() => setShowParticipantEdit(true)}
-                participantCount={confirmedParticipants.length}
-              />
-            )}
+            {/* Floating participant edit button (always visible during recording) */}
+            <ParticipantEditButton
+              onClick={() => setShowParticipantEdit(true)}
+              participantCount={confirmedParticipants.length}
+            />
 
             {/* Floating participant edit modal */}
             {showParticipantEdit && (

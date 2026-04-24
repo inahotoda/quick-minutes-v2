@@ -14,6 +14,7 @@ function toMemberData(row: any, nameVariants?: string[]) {
         department: row.department || null,
         role: row.role || null,
         type: row.type || "internal",
+        isExternal: !!row.external_id,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
     };
