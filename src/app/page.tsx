@@ -121,6 +121,8 @@ export default function Home() {
     profile_analysis: boolean;
     task_extraction: boolean;
     task_delivery: boolean;
+    claude_refinement: boolean;
+    claude_ask: boolean;
   } | null>(null);
   const [tenantInfo, setTenantInfo] = useState<{
     plan?: string;
@@ -681,8 +683,13 @@ export default function Home() {
         const draftBody = minutesBody;
         setDraftMinutes(draftBody);
         const phase1ToPhase2 = async () => {
-          setIsRefining(true);
           let refinedBody = draftBody;
+          // Phase 2 (Claude refinement) — feature flag でスキップ可能
+          if (tenantFeatures?.claude_refinement === false) {
+            // Phase 2 スキップ: Phase 1 出力をそのまま使う
+            setRefineCompleted(false);
+          } else {
+            setIsRefining(true);
           try {
             const refineRes = await fetch("/api/refine", {
               method: "POST",
@@ -727,6 +734,7 @@ export default function Home() {
           } finally {
             setIsRefining(false);
           }
+          } // end Phase 2 flag branch
 
           // 推敲後のテキストでタスク抽出
           if (tenantFeatures?.task_extraction) {
@@ -905,8 +913,12 @@ export default function Home() {
         setExtractedTasks([]);
         setTaskBatchId(null);
         const phase1ToPhase2Regen = async () => {
-          setIsRefining(true);
           let refinedBody = minutesBody;
+          // Phase 2 (Claude refinement) — feature flag でスキップ可能
+          if (tenantFeatures?.claude_refinement === false) {
+            setRefineCompleted(false);
+          } else {
+            setIsRefining(true);
           try {
             const refineRes = await fetch("/api/refine", {
               method: "POST",
@@ -950,6 +962,7 @@ export default function Home() {
           } finally {
             setIsRefining(false);
           }
+          } // end Phase 2 flag branch
 
           if (tenantFeatures?.task_extraction) {
             setIsExtractingTasks(true);
@@ -2385,6 +2398,7 @@ export default function Home() {
               hasDraftAvailable={!!draftMinutes && draftMinutes !== minutes && refineCompleted}
               showingDraft={showDraft}
               onToggleDraft={() => setShowDraft(v => !v)}
+              askEnabled={tenantFeatures?.claude_ask ?? true}
               isSendingEmail={isSendingEmail}
               modelVersion={modelVersion}
               isTrialMode={isTrialDeployment}

@@ -27,6 +27,13 @@ interface AskParams {
     question: string;
     /** 過去の質問・回答ペア（マルチターン用） */
     history?: Array<{ role: "user" | "assistant"; content: string }>;
+    /** ストリーム終了時に Anthropic 使用量統計を受け取るコールバック */
+    onUsage?: (usage: {
+        input_tokens: number;
+        output_tokens: number;
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+    }) => void;
 }
 
 const SYSTEM_PROMPT = `あなたは議事録を読み込んで、ユーザーの質問に答えるアシスタントです。
@@ -87,5 +94,17 @@ export async function* askStream(params: AskParams): AsyncGenerator<string> {
         if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
             yield event.delta.text;
         }
+    }
+
+    if (params.onUsage) {
+        try {
+            const finalMessage = await stream.finalMessage();
+            params.onUsage({
+                input_tokens: finalMessage.usage.input_tokens,
+                output_tokens: finalMessage.usage.output_tokens,
+                cache_creation_input_tokens: finalMessage.usage.cache_creation_input_tokens ?? undefined,
+                cache_read_input_tokens: finalMessage.usage.cache_read_input_tokens ?? undefined,
+            });
+        } catch { /* ignore */ }
     }
 }

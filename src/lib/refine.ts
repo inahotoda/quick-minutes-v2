@@ -36,6 +36,13 @@ interface RefineParams {
     feedback?: string;
     /** 会議日 */
     date?: string;
+    /** ストリーム終了時に Anthropic 使用量統計を受け取るコールバック（コスト計測用） */
+    onUsage?: (usage: {
+        input_tokens: number;
+        output_tokens: number;
+        cache_creation_input_tokens?: number;
+        cache_read_input_tokens?: number;
+    }) => void;
 }
 
 function buildContextSection(p: RefineParams): string {
@@ -98,6 +105,20 @@ export async function* refineStream(params: RefineParams): AsyncGenerator<string
     for await (const event of stream) {
         if (event.type === "content_block_delta" && event.delta.type === "text_delta") {
             yield event.delta.text;
+        }
+    }
+
+    if (params.onUsage) {
+        try {
+            const finalMessage = await stream.finalMessage();
+            params.onUsage({
+                input_tokens: finalMessage.usage.input_tokens,
+                output_tokens: finalMessage.usage.output_tokens,
+                cache_creation_input_tokens: finalMessage.usage.cache_creation_input_tokens ?? undefined,
+                cache_read_input_tokens: finalMessage.usage.cache_read_input_tokens ?? undefined,
+            });
+        } catch {
+            // usage取得失敗は無視（ストリームは成功済み）
         }
     }
 }

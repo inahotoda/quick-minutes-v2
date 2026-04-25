@@ -26,11 +26,30 @@ export async function POST(request: NextRequest) {
 
         const { tenant } = await resolveTenantPlan();
 
+        if (tenant && !tenant.features.claude_ask) {
+            return NextResponse.json(
+                { error: "この機能はご利用のプランでは無効です", code: "FEATURE_DISABLED" },
+                { status: 403 },
+            );
+        }
+
         const stream = new ReadableStream({
             async start(controller) {
                 try {
+                    let tokenUsage: {
+                        input_tokens: number;
+                        output_tokens: number;
+                        cache_creation_input_tokens?: number;
+                        cache_read_input_tokens?: number;
+                    } | null = null;
+
                     let chunkCount = 0;
-                    for await (const chunk of askStream({ minutesMarkdown, question, history })) {
+                    for await (const chunk of askStream({
+                        minutesMarkdown,
+                        question,
+                        history,
+                        onUsage: (u) => { tokenUsage = u; },
+                    })) {
                         chunkCount++;
                         controller.enqueue(encoder.encode(chunk));
                     }
@@ -46,6 +65,7 @@ export async function POST(request: NextRequest) {
                                 chunkCount,
                                 questionLength: question.length,
                                 hasHistory: !!history?.length,
+                                tokenUsage,
                             },
                         });
                     }
