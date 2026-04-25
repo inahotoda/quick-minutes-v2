@@ -9,6 +9,10 @@ export interface FeatureFlags {
     profile_analysis: boolean;
     task_extraction: boolean;
     task_delivery: boolean;
+    /** Phase 2 (Claude Opus 4.7) の推敲パイプライン */
+    claude_refinement: boolean;
+    /** 「議事録に質問する」機能 (Claude Opus 4.7) */
+    claude_ask: boolean;
 }
 
 export interface TenantPlan {
@@ -24,9 +28,9 @@ export interface TenantPlan {
 }
 
 const PLAN_DEFAULTS: Record<string, FeatureFlags> = {
-    trial: { drive_save: false, email_send: false, terminology_pipeline: false, profile_analysis: false, task_extraction: false, task_delivery: false },
-    standard: { drive_save: true, email_send: true, terminology_pipeline: true, profile_analysis: false, task_extraction: true, task_delivery: true },
-    premium: { drive_save: true, email_send: true, terminology_pipeline: true, profile_analysis: true, task_extraction: true, task_delivery: true },
+    trial: { drive_save: false, email_send: false, terminology_pipeline: false, profile_analysis: false, task_extraction: false, task_delivery: false, claude_refinement: true, claude_ask: true },
+    standard: { drive_save: true, email_send: true, terminology_pipeline: true, profile_analysis: false, task_extraction: true, task_delivery: true, claude_refinement: true, claude_ask: true },
+    premium: { drive_save: true, email_send: true, terminology_pipeline: true, profile_analysis: true, task_extraction: true, task_delivery: true, claude_refinement: true, claude_ask: true },
 };
 
 function resolveFeatures(plan: string, overrides: Partial<FeatureFlags>): FeatureFlags {

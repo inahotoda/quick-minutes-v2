@@ -28,6 +28,8 @@ interface MinutesEditorProps {
     /** User toggled to draft view */
     showingDraft?: boolean;
     onToggleDraft?: () => void;
+    /** When false, the "議事録に質問する" UI is hidden (feature disabled for this tenant) */
+    askEnabled?: boolean;
     modelVersion?: string;
     isTrialMode?: boolean;
     isPdfReady?: boolean;
@@ -56,6 +58,7 @@ export default function MinutesEditor({
     hasDraftAvailable = false,
     showingDraft = false,
     onToggleDraft,
+    askEnabled = true,
     modelVersion,
     isTrialMode = false,
     isPdfReady = true,
@@ -263,7 +266,7 @@ export default function MinutesEditor({
             </div>
 
             {/* Ask Claude section */}
-            {!showingDraft && content.trim().length > 50 && (
+            {askEnabled && !showingDraft && content.trim().length > 50 && (
                 <div className={styles.askSection}>
                     <button
                         className={styles.askToggle}

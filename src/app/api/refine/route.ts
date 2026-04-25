@@ -67,12 +67,28 @@ export async function POST(request: NextRequest) {
         }
 
         const { tenant } = await resolveTenantPlan();
+
+        // Feature flag check: claude_refinement が無効なテナントは Phase 2 をスキップ
+        if (tenant && !tenant.features.claude_refinement) {
+            return NextResponse.json(
+                { error: "この機能はご利用のプランでは無効です", code: "FEATURE_DISABLED" },
+                { status: 403 },
+            );
+        }
+
         const terminology = await loadTerminology();
         const refineHint = await loadUserFeedbackPrompt();
 
         const stream = new ReadableStream({
             async start(controller) {
                 try {
+                    let tokenUsage: {
+                        input_tokens: number;
+                        output_tokens: number;
+                        cache_creation_input_tokens?: number;
+                        cache_read_input_tokens?: number;
+                    } | null = null;
+
                     const gen = refineStream({
                         mode,
                         draftMarkdown,
@@ -81,6 +97,7 @@ export async function POST(request: NextRequest) {
                         notes,
                         feedback: feedback || refineHint,
                         date,
+                        onUsage: (u) => { tokenUsage = u; },
                     });
 
                     let chunkCount = 0;
@@ -91,7 +108,7 @@ export async function POST(request: NextRequest) {
                         chunkCount++;
                         controller.enqueue(encoder.encode(chunk));
                     }
-                    console.log(`✨ [Refine] Done. chunks=${chunkCount}`);
+                    console.log(`✨ [Refine] Done. chunks=${chunkCount}`, tokenUsage ? `tokens=${JSON.stringify(tokenUsage)}` : "");
 
                     if (tenant) {
                         logUsage({
@@ -105,6 +122,7 @@ export async function POST(request: NextRequest) {
                                 chunkCount,
                                 participantsCount: participants?.length ?? 0,
                                 draftLength: draftMarkdown.length,
+                                tokenUsage,
                             },
                         });
                     }
